@@ -2,3 +2,8 @@ dist
 node_modules
 package-lock.json
 .firebase
+functions/lib
+functions/node_modules
+
+# Long-form docs: keep author's line breaks / table formatting
+PaperPal_Firebase_Migration_Plan.md

@@ -129,6 +129,8 @@ paperpal-firebase/
 
 ### 1.3 Firebase CLI Configuration (Claude Code)
 
+**Status:** ✅ Complete — `firebase.json`, `.firebaserc`, `firestore.rules`, `firestore.indexes.json`, `storage.rules`, and `functions/` (TypeScript workspace, Node 22, region `us-central1`) all scaffolded; `npm run build` passes for both root and `functions/`.
+
 **Prompt for Claude Code:**
 > Set up Firebase CLI configuration for this project:
 > - `firebase.json` with Hosting (pointing to `dist/` from Vite build), Cloud Functions (TypeScript), Firestore rules, Storage rules
