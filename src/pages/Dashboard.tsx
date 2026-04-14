@@ -101,57 +101,68 @@ export default function Dashboard() {
 
       {/* Tab: New Request */}
       {activeTab === "new" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FORM_TYPES.map(
             ({ id, title, description, icon: Icon, pill, path }) => (
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group relative cursor-pointer rounded-[18px] p-5 text-left transition-all duration-300 hover:-translate-y-0.5"
+                className="group cursor-pointer overflow-hidden rounded-[20px] text-center transition-all duration-500"
                 style={{
-                  background: `linear-gradient(145deg, #fafbfd, #edeef1) padding-box, linear-gradient(180deg, ${pill.from}, ${pill.to}) border-box`,
-                  borderLeft: "3px solid transparent",
+                  backgroundColor: "#edeef1",
+                  border: "8px solid #edeef1",
+                  maxHeight: "160px",
                   boxShadow:
-                    "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+                    "inset 4px 4px 8px rgba(180,185,195,0.45), inset -4px -4px 8px rgba(255,255,255,0.85)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "2px 2px 6px rgba(180,185,195,0.3), -2px -2px 6px rgba(255,255,255,0.6), inset 1px 1px 3px rgba(180,185,195,0.1), inset -1px -1px 3px rgba(255,255,255,0.4)"
+                  e.currentTarget.style.maxHeight = "320px"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)"
+                  e.currentTarget.style.maxHeight = "160px"
                 }}
               >
-                {/* Icon */}
+                {/* Icon circle */}
                 <div
-                  className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl"
+                  className="mx-auto mt-5 mb-3 flex h-14 w-14 items-center justify-center rounded-full"
                   style={{
-                    background: `linear-gradient(135deg, ${pill.from}22, ${pill.to}33)`,
+                    backgroundColor: "#edeef1",
+                    boxShadow:
+                      "6px 6px 10px rgba(180,185,195,0.45), -6px -6px 10px rgba(255,255,255,0.85)",
                   }}
                 >
-                  <Icon size={20} style={{ color: pill.from }} />
+                  <Icon size={24} style={{ color: pill.from }} />
                 </div>
 
-                <h3
-                  className="mb-1 text-base font-semibold"
+                {/* Title — always visible */}
+                <div
+                  className="px-4 pb-4 text-sm font-semibold"
                   style={{ color: "#1d2a5d" }}
                 >
                   {title}
-                </h3>
-                <p
-                  className="text-sm leading-relaxed"
-                  style={{ color: "#64748b" }}
-                >
-                  {description}
-                </p>
+                </div>
 
-                {/* Hover arrow */}
+                {/* Content — slides in on hover */}
                 <div
-                  className="absolute right-4 bottom-4 text-xs font-semibold opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                  style={{ color: pill.from }}
+                  className="mx-3 mb-3 -translate-y-6 scale-0 rounded-xl px-4 py-3 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
+                  style={{
+                    backgroundColor: "#edeef1",
+                    boxShadow:
+                      "5px 5px 8px rgba(180,185,195,0.4), -5px -5px 8px rgba(255,255,255,0.8)",
+                  }}
                 >
-                  Start →
+                  <p
+                    className="text-xs leading-relaxed"
+                    style={{ color: "#64748b" }}
+                  >
+                    {description}
+                  </p>
+                  <p
+                    className="mt-2 text-xs font-semibold"
+                    style={{ color: pill.from }}
+                  >
+                    Start →
+                  </p>
                 </div>
               </button>
             )

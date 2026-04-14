@@ -40,9 +40,7 @@ export default function Login() {
       <div
         className="relative w-full max-w-sm rounded-[20px] p-8 text-center"
         style={{
-          background:
-            "linear-gradient(145deg, #fafbfd, #eaecf0) padding-box, linear-gradient(180deg, #1e3a8a, #3b82f6) border-box",
-          borderLeft: "3px solid transparent",
+          background: "linear-gradient(145deg, #fafbfd, #eaecf0)",
           boxShadow:
             "3px 3px 8px rgba(180,185,195,0.22), -3px -3px 8px rgba(255,255,255,0.5)",
         }}
