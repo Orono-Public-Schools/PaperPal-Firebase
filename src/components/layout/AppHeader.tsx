@@ -14,14 +14,11 @@ export default function AppHeader() {
     >
       {/* Left: branding */}
       <div className="flex items-center gap-3">
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-base"
-          style={{
-            background: "linear-gradient(135deg, #4356a9 0%, #1e3a8a 100%)",
-          }}
-        >
-          📋
-        </div>
+        <img
+          src="/orono-paperpal.png"
+          alt="PaperPal"
+          className="h-8 w-8 object-contain"
+        />
         <div className="text-lg font-bold tracking-tight text-white">
           PaperPal
         </div>

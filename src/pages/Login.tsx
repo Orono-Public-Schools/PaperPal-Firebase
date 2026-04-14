@@ -57,15 +57,11 @@ export default function Login() {
 
         {/* Logo mark */}
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div
-            className="flex h-16 w-16 items-center justify-center rounded-2xl"
-            style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #3730a3 100%)",
-              boxShadow: "0 4px 12px rgba(29,42,93,0.35)",
-            }}
-          >
-            <span className="text-3xl">📋</span>
-          </div>
+          <img
+            src="/orono-paperpal.png"
+            alt="PaperPal"
+            className="h-16 w-16 object-contain"
+          />
           <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
             PaperPal
           </h1>

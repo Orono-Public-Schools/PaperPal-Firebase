@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="py-5 text-center text-xs" style={{ color: "#9ca3af" }}>
-        Orono Public Schools No. 278 &mdash; PaperPal &copy;{" "}
+        Orono Public Schools &mdash; PaperPal &copy;{" "}
         {new Date().getFullYear()}
       </footer>
     </div>
