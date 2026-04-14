@@ -56,21 +56,32 @@ export default function Login() {
         />
 
         {/* Logo mark */}
-        <div className="mb-6 flex flex-col items-center gap-2">
+        <div className="mb-7 flex flex-col items-center gap-3">
           <img
             src="/orono-paperpal.png"
             alt="PaperPal"
-            className="h-16 w-16 object-contain"
+            className="h-14 w-14 object-contain"
           />
-          <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
-            PaperPal
-          </h1>
-          <p className="text-sm" style={{ color: "#64748b" }}>
-            Orono Public Schools
-          </p>
+          <div>
+            <h1
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: "#1d2a5d" }}
+            >
+              PaperPal
+            </h1>
+            <p
+              className="mt-0.5 text-xs font-medium tracking-widest uppercase"
+              style={{ color: "#94a3b8" }}
+            >
+              Orono Public Schools
+            </p>
+          </div>
         </div>
 
-        <p className="mb-6 text-sm" style={{ color: "#555" }}>
+        <p
+          className="mb-7 text-sm leading-relaxed font-normal"
+          style={{ color: "#64748b" }}
+        >
           Sign in with your Orono Google account to access district forms.
         </p>
 
@@ -145,9 +156,9 @@ export default function Login() {
           </span>
         </button>
 
-        <p className="mt-6 text-xs" style={{ color: "#9ca3af" }}>
-          Access restricted to{" "}
-          <span style={{ color: "#1d2a5d" }}>orono.k12.mn.us</span> accounts
+        <p className="mt-6 text-xs font-medium" style={{ color: "#94a3b8" }}>
+          Restricted to{" "}
+          <span style={{ color: "#64748b" }}>orono.k12.mn.us</span> accounts
         </p>
       </div>
     </div>
