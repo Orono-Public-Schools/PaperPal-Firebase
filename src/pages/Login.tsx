@@ -42,7 +42,7 @@ export default function Login() {
         style={{
           background: "linear-gradient(145deg, #fafbfd, #eaecf0)",
           boxShadow:
-            "5px 5px 12px rgba(180,185,195,0.35), -5px -5px 12px rgba(255,255,255,0.6)",
+            "3px 3px 8px rgba(180,185,195,0.22), -3px -3px 8px rgba(255,255,255,0.5)",
         }}
       >
         {/* Pill accent */}
