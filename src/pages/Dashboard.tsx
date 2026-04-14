@@ -152,13 +152,13 @@ export default function Dashboard() {
                   }}
                 >
                   <p
-                    className="text-xs leading-relaxed"
-                    style={{ color: "#64748b" }}
+                    className="text-sm leading-relaxed"
+                    style={{ color: "#475569" }}
                   >
                     {description}
                   </p>
                   <p
-                    className="mt-2 text-xs font-semibold"
+                    className="mt-3 text-sm font-semibold"
                     style={{ color: pill.from }}
                   >
                     Start →
