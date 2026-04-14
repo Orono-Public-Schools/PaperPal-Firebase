@@ -107,9 +107,10 @@ export default function Dashboard() {
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group relative cursor-pointer overflow-visible rounded-[18px] p-5 text-left transition-all duration-300 hover:-translate-y-0.5"
+                className="group relative cursor-pointer rounded-[18px] p-5 text-left transition-all duration-300 hover:-translate-y-0.5"
                 style={{
-                  background: "linear-gradient(145deg, #fafbfd, #edeef1)",
+                  background: `linear-gradient(145deg, #fafbfd, #edeef1) padding-box, linear-gradient(180deg, ${pill.from}, ${pill.to}) border-box`,
+                  borderLeft: "3px solid transparent",
                   boxShadow:
                     "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
                 }}
@@ -122,16 +123,6 @@ export default function Dashboard() {
                     "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)"
                 }}
               >
-                {/* Pill accent */}
-                <div
-                  className="absolute top-4 -left-1.5 h-9 w-2.5 rounded-md"
-                  style={{
-                    background: `linear-gradient(180deg, ${pill.from}, ${pill.to})`,
-                    boxShadow:
-                      "1px 1px 3px rgba(0,0,0,0.08), -1px -1px 2px rgba(255,255,255,0.3)",
-                  }}
-                />
-
                 {/* Icon */}
                 <div
                   className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl"

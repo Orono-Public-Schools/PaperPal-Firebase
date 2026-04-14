@@ -38,23 +38,15 @@ export default function Login() {
 
       {/* Card */}
       <div
-        className="relative w-full max-w-sm overflow-visible rounded-[20px] p-8 text-center"
+        className="relative w-full max-w-sm rounded-[20px] p-8 text-center"
         style={{
-          background: "linear-gradient(145deg, #fafbfd, #eaecf0)",
+          background:
+            "linear-gradient(145deg, #fafbfd, #eaecf0) padding-box, linear-gradient(180deg, #1e3a8a, #3b82f6) border-box",
+          borderLeft: "3px solid transparent",
           boxShadow:
             "3px 3px 8px rgba(180,185,195,0.22), -3px -3px 8px rgba(255,255,255,0.5)",
         }}
       >
-        {/* Pill accent */}
-        <div
-          className="absolute top-6 -left-1.5 h-10 w-3 rounded-md"
-          style={{
-            background: "linear-gradient(180deg, #1e3a8a, #3b82f6)",
-            boxShadow:
-              "1px 1px 4px rgba(0,0,0,0.1), -1px -1px 3px rgba(255,255,255,0.3)",
-          }}
-        />
-
         {/* Logo mark */}
         <div className="mb-7 flex flex-col items-center gap-3">
           <img
