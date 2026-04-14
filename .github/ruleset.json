@@ -1,10 +1,10 @@
 {
-  "name": "Require CI checks on main and dev-* branches",
+  "name": "Require CI checks on main",
   "target": "branch",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["refs/heads/main", "refs/heads/dev-*"],
+      "include": ["refs/heads/main"],
       "exclude": []
     }
   },
