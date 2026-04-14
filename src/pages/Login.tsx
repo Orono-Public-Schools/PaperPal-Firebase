@@ -92,7 +92,7 @@ export default function Login() {
         <button
           onClick={signIn}
           disabled={loading}
-          className="relative w-full overflow-hidden rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="relative w-full cursor-pointer overflow-hidden rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           style={{
             background: "linear-gradient(45deg, #1d2a5d 0%, #1a365d 100%)",
             boxShadow: "0 4px 12px rgba(29,42,93,0.35)",
