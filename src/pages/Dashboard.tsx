@@ -152,7 +152,7 @@ export default function Dashboard() {
                   }}
                 >
                   <p
-                    className="text-[13px] font-medium leading-relaxed"
+                    className="text-[13px] leading-relaxed font-medium"
                     style={{ color: "#334155" }}
                   >
                     {description}
