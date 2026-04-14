@@ -35,3 +35,4 @@ dist-ssr
 firebase-debug.log
 firestore-debug.log
 firebase-debug.*.log
+functions/lib/

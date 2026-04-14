@@ -29,6 +29,8 @@
 
 ### 1.1 Firebase Console Setup (Manual — Paul)
 
+**Status:** ✅ Mostly done — items 1, 2 (all sub-items), 4, 5 complete. Item 3 (Trigger Email extension) deferred to before Phase 5.
+
 These steps require browser interaction and cannot be automated:
 
 1. Go to [Firebase Console](https://console.firebase.google.com) and create project `paperpal-orono` (or similar)
@@ -49,6 +51,8 @@ These steps require browser interaction and cannot be automated:
    - Create a service account for Drive operations (or reuse the Firebase one)
 
 ### 1.2 React + TypeScript Project Scaffold (Claude Code)
+
+**Status:** ✅ Complete — scaffold at `PaperPal-Firebase/`, pushed to `Orono-Public-Schools/PaperPal-Firebase`. Deviations: skipped `tailwind.config.ts` (Tailwind v4 uses CSS-first config); installed single `firebase` package (submodules are import paths, not separate packages); `functions/` workspace deferred to 1.3.
 
 **Prompt for Claude Code:**
 > Initialize a new React + TypeScript project using Vite. Set up:
@@ -124,6 +128,8 @@ paperpal-firebase/
 ```
 
 ### 1.3 Firebase CLI Configuration (Claude Code)
+
+**Status:** ✅ Complete — `firebase.json`, `.firebaserc`, `firestore.rules`, `firestore.indexes.json`, `storage.rules`, and `functions/` (TypeScript workspace, Node 22, region `us-central1`) all scaffolded; `npm run build` passes for both root and `functions/`.
 
 **Prompt for Claude Code:**
 > Set up Firebase CLI configuration for this project:
