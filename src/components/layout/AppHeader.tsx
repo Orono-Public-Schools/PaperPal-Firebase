@@ -22,11 +22,8 @@ export default function AppHeader() {
         >
           📋
         </div>
-        <div className="leading-tight">
-          <div className="text-xs font-medium text-white/60">
-            Orono Public Schools
-          </div>
-          <div className="text-sm font-bold text-white">PaperPal</div>
+        <div className="text-lg font-bold tracking-tight text-white">
+          PaperPal
         </div>
       </div>
 

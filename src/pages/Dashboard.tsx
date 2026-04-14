@@ -83,6 +83,14 @@ export default function Dashboard() {
                     }
                   : { color: "#64748b" }
               }
+              onMouseEnter={(e) => {
+                if (!active)
+                  (e.currentTarget as HTMLButtonElement).style.color = "#1d2a5d"
+              }}
+              onMouseLeave={(e) => {
+                if (!active)
+                  (e.currentTarget as HTMLButtonElement).style.color = "#64748b"
+              }}
             >
               <Icon size={15} />
               {label}
