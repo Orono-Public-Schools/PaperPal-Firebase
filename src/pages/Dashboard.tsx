@@ -46,7 +46,7 @@ export default function Dashboard() {
   return (
     <AppLayout>
       {/* Page title */}
-      <div className="mb-6">
+      <div className="mb-8">
         <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
           {userProfile?.firstName
             ? `Welcome back, ${userProfile.firstName}.`
@@ -72,7 +72,7 @@ export default function Dashboard() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200"
               style={
                 active
                   ? {
@@ -99,7 +99,7 @@ export default function Dashboard() {
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group relative overflow-visible rounded-[18px] p-5 text-left transition-all duration-300 hover:-translate-y-0.5"
+                className="group relative cursor-pointer overflow-visible rounded-[18px] p-5 text-left transition-all duration-300 hover:-translate-y-0.5"
                 style={{
                   background: "linear-gradient(145deg, #fafbfd, #edeef1)",
                   boxShadow:

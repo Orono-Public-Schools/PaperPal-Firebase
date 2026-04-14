@@ -24,7 +24,7 @@ export default function AppHeader() {
         </div>
         <div className="leading-tight">
           <div className="text-xs font-medium text-white/60">
-            Orono Public Schools No. 278
+            Orono Public Schools
           </div>
           <div className="text-sm font-bold text-white">PaperPal</div>
         </div>
@@ -58,7 +58,7 @@ export default function AppHeader() {
 
         <button
           onClick={signOut}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           title="Sign out"
         >
           <LogOut size={14} />
