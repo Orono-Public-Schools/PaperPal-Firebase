@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone *)",
+      "Bash(mv \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal\\\\temp\"/* \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal\\\\temp\"/.[!.]* \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal/\")",
+      "Bash(rmdir \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal\\\\temp\")",
+      "Bash(gh --version)",
+      "Bash(git --version)",
+      "Bash(gh repo *)",
+      "Bash(gh auth *)",
+      "Bash(mv \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal\\\\temp\"/* \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal/\")",
+      "Bash(mv \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal\\\\temp\"/.[!.]* \"c:\\\\Users\\\\joel.mellor\\\\Documents\\\\Scripts\\\\PaperPal/\")",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(firebase --version)",
+      "Bash(firebase login:list)",
+      "Bash(firebase deploy *)",
+      "Bash(gh pr create --base dev-joel --head feat/firebase-hosting --title 'chore: add Firebase Hosting config' --body ' *)",
+      "Bash(gh run *)",
+      "Bash(npx prettier *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
