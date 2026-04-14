@@ -58,7 +58,7 @@ export default function Login() {
         {/* Logo mark */}
         <div className="mb-7 flex flex-col items-center gap-3">
           <img
-            src="/orono-paperpal.png"
+            src="/orono-paperpal-blue.png"
             alt="PaperPal"
             className="h-14 w-14 object-contain"
           />
