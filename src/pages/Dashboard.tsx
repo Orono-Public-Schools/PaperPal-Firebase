@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router"
+import { useNavigate, useSearchParams } from "react-router"
 import { FileText, Car, Briefcase, Clock, History, Plus } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAuth } from "@/hooks/useAuth"
@@ -66,9 +66,13 @@ const FORM_LABELS: Record<string, string> = {
 }
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("new")
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const [activeTab, setActiveTab] = useState(
+    tabParam === "pending" || tabParam === "history" ? tabParam : "new"
+  )
 
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loadingSubmissions, setLoadingSubmissions] = useState(false)
