@@ -8,6 +8,7 @@ import DatePicker from "@/components/forms/DatePicker"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission, getAppSettings } from "@/lib/firestore"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
+import { formatBudgetCode } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
 const RATE = 0.72
@@ -220,10 +221,11 @@ export default function MileageReimbursement() {
               <input
                 type="text"
                 value={accountCode}
-                onChange={(e) => setAccountCode(e.target.value)}
+                onChange={(e) => setAccountCode(formatBudgetCode(e.target.value))}
                 placeholder="##-###-###-###-###-###"
                 required
-                className="input-neu w-full"
+                maxLength={20}
+                className="input-neu w-full font-mono"
               />
               <BudgetCodeBuilder value={accountCode} onChange={setAccountCode} />
             </Field>

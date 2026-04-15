@@ -8,6 +8,7 @@ import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission, getAppSettings } from "@/lib/firestore"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
+import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import type { TravelMeal, TravelActualOther, Attachment } from "@/lib/types"
@@ -400,8 +401,9 @@ export default function TravelReimbursement() {
                 value={accountCode}
                 required
                 placeholder="##-###-###-###-###-###"
-                onChange={(e) => setAccountCode(e.target.value)}
-                className="input-neu"
+                onChange={(e) => setAccountCode(formatBudgetCode(e.target.value))}
+                maxLength={20}
+                className="input-neu font-mono"
               />
               <BudgetCodeBuilder value={accountCode} onChange={setAccountCode} />
             </Field>

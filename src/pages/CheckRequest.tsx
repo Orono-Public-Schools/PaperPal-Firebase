@@ -6,6 +6,7 @@ import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import DatePicker from "@/components/forms/DatePicker"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission } from "@/lib/firestore"
+import { formatBudgetCode } from "@/lib/utils"
 import type { CheckRequestExpense } from "@/lib/types"
 
 function emptyExpense(): CheckRequestExpense {
@@ -389,8 +390,9 @@ function ExpenseRow({
             value={expense.code}
             required
             placeholder="##-###-###-###-###-###"
-            onChange={(e) => onChange(index, "code", e.target.value)}
-            className="input-neu"
+            onChange={(e) => onChange(index, "code", formatBudgetCode(e.target.value))}
+            maxLength={20}
+            className="input-neu font-mono"
           />
           <BudgetCodeBuilder
             value={expense.code}
