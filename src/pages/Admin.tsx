@@ -276,6 +276,13 @@ function BudgetSegmentsSection() {
   const [saved, setSaved] = useState(false)
   const [pasteData, setPasteData] = useState("")
   const [pasteTarget, setPasteTarget] = useState<BudgetSegmentType>("fund")
+  const [openCategory, setOpenCategory] = useState<BudgetSegmentType | null>(null)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editCode, setEditCode] = useState("")
+  const [editTitle, setEditTitle] = useState("")
+  const [addingTo, setAddingTo] = useState<BudgetSegmentType | null>(null)
+  const [newCode, setNewCode] = useState("")
+  const [newTitle, setNewTitle] = useState("")
 
   useEffect(() => {
     getBudgetSegments().then((s) => {
@@ -288,7 +295,8 @@ function BudgetSegmentsSection() {
     if (!code.trim()) return
     setSegments((prev) => ({
       ...prev,
-      [type]: [...prev[type], { code: code.trim(), title: title.trim() }],
+      [type]: [...prev[type], { code: code.trim(), title: title.trim() }]
+        .sort((a, b) => a.code.localeCompare(b.code)),
     }))
   }
 
@@ -297,6 +305,32 @@ function BudgetSegmentsSection() {
       ...prev,
       [type]: prev[type].filter((_, i) => i !== index),
     }))
+  }
+
+  function startEdit(type: BudgetSegmentType, index: number) {
+    const item = segments[type][index]
+    setEditingKey(`${type}-${index}`)
+    setEditCode(item.code)
+    setEditTitle(item.title)
+  }
+
+  function saveEdit(type: BudgetSegmentType, index: number) {
+    if (!editCode.trim()) return
+    setSegments((prev) => ({
+      ...prev,
+      [type]: prev[type].map((s, i) =>
+        i === index ? { code: editCode.trim(), title: editTitle.trim() } : s
+      ),
+    }))
+    setEditingKey(null)
+  }
+
+  function handleAddSubmit(type: BudgetSegmentType) {
+    if (!newCode.trim()) return
+    addSegment(type, newCode, newTitle)
+    setNewCode("")
+    setNewTitle("")
+    setAddingTo(null)
   }
 
   function handlePasteImport() {
@@ -375,54 +409,190 @@ function BudgetSegmentsSection() {
             </button>
           </div>
 
-          {/* Segment tables */}
-          <div className="space-y-4">
+          {/* Segment categories (collapsible) */}
+          <div className="space-y-2">
             {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((type) => {
               const items = segments[type]
+              const isOpen = openCategory === type
+
               return (
-                <div key={type}>
-                  <p
-                    className="mb-1.5 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#64748b" }}
+                <div
+                  key={type}
+                  className="rounded-lg"
+                  style={{ border: "1px solid #e2e5ea" }}
+                >
+                  {/* Category header */}
+                  <button
+                    onClick={() => setOpenCategory(isOpen ? null : type)}
+                    className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5"
+                    style={{ background: isOpen ? "#f8f9fb" : "transparent" }}
                   >
-                    {SEGMENT_LABELS[type]} ({items.length})
-                  </p>
-                  {items.length > 0 && (
-                    <div
-                      className="mb-2 max-h-40 overflow-y-auto rounded-lg"
-                      style={{ border: "1px solid #e2e5ea" }}
-                    >
-                      <table className="w-full text-left text-xs">
-                        <tbody>
-                          {items.map((s, i) => (
-                            <tr
-                              key={i}
-                              style={{ borderBottom: "1px solid #f0f2f5" }}
-                            >
-                              <td
-                                className="px-3 py-1.5 font-mono font-semibold"
-                                style={{ color: "#1d2a5d", width: "80px" }}
-                              >
-                                {s.code}
-                              </td>
-                              <td className="px-3 py-1.5" style={{ color: "#64748b" }}>
-                                {s.title}
-                              </td>
-                              <td className="px-2 py-1.5" style={{ width: "30px" }}>
-                                <button
-                                  onClick={() => removeSegment(type, i)}
-                                  className="cursor-pointer rounded p-0.5 transition-colors"
-                                  style={{ color: "#94a3b8" }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: "#1d2a5d" }}>
+                      {SEGMENT_LABELS[type]}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{ background: "#eaecf5", color: "#4356a9" }}
+                      >
+                        {items.length}
+                      </span>
+                      {isOpen ? (
+                        <ChevronUp size={14} style={{ color: "#64748b" }} />
+                      ) : (
+                        <ChevronDown size={14} style={{ color: "#64748b" }} />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Expanded content */}
+                  {isOpen && (
+                    <div className="border-t px-3 pb-3" style={{ borderColor: "#e2e5ea" }}>
+                      {items.length > 0 && (
+                        <div className="max-h-60 overflow-y-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr style={{ borderBottom: "1px solid #e2e5ea" }}>
+                                <th className="py-2 pr-2 font-semibold" style={{ color: "#94a3b8", width: "80px" }}>Code</th>
+                                <th className="py-2 pr-2 font-semibold" style={{ color: "#94a3b8" }}>Title</th>
+                                <th className="py-2" style={{ width: "60px" }} />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((s, i) => {
+                                const isEditing = editingKey === `${type}-${i}`
+                                return (
+                                  <tr key={i} style={{ borderBottom: "1px solid #f0f2f5" }}>
+                                    {isEditing ? (
+                                      <>
+                                        <td className="py-1.5 pr-2">
+                                          <input
+                                            type="text"
+                                            value={editCode}
+                                            onChange={(e) => setEditCode(e.target.value)}
+                                            className="input-neu font-mono text-xs"
+                                            style={{ width: "70px" }}
+                                          />
+                                        </td>
+                                        <td className="py-1.5 pr-2">
+                                          <input
+                                            type="text"
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            className="input-neu w-full text-xs"
+                                          />
+                                        </td>
+                                        <td className="py-1.5">
+                                          <div className="flex gap-1">
+                                            <button
+                                              onClick={() => saveEdit(type, i)}
+                                              className="cursor-pointer rounded px-2 py-1 text-[10px] font-semibold text-white"
+                                              style={{ background: "#1d2a5d" }}
+                                            >
+                                              Save
+                                            </button>
+                                            <button
+                                              onClick={() => setEditingKey(null)}
+                                              className="cursor-pointer text-[10px] font-medium"
+                                              style={{ color: "#64748b" }}
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <td className="py-1.5 pr-2 font-mono font-semibold" style={{ color: "#1d2a5d" }}>
+                                          {s.code}
+                                        </td>
+                                        <td className="py-1.5 pr-2" style={{ color: "#64748b" }}>
+                                          {s.title}
+                                        </td>
+                                        <td className="py-1.5">
+                                          <div className="flex gap-1">
+                                            <button
+                                              onClick={() => startEdit(type, i)}
+                                              className="cursor-pointer rounded p-0.5 text-[10px] font-medium transition-colors"
+                                              style={{ color: "#4356a9" }}
+                                            >
+                                              Edit
+                                            </button>
+                                            <button
+                                              onClick={() => removeSegment(type, i)}
+                                              className="cursor-pointer rounded p-0.5 transition-colors"
+                                              style={{ color: "#94a3b8" }}
+                                              onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+                                              onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </>
+                                    )}
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Add new segment */}
+                      {addingTo === type ? (
+                        <div className="mt-2 flex items-end gap-2">
+                          <div>
+                            <label className="mb-0.5 block text-[10px] font-semibold uppercase" style={{ color: "#94a3b8" }}>Code</label>
+                            <input
+                              type="text"
+                              value={newCode}
+                              onChange={(e) => setNewCode(e.target.value)}
+                              placeholder="000"
+                              className="input-neu font-mono text-xs"
+                              style={{ width: "70px" }}
+                              autoFocus
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="mb-0.5 block text-[10px] font-semibold uppercase" style={{ color: "#94a3b8" }}>Title</label>
+                            <input
+                              type="text"
+                              value={newTitle}
+                              onChange={(e) => setNewTitle(e.target.value)}
+                              placeholder="Description"
+                              className="input-neu w-full text-xs"
+                              onKeyDown={(e) => e.key === "Enter" && handleAddSubmit(type)}
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleAddSubmit(type)}
+                            disabled={!newCode.trim()}
+                            className="cursor-pointer rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            style={{ background: "#1d2a5d" }}
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => { setAddingTo(null); setNewCode(""); setNewTitle("") }}
+                            className="cursor-pointer px-2 py-2 text-xs font-medium"
+                            style={{ color: "#64748b" }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAddingTo(type)}
+                          className="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors"
+                          style={{ color: "#4356a9" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#1d2a5d")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#4356a9")}
+                        >
+                          <Plus size={12} />
+                          Add {SEGMENT_LABELS[type]} Code
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
