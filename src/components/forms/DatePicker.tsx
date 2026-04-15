@@ -36,18 +36,18 @@ export default function DatePicker({
 }: Props) {
   const parsed = parseValue(value)
   const today = new Date()
-  const [viewYear, setViewYear] = useState(parsed?.year ?? today.getFullYear())
-  const [viewMonth, setViewMonth] = useState(parsed?.month ?? today.getMonth())
+  const [viewOffset, setViewOffset] = useState<{ year: number; month: number } | null>(null)
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const p = parseValue(value)
-    if (p) {
-      setViewYear(p.year)
-      setViewMonth(p.month)
-    }
-  }, [value])
+  // View defaults to the selected date, or today. Manual nav overrides via viewOffset.
+  const baseYear = parsed?.year ?? today.getFullYear()
+  const baseMonth = parsed?.month ?? today.getMonth()
+  const viewYear = viewOffset?.year ?? baseYear
+  const viewMonth = viewOffset?.month ?? baseMonth
+
+  function setViewYear(y: number) { setViewOffset({ year: y, month: viewMonth }) }
+  function setViewMonth(m: number) { setViewOffset({ year: viewYear, month: m }) }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -62,18 +62,18 @@ export default function DatePicker({
   function prevMonth() {
     if (viewMonth === 0) {
       setViewMonth(11)
-      setViewYear((y) => y - 1)
+      setViewYear(viewYear - 1)
     } else {
-      setViewMonth((m) => m - 1)
+      setViewMonth(viewMonth - 1)
     }
   }
 
   function nextMonth() {
     if (viewMonth === 11) {
       setViewMonth(0)
-      setViewYear((y) => y + 1)
+      setViewYear(viewYear + 1)
     } else {
-      setViewMonth((m) => m + 1)
+      setViewMonth(viewMonth + 1)
     }
   }
 

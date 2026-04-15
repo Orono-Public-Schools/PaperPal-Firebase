@@ -74,17 +74,19 @@ export default function Dashboard() {
     tabParam === "pending" || tabParam === "history" ? tabParam : "new"
   )
 
-  const [submissions, setSubmissions] = useState<Submission[]>([])
-  const [loadingSubmissions, setLoadingSubmissions] = useState(false)
+  const [submissionData, setSubmissionData] = useState<{ uid: string; data: Submission[] } | null>(null)
 
   useEffect(() => {
     if (!user || (activeTab !== "pending" && activeTab !== "history")) return
-    setLoadingSubmissions(true)
+    let cancelled = false
     getUserSubmissions(user.uid)
-      .then(setSubmissions)
+      .then((data) => { if (!cancelled) setSubmissionData({ uid: user.uid, data }) })
       .catch(console.error)
-      .finally(() => setLoadingSubmissions(false))
+    return () => { cancelled = true }
   }, [user, activeTab])
+
+  const submissions = (submissionData && submissionData.uid === user?.uid) ? submissionData.data : []
+  const loadingSubmissions = (activeTab === "pending" || activeTab === "history") && submissionData?.uid !== user?.uid
 
   const pendingSubmissions = submissions.filter((s) => s.status === "pending")
   const historySubmissions = submissions.filter((s) => s.status !== "pending")

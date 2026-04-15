@@ -132,7 +132,7 @@ export default function TravelReimbursement() {
       }
       setQuickFills(fills)
     })
-  }, [userProfile?.homeAddress])
+  }, [userProfile?.homeAddress, budgetYear])
 
   async function calcDistance() {
     if (mileageFrom.length < 5 || mileageTo.length < 5) return
