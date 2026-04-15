@@ -89,8 +89,16 @@ export default function AppHeader() {
           </div>
         </button>
 
-        {/* Right: user + sign out + hamburger */}
+        {/* Right: hamburger + user + sign out */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex cursor-pointer items-center justify-center rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+
           {userProfile && (
             <div className="flex items-center gap-2">
               {userProfile.photoURL ? (
@@ -122,14 +130,6 @@ export default function AppHeader() {
           >
             <LogOut size={14} />
             Sign out
-          </button>
-
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex cursor-pointer items-center justify-center rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Open menu"
-          >
-            <Menu size={20} />
           </button>
         </div>
       </header>
