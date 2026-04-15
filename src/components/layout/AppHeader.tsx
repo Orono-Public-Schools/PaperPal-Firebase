@@ -1,8 +1,10 @@
 import { LogOut } from "lucide-react"
+import { useNavigate } from "react-router"
 import { useAuth } from "@/hooks/useAuth"
 
 export default function AppHeader() {
   const { userProfile, signOut } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <header
@@ -13,7 +15,10 @@ export default function AppHeader() {
       }}
     >
       {/* Left: branding */}
-      <div className="flex items-center gap-2">
+      <button
+        onClick={() => navigate("/")}
+        className="flex cursor-pointer items-center gap-2"
+      >
         <img
           src="/orono-paperpal.png"
           alt="PaperPal"
@@ -22,7 +27,7 @@ export default function AppHeader() {
         <div className="text-xl font-bold tracking-tight text-white">
           PaperPal
         </div>
-      </div>
+      </button>
 
       {/* Right: user + sign out */}
       <div className="flex items-center gap-3">
