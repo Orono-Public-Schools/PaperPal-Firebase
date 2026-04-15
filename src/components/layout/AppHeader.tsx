@@ -1,10 +1,19 @@
-import { LogOut } from "lucide-react"
-import { useNavigate } from "react-router"
+import { LogOut, LayoutDashboard, ShieldCheck } from "lucide-react"
+import { useNavigate, useLocation } from "react-router"
 import { useAuth } from "@/hooks/useAuth"
+
+const NAV_LINKS = [
+  { label: "Dashboard", path: "/", icon: LayoutDashboard, adminOnly: false },
+  { label: "Admin", path: "/admin", icon: ShieldCheck, adminOnly: true },
+]
 
 export default function AppHeader() {
   const { userProfile, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const isAdmin =
+    userProfile?.role === "admin" || userProfile?.role === "business_office"
 
   return (
     <header
@@ -14,20 +23,57 @@ export default function AppHeader() {
         boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
       }}
     >
-      {/* Left: branding */}
-      <button
-        onClick={() => navigate("/")}
-        className="flex cursor-pointer items-center gap-2"
-      >
-        <img
-          src="/orono-paperpal.png"
-          alt="PaperPal"
-          className="h-10 w-10 object-contain"
-        />
-        <div className="text-xl font-bold tracking-tight text-white">
-          PaperPal
-        </div>
-      </button>
+      {/* Left: branding + nav */}
+      <div className="flex items-center gap-6">
+        <button
+          onClick={() => navigate("/")}
+          className="flex cursor-pointer items-center gap-2"
+        >
+          <img
+            src="/orono-paperpal.png"
+            alt="PaperPal"
+            className="h-10 w-10 object-contain"
+          />
+          <div className="text-xl font-bold tracking-tight text-white">
+            PaperPal
+          </div>
+        </button>
+
+        {/* Nav links */}
+        <nav className="flex items-center gap-1">
+          {NAV_LINKS.filter((l) => !l.adminOnly || isAdmin).map(
+            ({ label, path, icon: Icon }) => {
+              const active = location.pathname === path
+              return (
+                <button
+                  key={path}
+                  onClick={() => navigate(path)}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-150"
+                  style={{
+                    background: active
+                      ? "rgba(255,255,255,0.15)"
+                      : "transparent",
+                    color: active ? "white" : "rgba(255,255,255,0.6)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active)
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "white"
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active)
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "rgba(255,255,255,0.6)"
+                  }}
+                >
+                  <Icon size={14} />
+                  {label}
+                </button>
+              )
+            }
+          )}
+        </nav>
+      </div>
 
       {/* Right: user + sign out */}
       <div className="flex items-center gap-3">
