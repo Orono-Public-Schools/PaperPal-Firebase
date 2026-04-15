@@ -9,7 +9,7 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 - Mileage Reimbursement (`/forms/mileage`) — $0.72/mile rate
 - Travel Reimbursement (`/forms/travel`)
 
-**Approval flow:** Staff submits → supervisor notified → supervisor approves/denies/requests revisions → business office receives approved submissions.
+**Approval flow:** Staff submits → supervisor approves (status: `reviewed`) → final approver/controller approves (status: `approved`) → business office receives. Supervisor can also deny or request revisions.
 
 ---
 
@@ -66,10 +66,12 @@ src/
   index.css                        # Global styles + .input-neu utility
 
   lib/
-    firebase.ts                    # Firebase app init
-    firestore.ts                   # Typed Firestore helpers (createSubmission, etc.)
+    firebase.ts                    # Firebase app init (Auth, Firestore, Storage, Functions)
+    firestore.ts                   # Typed Firestore helpers (submissions, users, buildings, settings, budget segments)
+    googleMaps.ts                  # Google Places autocomplete + Routes distance calc (REST APIs)
+    defaultBudgetSegments.ts       # Orono district UFARS codes (auto-seeded to Firestore)
     types.ts                       # All TypeScript interfaces
-    utils.ts
+    utils.ts                       # formatBudgetCode, cn
 
   context/
     AuthContext.tsx                 # AuthProvider — wraps app, provides user + userProfile
@@ -81,7 +83,9 @@ src/
   components/
     ProtectedRoute.tsx              # Redirects to /login if unauthenticated
     forms/
-      NameField.tsx                 # Name override field (pencil icon to edit on-behalf-of)
+      AddressAutocomplete.tsx       # Google Places autocomplete + quick-fill dropdown (Home/School)
+      BudgetCodeBuilder.tsx         # Full-screen modal: 6-segment step-by-step budget code picker
+      DatePicker.tsx                # Custom calendar dropdown (replaces native date inputs)
     layout/
       AppLayout.tsx                 # Page wrapper (AppHeader + main content padding)
       AppHeader.tsx                 # Sticky header + hamburger sidebar nav
@@ -110,11 +114,31 @@ src/
 ### Form pages structure
 Each form page:
 1. Reads `userProfile` to pre-fill name, employeeId
-2. Has a `NameField` for submitter name (supports on-behalf-of override)
-3. Uses local `Section` and `Field` sub-components (defined at the bottom of the file)
-4. Dynamic rows (trips / expense lines / meal rows) use `divide-y` on the parent + `py-3 first:pt-0 last:pb-0` on each row — no gray wrapper divs on rows
-5. Calculates totals reactively
-6. On submit: calls `createSubmission`, shows a confirmation screen (replaces the form)
+2. Full Name is a plain editable input (pre-filled from profile)
+3. Account Code field has `BudgetCodeBuilder` link below it + auto-format on typing
+4. Uses local `Section` and `Field` sub-components (defined at the bottom of the file)
+5. Date fields use custom `DatePicker` component (not native `<input type="date">`)
+6. Dynamic rows (trips / expense lines / meal rows) use `divide-y` on the parent + `py-3 first:pt-0 last:pb-0` on each row — no gray wrapper divs on rows
+7. Calculates totals reactively
+8. On submit: calls `createSubmission`, shows a confirmation screen (replaces the form)
+
+### Button classes
+- `btn-submit` — OPS red, Send icon fly animation on hover. Used for form submissions.
+- `btn-save` — OPS red solid, icon slides right on hover, dims on hover. Used for save actions.
+- `btn-cancel` — Transparent with border, grey fill on hover, X icon. Used for cancel actions.
+
+### Google Maps integration
+- `AddressAutocomplete` — uses Places API (New) REST endpoint for suggestions
+- `calculateDrivingDistance` — uses Routes API REST endpoint
+- Quick-fill dropdown shows Home (from `userProfile.homeAddress`) and School (from `AppSettings.schoolAddress`)
+- API key stored in `VITE_GOOGLE_MAPS_API_KEY` env var
+
+### Budget Code Builder
+- Full-screen modal, 6-segment step-by-step flow (Fund → Org → Proj → Fin → Course → Obj)
+- Format: `##-###-###-###-###-###`
+- Segments stored in Firestore `settings/budgetSegments` doc
+- Auto-seeded from `defaultBudgetSegments.ts` on first load
+- Admin panel manages segments (collapsible categories, inline edit, add, delete, Quick Import)
 
 ### Dashboard tabs
 Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()` sets initial tab state.
@@ -129,10 +153,14 @@ Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()
 
 ## Firestore Collections
 
-| Collection | Purpose |
+| Collection / Document | Purpose |
 |---|---|
 | `users/{uid}` | UserProfile documents |
 | `submissions/{REQ-XXXXX}` | All form submissions |
+| `buildings/{id}` | Building/org with name, address, approver |
+| `staff/{email}` | Imported staff records |
+| `settings/app` | AppSettings (email, school address, final approver, fiscal year) |
+| `settings/budgetSegments` | Budget code segments (fund, org, proj, fin, course, obj arrays) |
 | `mail/{id}` | Firebase Extension trigger docs for outbound email |
 
 ---
