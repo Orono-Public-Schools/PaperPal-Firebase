@@ -102,5 +102,36 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    background-color: #f0f2f5;
+  }
+}
+
+@layer components {
+  .input-neu {
+    background: #edeef1;
+    border: none;
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #1d2a5d;
+    box-shadow:
+      inset 2px 2px 4px rgba(180, 185, 195, 0.4),
+      inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+    outline: none;
+    transition: box-shadow 0.15s ease;
+    width: 100%;
+  }
+  .input-neu:focus {
+    box-shadow:
+      inset 2px 2px 5px rgba(180, 185, 195, 0.5),
+      inset -2px -2px 5px rgba(255, 255, 255, 0.9),
+      0 0 0 2px rgba(45, 63, 137, 0.2);
+  }
+  .input-neu:read-only {
+    color: #94a3b8;
+    cursor: default;
+  }
+  .input-neu::placeholder {
+    color: #94a3b8;
   }
 }

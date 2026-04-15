@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
 import { FileText, Car, Briefcase, Clock, History, Plus } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAuth } from "@/hooks/useAuth"
+import { getUserSubmissions } from "@/lib/firestore"
+import type { Submission, SubmissionStatus } from "@/lib/types"
 
 const FORM_TYPES = [
   {
@@ -38,10 +40,50 @@ const TABS = [
   { id: "history", label: "History", icon: History },
 ]
 
+const STATUS_STYLES: Record<
+  SubmissionStatus,
+  { label: string; bg: string; color: string }
+> = {
+  pending: { label: "Pending", bg: "rgba(245,158,11,0.12)", color: "#b45309" },
+  reviewed: {
+    label: "Reviewed",
+    bg: "rgba(59,130,246,0.12)",
+    color: "#1d4ed8",
+  },
+  approved: { label: "Approved", bg: "rgba(5,150,105,0.12)", color: "#065f46" },
+  denied: { label: "Denied", bg: "rgba(173,33,34,0.12)", color: "#ad2122" },
+  revisions_requested: {
+    label: "Revisions Requested",
+    bg: "rgba(234,88,12,0.12)",
+    color: "#c2410c",
+  },
+}
+
+const FORM_LABELS: Record<string, string> = {
+  check: "Check Request",
+  mileage: "Mileage",
+  travel: "Travel",
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("new")
-  const { userProfile } = useAuth()
+  const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+
+  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false)
+
+  useEffect(() => {
+    if (!user || (activeTab !== "pending" && activeTab !== "history")) return
+    setLoadingSubmissions(true)
+    getUserSubmissions(user.uid)
+      .then(setSubmissions)
+      .catch(console.error)
+      .finally(() => setLoadingSubmissions(false))
+  }, [user, activeTab])
+
+  const pendingSubmissions = submissions.filter((s) => s.status === "pending")
+  const historySubmissions = submissions.filter((s) => s.status !== "pending")
 
   return (
     <AppLayout>
@@ -134,7 +176,7 @@ export default function Dashboard() {
                   <Icon size={24} style={{ color: pill.from }} />
                 </div>
 
-                {/* Title — always visible */}
+                {/* Title */}
                 <div
                   className="px-4 pb-4 text-sm font-semibold"
                   style={{ color: "#1d2a5d" }}
@@ -142,7 +184,7 @@ export default function Dashboard() {
                   {title}
                 </div>
 
-                {/* Content — slides in on hover */}
+                {/* Hover content */}
                 <div
                   className="mx-3 mb-3 -translate-y-6 scale-0 rounded-xl px-4 py-3 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
                   style={{
@@ -172,51 +214,130 @@ export default function Dashboard() {
 
       {/* Tab: Pending */}
       {activeTab === "pending" && (
-        <div
-          className="rounded-[18px] p-8 text-center"
-          style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
-          }}
-        >
-          <Clock
-            size={32}
-            className="mx-auto mb-3"
-            style={{ color: "#9ca3af" }}
-          />
-          <p className="font-medium" style={{ color: "#1d2a5d" }}>
-            No pending requests
-          </p>
-          <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
-            Submissions awaiting approval will appear here.
-          </p>
-        </div>
+        <SubmissionList
+          submissions={pendingSubmissions}
+          loading={loadingSubmissions}
+          emptyIcon={Clock}
+          emptyTitle="No pending requests"
+          emptySubtitle="Submissions awaiting approval will appear here."
+        />
       )}
 
       {/* Tab: History */}
       {activeTab === "history" && (
-        <div
-          className="rounded-[18px] p-8 text-center"
-          style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
-          }}
-        >
-          <History
-            size={32}
-            className="mx-auto mb-3"
-            style={{ color: "#9ca3af" }}
-          />
-          <p className="font-medium" style={{ color: "#1d2a5d" }}>
-            No submissions yet
-          </p>
-          <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
-            Your completed requests will show up here.
-          </p>
-        </div>
+        <SubmissionList
+          submissions={historySubmissions}
+          loading={loadingSubmissions}
+          emptyIcon={History}
+          emptyTitle="No submissions yet"
+          emptySubtitle="Your completed requests will show up here."
+        />
       )}
     </AppLayout>
+  )
+}
+
+// ─── Submission list ──────────────────────────────────────────────────────────
+
+function SubmissionList({
+  submissions,
+  loading,
+  emptyIcon: EmptyIcon,
+  emptyTitle,
+  emptySubtitle,
+}: {
+  submissions: Submission[]
+  loading: boolean
+  emptyIcon: React.ElementType
+  emptyTitle: string
+  emptySubtitle: string
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((n) => (
+          <div
+            key={n}
+            className="h-16 animate-pulse rounded-[14px]"
+            style={{ background: "#edeef1" }}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (submissions.length === 0) {
+    return (
+      <div
+        className="rounded-[18px] p-8 text-center"
+        style={{
+          background: "linear-gradient(145deg, #fafbfd, #edeef1)",
+          boxShadow:
+            "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+        }}
+      >
+        <EmptyIcon
+          size={32}
+          className="mx-auto mb-3"
+          style={{ color: "#9ca3af" }}
+        />
+        <p className="font-medium" style={{ color: "#1d2a5d" }}>
+          {emptyTitle}
+        </p>
+        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+          {emptySubtitle}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {submissions.map((s) => {
+        const statusStyle = STATUS_STYLES[s.status] ?? STATUS_STYLES.pending
+        const ts = s.createdAt as { toDate?: () => Date } | null
+        const date = ts?.toDate
+          ? ts.toDate().toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : ""
+        return (
+          <div
+            key={s.id}
+            className="flex items-center justify-between rounded-[14px] px-5 py-4"
+            style={{
+              background: "linear-gradient(145deg, #fafbfd, #edeef1)",
+              boxShadow:
+                "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+            }}
+          >
+            <div className="min-w-0">
+              <p
+                className="truncate text-sm font-semibold"
+                style={{ color: "#1d2a5d" }}
+              >
+                {s.summary}
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: "#94a3b8" }}>
+                {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
+              </p>
+            </div>
+            <div className="ml-4 flex shrink-0 items-center gap-3">
+              <span
+                className="rounded-full px-3 py-1 text-xs font-semibold"
+                style={{ background: statusStyle.bg, color: statusStyle.color }}
+              >
+                {statusStyle.label}
+              </span>
+              <span className="text-sm font-bold" style={{ color: "#1d2a5d" }}>
+                ${s.amount.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
