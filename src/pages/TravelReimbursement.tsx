@@ -686,8 +686,8 @@ export default function TravelReimbursement() {
             disabled={submitting}
             className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
             style={{
-              background: "linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)",
-              boxShadow: "0 2px 8px rgba(139,92,246,0.3)",
+              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
             }}
           >
             {submitting ? "Submitting…" : "Submit Request"}

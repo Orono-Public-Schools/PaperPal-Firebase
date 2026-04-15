@@ -185,7 +185,10 @@ export default function MileageReimbursement() {
 
         {/* Trip log */}
         <Section title="Trip Log">
-          <div className="space-y-3">
+          <div
+            className="divide-y"
+            style={{ borderColor: "rgba(180,185,195,0.25)" }}
+          >
             {trips.map((trip, i) => (
               <TripRow
                 key={i}
@@ -272,8 +275,8 @@ export default function MileageReimbursement() {
             disabled={submitting}
             className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
             style={{
-              background: "linear-gradient(135deg, #059669 0%, #34d399 100%)",
-              boxShadow: "0 2px 8px rgba(5,150,105,0.3)",
+              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
             }}
           >
             {submitting ? "Submitting…" : "Submit Request"}
@@ -349,14 +352,7 @@ function TripRow({
   onRemove?: () => void
 }) {
   return (
-    <div
-      className="rounded-[14px] p-4"
-      style={{
-        background: "#edeef1",
-        boxShadow:
-          "inset 2px 2px 5px rgba(180,185,195,0.4), inset -2px -2px 5px rgba(255,255,255,0.8)",
-      }}
-    >
+    <div className="py-3 first:pt-0 last:pb-0">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Date">
           <input
