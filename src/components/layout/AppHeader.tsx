@@ -13,13 +13,13 @@ export default function AppHeader() {
       }}
     >
       {/* Left: branding */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <img
           src="/orono-paperpal.png"
           alt="PaperPal"
-          className="h-8 w-8 object-contain"
+          className="h-10 w-10 object-contain"
         />
-        <div className="text-lg font-bold tracking-tight text-white">
+        <div className="text-xl font-bold tracking-tight text-white">
           PaperPal
         </div>
       </div>
