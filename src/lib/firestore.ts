@@ -224,18 +224,22 @@ export async function getBudgetSegments(): Promise<Record<BudgetSegmentType, Bud
   }
   if (snap.exists()) {
     const data = { ...defaults, ...snap.data() as Record<BudgetSegmentType, BudgetSegment[]> }
-    // Seed default Object codes from UFARS if none exist
-    if (data.obj.length === 0) {
-      import("./defaultBudgetSegments").then(({ DEFAULT_OBJECT_CODES }) => {
-        updateBudgetSegments({ ...data, obj: DEFAULT_OBJECT_CODES })
+    // Seed defaults if any category is empty
+    const hasEmpty = Object.values(data).some((arr) => arr.length === 0)
+    if (hasEmpty) {
+      import("./defaultBudgetSegments").then(({ DEFAULT_SEGMENTS }) => {
+        const merged = { ...data }
+        for (const key of Object.keys(DEFAULT_SEGMENTS) as BudgetSegmentType[]) {
+          if (merged[key].length === 0) merged[key] = DEFAULT_SEGMENTS[key]
+        }
+        updateBudgetSegments(merged)
       })
-      return { ...data, obj: [] }
     }
     return data
   }
-  // First load — seed with UFARS Object codes
-  import("./defaultBudgetSegments").then(({ DEFAULT_OBJECT_CODES }) => {
-    updateBudgetSegments({ ...defaults, obj: DEFAULT_OBJECT_CODES })
+  // First load — seed with all default segments
+  import("./defaultBudgetSegments").then(({ DEFAULT_SEGMENTS }) => {
+    updateBudgetSegments(DEFAULT_SEGMENTS)
   })
   return defaults
 }
