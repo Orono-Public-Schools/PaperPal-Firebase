@@ -23,9 +23,18 @@ export interface StaffRecord {
   firstName: string
   lastName: string
   employeeId: string
+  title: string
   building: string
   createdAt: Timestamp
   updatedAt: Timestamp
+}
+
+// ─── Supervisor Mappings ────────────────────────────────────────────────────
+
+export interface SupervisorMapping {
+  titles: string[]
+  supervisorEmail: string
+  supervisorName: string
 }
 
 // ─── App Settings ────────────────────────────────────────────────────────────
@@ -43,6 +52,11 @@ export interface AppSettings {
   finalApproverEmail: string
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
+  staffSheetId?: string
+  staffSheetRange?: string // e.g. "Sheet1!A2:H"
+  staffSyncEnabled?: boolean
+  staffSyncHour?: number // 0-23, hour of day (Central time)
+  lastStaffSync?: Timestamp
 }
 
 // ─── User ────────────────────────────────────────────────────────────────────

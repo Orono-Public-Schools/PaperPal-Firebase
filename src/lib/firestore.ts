@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import type { Submission, UserProfile, Building, StaffRecord, AppSettings, BudgetSegmentType, BudgetSegment } from "./types"
+import type { Submission, UserProfile, Building, StaffRecord, AppSettings, BudgetSegmentType, BudgetSegment, SupervisorMapping } from "./types"
 
 // ─── ID Generator ─────────────────────────────────────────────────────────────
 
@@ -182,6 +182,14 @@ export async function deleteStaffRecord(email: string): Promise<void> {
   await deleteDoc(doc(db, "staff", email.toLowerCase()))
 }
 
+export async function clearAllStaffRecords(): Promise<number> {
+  const snap = await getDocs(collection(db, "staff"))
+  const batch = writeBatch(db)
+  snap.docs.forEach((d) => batch.delete(d.ref))
+  await batch.commit()
+  return snap.size
+}
+
 // ─── App Settings ────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -249,4 +257,61 @@ export async function updateBudgetSegments(
 ): Promise<void> {
   const ref = doc(db, "settings", "budgetSegments")
   await setDoc(ref, data)
+}
+
+// ─── Supervisor Mappings ────────────────────────────────────────────────────
+
+export async function getSupervisorMappings(): Promise<SupervisorMapping[]> {
+  const ref = doc(db, "settings", "supervisorMappings")
+  const snap = await getDoc(ref)
+  return snap.exists() ? (snap.data().mappings as SupervisorMapping[]) ?? [] : []
+}
+
+export async function updateSupervisorMappings(
+  mappings: SupervisorMapping[]
+): Promise<void> {
+  const ref = doc(db, "settings", "supervisorMappings")
+  await setDoc(ref, { mappings })
+}
+
+export async function resolveSupervisor(
+  email: string
+): Promise<{ email: string; name: string } | null> {
+  // 1. Look up staff record for their title
+  const staffRef = doc(db, "staff", email.toLowerCase())
+  const staffSnap = await getDoc(staffRef)
+  if (!staffSnap.exists()) return null
+
+  const staff = staffSnap.data() as StaffRecord
+  if (!staff.title) return null
+
+  // 2. Find a supervisor mapping that includes this title
+  const mappings = await getSupervisorMappings()
+  const match = mappings.find((m) =>
+    m.titles.some((t) => t.toLowerCase() === staff.title.toLowerCase())
+  )
+  if (match) return { email: match.supervisorEmail, name: match.supervisorName }
+
+  // 3. Fallback: building approver
+  if (staff.building) {
+    const buildings = await getBuildings()
+    const building = buildings.find((b) => b.name === staff.building)
+    if (building) return { email: building.approverEmail, name: building.approverName }
+  }
+
+  return null
+}
+
+// ─── Staff Sync Metadata ────────────────────────────────────────────────────
+
+export async function getStaffRecord(email: string): Promise<StaffRecord | null> {
+  const ref = doc(db, "staff", email.toLowerCase())
+  const snap = await getDoc(ref)
+  return snap.exists() ? (snap.data() as StaffRecord) : null
+}
+
+export async function getUniqueStaffTitles(): Promise<string[]> {
+  const records = await getStaffRecords()
+  const titles = new Set(records.map((r) => r.title).filter(Boolean))
+  return [...titles].sort()
 }

@@ -6,6 +6,7 @@ import {
 } from "firebase/auth"
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db, googleProvider } from "@/lib/firebase"
+import { resolveSupervisor } from "@/lib/firestore"
 import { AuthContext, type UserProfile } from "@/context/authContextDef"
 
 async function isAllowedEmail(email: string): Promise<boolean> {
@@ -36,6 +37,9 @@ async function ensureUserProfile(
   const firstName = staff?.firstName ?? nameParts[0] ?? ""
   const lastName = staff?.lastName ?? nameParts.slice(1).join(" ")
 
+  // Resolve supervisor from title mappings (falls back to building approver)
+  const supervisor = await resolveSupervisor(email)
+
   const profile: UserProfile = {
     uid,
     email,
@@ -44,6 +48,7 @@ async function ensureUserProfile(
     fullName: staff ? `${firstName} ${lastName}`.trim() : displayName ?? "",
     employeeId: staff?.employeeId ?? "",
     building: staff?.building ?? "",
+    supervisorEmail: supervisor?.email ?? "",
     photoURL: photoURL ?? "",
     role: "staff",
     createdAt: serverTimestamp() as unknown as import("firebase/firestore").Timestamp,

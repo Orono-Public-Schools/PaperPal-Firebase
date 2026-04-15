@@ -2,7 +2,6 @@ import { useState, useEffect } from "react"
 import {
   Plus,
   Trash2,
-  Upload,
   Save,
   Building2,
   Users,
@@ -12,6 +11,8 @@ import {
   Grid3X3,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
+  Link2,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
@@ -22,15 +23,19 @@ import {
   updateBuilding,
   deleteBuilding,
   getStaffRecords,
-  importStaffRecords,
-  deleteStaffRecord,
   getAllUsers,
   updateUserRole,
+  createOrUpdateUserProfile,
   getAppSettings,
   updateAppSettings,
   getBudgetSegments,
   updateBudgetSegments,
+  getSupervisorMappings,
+  updateSupervisorMappings,
+  getUniqueStaffTitles,
 } from "@/lib/firestore"
+import { httpsCallable } from "firebase/functions"
+import { functions } from "@/lib/firebase"
 import type {
   Building,
   StaffRecord,
@@ -39,6 +44,7 @@ import type {
   AppSettings,
   BudgetSegmentType,
   BudgetSegment,
+  SupervisorMapping,
 } from "@/lib/types"
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -83,6 +89,8 @@ export default function Admin() {
       <div className="space-y-6">
         <GeneralSettingsSection />
         <BudgetSegmentsSection />
+        <StaffSyncSection />
+        <SupervisorMappingsSection />
         <BuildingsSection />
         <StaffSection />
         <RolesSection />
@@ -911,14 +919,382 @@ function BuildingsSection() {
   )
 }
 
-// ─── Staff Import ────────────────────────────────────────────────────────────
+// ─── Staff Sync (Google Sheet) ──────────────────────────────────────────────
+
+function StaffSyncSection() {
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [sheetId, setSheetId] = useState("")
+  const [sheetRange, setSheetRange] = useState("Sheet1!A2:H")
+  const [syncEnabled, setSyncEnabled] = useState(false)
+  const [syncHour, setSyncHour] = useState(2)
+  const [expanded, setExpanded] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then((s) => {
+      setSettings(s)
+      setSheetId(s.staffSheetId ?? "")
+      setSheetRange(s.staffSheetRange ?? "Sheet1!A2:H")
+      setSyncEnabled(s.staffSyncEnabled ?? false)
+      setSyncHour(s.staffSyncHour ?? 2)
+    })
+  }, [])
+
+  async function handleSave() {
+    setSaving(true)
+    await updateAppSettings({
+      staffSheetId: sheetId,
+      staffSheetRange: sheetRange,
+      staffSyncEnabled: syncEnabled,
+      staffSyncHour: syncHour,
+    })
+    setSaving(false)
+  }
+
+  async function handleSync() {
+    if (!sheetId.trim()) return
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      // Save config first so the Cloud Function has it
+      await updateAppSettings({ staffSheetId: sheetId, staffSheetRange: sheetRange })
+      const syncStaffNow = httpsCallable<unknown, { rowCount: number; imported: number }>(functions, "syncStaffNow")
+      const result = await syncStaffNow()
+      setSyncResult(`Synced ${result.data.imported} staff records from ${result.data.rowCount} rows.`)
+      // Refresh settings to get updated lastStaffSync
+      const updated = await getAppSettings()
+      setSettings(updated)
+    } catch (err) {
+      setSyncResult(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`)
+    }
+    setSyncing(false)
+  }
+
+  const lastSync = settings?.lastStaffSync
+    ? new Date((settings.lastStaffSync as unknown as { seconds: number }).seconds * 1000).toLocaleString()
+    : null
+
+  const formatHour = (h: number) => {
+    const ampm = h >= 12 ? "PM" : "AM"
+    const hr = h === 0 ? 12 : h > 12 ? h - 12 : h
+    return `${hr}:00 ${ampm}`
+  }
+
+  return (
+    <Section
+      title="Staff Sync"
+      icon={RefreshCw}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
+        Connect a Google Sheet (from OneSync) to sync staff data. Share the sheet
+        with <span style={{ fontFamily: "monospace", color: "#1d2a5d" }}>firebase-adminsdk-fbsvc@paperpal-orono.iam.gserviceaccount.com</span> as
+        a Viewer.
+      </p>
+
+      <div className="space-y-3">
+        <Field label="Google Sheet ID">
+          <input
+            type="text"
+            value={sheetId}
+            onChange={(e) => setSheetId(e.target.value)}
+            placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+            className="input-neu w-full"
+          />
+          <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
+            Found in the Google Sheet URL between /d/ and /edit
+          </p>
+        </Field>
+
+        <Field label="Sheet Range">
+          <input
+            type="text"
+            value={sheetRange}
+            onChange={(e) => setSheetRange(e.target.value)}
+            placeholder="Sheet1!A2:H"
+            className="input-neu w-full"
+          />
+        </Field>
+
+        {/* Nightly sync schedule */}
+        <div
+          className="rounded-lg p-3"
+          style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+        >
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={syncEnabled}
+              onChange={(e) => setSyncEnabled(e.target.checked)}
+              className="accent-[#1d2a5d]"
+            />
+            <span className="text-sm font-medium" style={{ color: "#334155" }}>
+              Enable nightly auto-sync
+            </span>
+          </label>
+
+          {syncEnabled && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs" style={{ color: "#64748b" }}>Sync at</span>
+              <select
+                value={syncHour}
+                onChange={(e) => setSyncHour(Number(e.target.value))}
+                className="input-neu text-xs"
+                style={{ width: 120 }}
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>{formatHour(i)}</option>
+                ))}
+              </select>
+              <span className="text-xs" style={{ color: "#64748b" }}>Central Time</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-save flex items-center gap-2"
+          >
+            <Save size={14} />
+            {saving ? "Saving…" : "Save Config"}
+          </button>
+
+          <button
+            onClick={handleSync}
+            disabled={syncing || !sheetId.trim()}
+            className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            style={{
+              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+            }}
+          >
+            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+            {syncing ? "Syncing…" : "Sync Now"}
+          </button>
+        </div>
+
+        {syncResult && (
+          <p
+            className="text-xs font-medium"
+            style={{ color: syncResult.startsWith("Sync failed") ? "#dc2626" : "#059669" }}
+          >
+            {syncResult}
+          </p>
+        )}
+
+        {lastSync && (
+          <p className="text-xs" style={{ color: "#94a3b8" }}>
+            Last synced: {lastSync}
+          </p>
+        )}
+      </div>
+    </Section>
+  )
+}
+
+// ─── Supervisor Mappings ────────────────────────────────────────────────────
+
+function SupervisorMappingsSection() {
+  const [mappings, setMappings] = useState<SupervisorMapping[]>([])
+  const [titles, setTitles] = useState<string[]>([])
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [expanded, setExpanded] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    Promise.all([getSupervisorMappings(), getUniqueStaffTitles(), getAllUsers()]).then(
+      ([m, t, u]) => {
+        setMappings(m)
+        setTitles(t)
+        setUsers(u)
+        setLoading(false)
+      }
+    )
+  }, [])
+
+  // Titles that aren't assigned to any mapping yet
+  const unmappedTitles = titles.filter(
+    (t) => !mappings.some((m) => m.titles.includes(t))
+  )
+
+  function handleAssignTitle(title: string, supervisorEmail: string) {
+    const supervisor = users.find((u) => u.email === supervisorEmail)
+    if (!supervisor) return
+
+    setMappings((prev) => {
+      const existing = prev.find((m) => m.supervisorEmail === supervisorEmail)
+      if (existing) {
+        return prev.map((m) =>
+          m.supervisorEmail === supervisorEmail
+            ? { ...m, titles: [...m.titles, title] }
+            : m
+        )
+      }
+      return [
+        ...prev,
+        {
+          titles: [title],
+          supervisorEmail: supervisor.email,
+          supervisorName: supervisor.fullName || `${supervisor.firstName} ${supervisor.lastName}`,
+        },
+      ]
+    })
+  }
+
+  function handleRemoveTitle(title: string, supervisorEmail: string) {
+    setMappings((prev) =>
+      prev
+        .map((m) =>
+          m.supervisorEmail === supervisorEmail
+            ? { ...m, titles: m.titles.filter((t) => t !== title) }
+            : m
+        )
+        .filter((m) => m.titles.length > 0)
+    )
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await updateSupervisorMappings(mappings)
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <Section
+      title="Supervisor Mappings"
+      icon={Link2}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {loading ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+      ) : titles.length === 0 ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          No staff titles found. Sync staff data first to see titles here.
+        </p>
+      ) : (
+        <>
+          <p className="mb-4 text-xs" style={{ color: "#64748b" }}>
+            Assign a supervisor to each job title. When staff submit forms, their
+            title determines who approves it.
+          </p>
+
+          {/* Current mappings */}
+          {mappings.length > 0 && (
+            <div className="mb-4 space-y-3">
+              {mappings.map((mapping) => (
+                <div
+                  key={mapping.supervisorEmail}
+                  className="rounded-lg p-3"
+                  style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+                >
+                  <p
+                    className="mb-2 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#1d2a5d" }}
+                  >
+                    {mapping.supervisorName}
+                    <span className="ml-2 font-normal normal-case tracking-normal" style={{ color: "#94a3b8" }}>
+                      {mapping.supervisorEmail}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {mapping.titles.map((title) => (
+                      <span
+                        key={title}
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                        style={{ background: "#e8ecf4", color: "#1d2a5d" }}
+                      >
+                        {title}
+                        <button
+                          onClick={() => handleRemoveTitle(title, mapping.supervisorEmail)}
+                          className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Unmapped titles */}
+          {unmappedTitles.length > 0 && (
+            <div className="mb-4">
+              <p
+                className="mb-2 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Unassigned Titles ({unmappedTitles.length})
+              </p>
+              <div className="space-y-2">
+                {unmappedTitles.map((title) => (
+                  <div
+                    key={title}
+                    className="flex items-center gap-3 rounded-lg p-2.5"
+                    style={{ background: "#fffbeb", border: "1px solid rgba(234,179,8,0.25)" }}
+                  >
+                    <span className="flex-1 text-sm" style={{ color: "#334155" }}>
+                      {title}
+                    </span>
+                    <select
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value) handleAssignTitle(title, e.target.value)
+                        e.target.value = ""
+                      }}
+                      className="input-neu text-xs"
+                      style={{ minWidth: 180 }}
+                    >
+                      <option value="">Assign supervisor…</option>
+                      {users
+                        .filter((u) => u.role === "supervisor" || u.role === "admin" || u.role === "business_office")
+                        .sort((a, b) => (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName))
+                        .map((u) => (
+                          <option key={u.uid} value={u.email}>
+                            {u.fullName || `${u.firstName} ${u.lastName}`}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-save flex items-center gap-2"
+          >
+            <Save size={14} />
+            {saving ? "Saving…" : saved ? "Saved!" : "Save Mappings"}
+          </button>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Staff Directory ─────────────────────────────────────────────────────────
 
 function StaffSection() {
   const [records, setRecords] = useState<StaffRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [pasteData, setPasteData] = useState("")
+  const [search, setSearch] = useState("")
+  const [filterBuilding, setFilterBuilding] = useState("")
+  const [filterTitle, setFilterTitle] = useState("")
 
   useEffect(() => {
     getStaffRecords().then((r) => {
@@ -927,133 +1303,128 @@ function StaffSection() {
     })
   }, [])
 
-  async function handleImport() {
-    const lines = pasteData
-      .trim()
-      .split("\n")
-      .filter((l) => l.trim())
-    const parsed = lines.map((line) => {
-      const parts = line.split("\t").map((s) => s.trim())
-      return {
-        firstName: parts[0] ?? "",
-        lastName: parts[1] ?? "",
-        email: parts[2] ?? "",
-        employeeId: parts[3] ?? "",
-        building: parts[4] ?? "",
-      }
-    }).filter((r) => r.email)
+  const buildings = [...new Set(records.map((r) => r.building).filter(Boolean))].sort()
+  const titles = [...new Set(records.map((r) => r.title).filter(Boolean))].sort()
 
-    if (parsed.length === 0) return
-    setImporting(true)
-    await importStaffRecords(parsed)
-    const updated = await getStaffRecords()
-    setRecords(updated)
-    setPasteData("")
-    setImporting(false)
-  }
-
-  async function handleDelete(email: string) {
-    await deleteStaffRecord(email)
-    setRecords((prev) => prev.filter((r) => r.email !== email))
-  }
+  const filtered = records.filter((r) => {
+    const q = search.toLowerCase()
+    const matchesSearch =
+      !q ||
+      `${r.firstName} ${r.lastName}`.toLowerCase().includes(q) ||
+      r.email.toLowerCase().includes(q) ||
+      r.employeeId.includes(q)
+    const matchesBuilding = !filterBuilding || r.building === filterBuilding
+    const matchesTitle = !filterTitle || r.title === filterTitle
+    return matchesSearch && matchesBuilding && matchesTitle
+  })
 
   return (
     <Section
-      title="Staff Data"
+      title="Staff Directory"
       icon={Users}
       expanded={expanded}
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+      ) : records.length === 0 ? (
         <p className="text-sm" style={{ color: "#64748b" }}>
-          Loading…
+          No staff records yet. Use Staff Sync to pull data from OneSync.
         </p>
       ) : (
         <>
           <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-            {records.length} staff record{records.length !== 1 && "s"} imported.
-            Paste tab-separated data below to import (columns: First Name, Last
-            Name, Email, Employee ID, Building).
+            {records.length} staff record{records.length !== 1 && "s"} synced from OneSync.
           </p>
 
-          <textarea
-            value={pasteData}
-            onChange={(e) => setPasteData(e.target.value)}
-            placeholder={"Jane\tSmith\tjane.smith@orono.k12.mn.us\t12345\tOrono Middle School"}
-            rows={4}
-            className="input-neu mb-3 w-full"
-            style={{ resize: "vertical", fontFamily: "monospace", fontSize: "0.75rem" }}
-          />
-          <button
-            onClick={handleImport}
-            disabled={importing || !pasteData.trim()}
-            className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            style={{
-              background:
-                "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-            }}
-          >
-            <Upload size={14} />
-            {importing ? "Importing…" : "Import Staff Data"}
-          </button>
+          {/* Search + Filters */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, email, or ID…"
+              className="input-neu flex-1"
+              style={{ minWidth: 200 }}
+            />
+            <select
+              value={filterBuilding}
+              onChange={(e) => setFilterBuilding(e.target.value)}
+              className="input-neu text-xs"
+              style={{ minWidth: 120 }}
+            >
+              <option value="">All Buildings</option>
+              {buildings.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+            <select
+              value={filterTitle}
+              onChange={(e) => setFilterTitle(e.target.value)}
+              className="input-neu text-xs"
+              style={{ minWidth: 140 }}
+            >
+              <option value="">All Titles</option>
+              {titles.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
 
-          {records.length > 0 && (
-            <div className="mt-4 max-h-64 overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr
-                    style={{
-                      color: "#64748b",
-                      borderBottom: "1px solid rgba(180,185,195,0.25)",
-                    }}
-                  >
-                    <th className="pb-2 font-semibold">Name</th>
-                    <th className="pb-2 font-semibold">Email</th>
-                    <th className="pb-2 font-semibold">ID</th>
-                    <th className="pb-2 font-semibold">Building</th>
-                    <th className="pb-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((r) => (
+          {filtered.length === 0 ? (
+            <p className="py-4 text-center text-xs" style={{ color: "#94a3b8" }}>
+              No records match your search.
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-xs" style={{ color: "#94a3b8" }}>
+                Showing {filtered.length} of {records.length}
+              </p>
+              <div className="max-h-80 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
                     <tr
-                      key={r.email}
                       style={{
-                        borderBottom: "1px solid rgba(180,185,195,0.15)",
+                        color: "#64748b",
+                        borderBottom: "1px solid rgba(180,185,195,0.25)",
                       }}
                     >
-                      <td className="py-2" style={{ color: "#1d2a5d" }}>
-                        {r.firstName} {r.lastName}
-                      </td>
-                      <td className="py-2" style={{ color: "#64748b" }}>
-                        {r.email}
-                      </td>
-                      <td className="py-2" style={{ color: "#64748b" }}>
-                        {r.employeeId}
-                      </td>
-                      <td className="py-2" style={{ color: "#64748b" }}>
-                        {r.building}
-                      </td>
-                      <td className="py-2">
-                        <button
-                          onClick={() => handleDelete(r.email)}
-                          className="cursor-pointer rounded p-1 transition-colors"
-                          style={{ color: "#94a3b8" }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.color = "#ad2122")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.color = "#94a3b8")
-                          }
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
+                      <th className="pb-2 font-semibold">Name</th>
+                      <th className="pb-2 font-semibold">Email</th>
+                      <th className="pb-2 font-semibold">ID</th>
+                      <th className="pb-2 font-semibold">Title</th>
+                      <th className="pb-2 font-semibold">Building</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filtered.map((r) => (
+                      <tr
+                        key={r.email}
+                        style={{
+                          borderBottom: "1px solid rgba(180,185,195,0.15)",
+                        }}
+                      >
+                        <td className="py-2" style={{ color: "#1d2a5d" }}>
+                          {r.firstName} {r.lastName}
+                        </td>
+                        <td className="py-2" style={{ color: "#64748b" }}>
+                          {r.email}
+                        </td>
+                        <td className="py-2" style={{ color: "#64748b" }}>
+                          {r.employeeId}
+                        </td>
+                        <td className="py-2" style={{ color: "#64748b" }}>
+                          {r.title}
+                        </td>
+                        <td className="py-2" style={{ color: "#64748b" }}>
+                          {r.building}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </>
       )}
@@ -1061,90 +1432,230 @@ function StaffSection() {
   )
 }
 
-// ─── Role Management ─────────────────────────────────────────────────────────
+// ─── Users & Roles ──────────────────────────────────────────────────────────
 
 function RolesSection() {
   const [users, setUsers] = useState<UserProfile[]>([])
+  const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [addEmail, setAddEmail] = useState("")
+  const [addRole, setAddRole] = useState<UserRole>("staff")
+  const [adding, setAdding] = useState(false)
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
-    getAllUsers().then((u) => {
+    Promise.all([getAllUsers(), getStaffRecords()]).then(([u, s]) => {
       setUsers(u)
+      setStaffRecords(s)
       setLoading(false)
     })
   }, [])
+
+  // Staff who don't have a user profile yet
+  const existingEmails = new Set(users.map((u) => u.email.toLowerCase()))
+  const availableStaff = staffRecords.filter(
+    (s) => !existingEmails.has(s.email.toLowerCase())
+  )
 
   async function handleRoleChange(uid: string, role: UserRole) {
     await updateUserRole(uid, role)
     setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, role } : u)))
   }
 
+  async function handleAddUser() {
+    if (!addEmail) return
+    setAdding(true)
+    const staff = staffRecords.find((s) => s.email.toLowerCase() === addEmail.toLowerCase())
+    const uid = `pre-${addEmail.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    const profile: Partial<UserProfile> = {
+      uid,
+      email: addEmail.toLowerCase(),
+      firstName: staff?.firstName ?? "",
+      lastName: staff?.lastName ?? "",
+      fullName: staff ? `${staff.firstName} ${staff.lastName}`.trim() : addEmail,
+      employeeId: staff?.employeeId ?? "",
+      building: staff?.building ?? "",
+      role: addRole,
+    }
+    await createOrUpdateUserProfile(uid, profile)
+    const updated = await getAllUsers()
+    setUsers(updated)
+    setAddEmail("")
+    setAddRole("staff")
+    setShowAdd(false)
+    setAdding(false)
+  }
+
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase()
+    return (
+      !q ||
+      u.fullName?.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.building?.toLowerCase().includes(q)
+    )
+  })
+
   return (
     <Section
-      title="User Roles"
+      title="Users & Roles"
       icon={Shield}
       expanded={expanded}
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>
-          Loading…
-        </p>
+        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
       ) : (
-        <div className="max-h-80 overflow-y-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr
-                style={{
-                  color: "#64748b",
-                  borderBottom: "1px solid rgba(180,185,195,0.25)",
-                }}
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users…"
+              className="input-neu flex-1"
+              style={{ minWidth: 200 }}
+            />
+            <button
+              onClick={() => setShowAdd(!showAdd)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+              style={{
+                color: "#1d2a5d",
+                background: showAdd ? "rgba(29,42,93,0.1)" : "transparent",
+                border: "1px solid rgba(180,185,195,0.25)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = "rgba(29,42,93,0.08)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = showAdd ? "rgba(29,42,93,0.1)" : "transparent")
+              }
+            >
+              <Plus size={13} />
+              Add User
+            </button>
+          </div>
+
+          {/* Add user form */}
+          {showAdd && (
+            <div
+              className="mb-4 rounded-lg p-3"
+              style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+            >
+              <p
+                className="mb-2 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
               >
-                <th className="pb-2 font-semibold">Name</th>
-                <th className="pb-2 font-semibold">Email</th>
-                <th className="pb-2 font-semibold">Building</th>
-                <th className="pb-2 font-semibold">Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr
-                  key={u.uid}
-                  style={{
-                    borderBottom: "1px solid rgba(180,185,195,0.15)",
-                  }}
-                >
-                  <td className="py-2" style={{ color: "#1d2a5d" }}>
-                    {u.fullName}
-                  </td>
-                  <td className="py-2" style={{ color: "#64748b" }}>
-                    {u.email}
-                  </td>
-                  <td className="py-2" style={{ color: "#64748b" }}>
-                    {u.building || "—"}
-                  </td>
-                  <td className="py-2">
-                    <select
-                      value={u.role}
-                      onChange={(e) =>
-                        handleRoleChange(u.uid, e.target.value as UserRole)
-                      }
-                      className="input-neu cursor-pointer text-xs"
-                      style={{ minWidth: "130px" }}
-                    >
-                      {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
+                Add from Staff Directory
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-1" style={{ minWidth: 200 }}>
+                  <select
+                    value={addEmail}
+                    onChange={(e) => setAddEmail(e.target.value)}
+                    className="input-neu w-full text-xs"
+                  >
+                    <option value="">Select staff member…</option>
+                    {availableStaff
+                      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+                      .map((s) => (
+                        <option key={s.email} value={s.email}>
+                          {s.firstName} {s.lastName} — {s.email}
                         </option>
                       ))}
-                    </select>
-                  </td>
+                  </select>
+                </div>
+                <div>
+                  <select
+                    value={addRole}
+                    onChange={(e) => setAddRole(e.target.value as UserRole)}
+                    className="input-neu text-xs"
+                    style={{ minWidth: 130 }}
+                  >
+                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={handleAddUser}
+                  disabled={adding || !addEmail}
+                  className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{
+                    background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  }}
+                >
+                  <Plus size={13} />
+                  {adding ? "Adding…" : "Add"}
+                </button>
+              </div>
+              {availableStaff.length === 0 && (
+                <p className="mt-2 text-xs" style={{ color: "#94a3b8" }}>
+                  All staff members already have user accounts.
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="mb-2 text-xs" style={{ color: "#94a3b8" }}>
+            {users.length} user{users.length !== 1 && "s"}
+          </p>
+          <div className="max-h-80 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr
+                  style={{
+                    color: "#64748b",
+                    borderBottom: "1px solid rgba(180,185,195,0.25)",
+                  }}
+                >
+                  <th className="pb-2 font-semibold">Name</th>
+                  <th className="pb-2 font-semibold">Email</th>
+                  <th className="pb-2 font-semibold">Building</th>
+                  <th className="pb-2 font-semibold">Role</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((u) => (
+                  <tr
+                    key={u.uid}
+                    style={{
+                      borderBottom: "1px solid rgba(180,185,195,0.15)",
+                    }}
+                  >
+                    <td className="py-2" style={{ color: "#1d2a5d" }}>
+                      {u.fullName || `${u.firstName} ${u.lastName}`.trim() || u.email}
+                    </td>
+                    <td className="py-2" style={{ color: "#64748b" }}>
+                      {u.email}
+                    </td>
+                    <td className="py-2" style={{ color: "#64748b" }}>
+                      {u.building || "—"}
+                    </td>
+                    <td className="py-2">
+                      <select
+                        value={u.role}
+                        onChange={(e) =>
+                          handleRoleChange(u.uid, e.target.value as UserRole)
+                        }
+                        className="input-neu cursor-pointer text-xs"
+                        style={{ minWidth: "130px" }}
+                      >
+                        {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Section>
   )
