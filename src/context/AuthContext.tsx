@@ -45,14 +45,16 @@ async function ensureUserProfile(
     email,
     firstName,
     lastName,
-    fullName: staff ? `${firstName} ${lastName}`.trim() : displayName ?? "",
+    fullName: staff ? `${firstName} ${lastName}`.trim() : (displayName ?? ""),
     employeeId: staff?.employeeId ?? "",
     building: staff?.building ?? "",
     supervisorEmail: supervisor?.email ?? "",
     photoURL: photoURL ?? "",
     role: "staff",
-    createdAt: serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
-    updatedAt: serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
+    createdAt:
+      serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
+    updatedAt:
+      serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
   }
 
   await setDoc(ref, profile)

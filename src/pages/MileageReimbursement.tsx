@@ -1,8 +1,18 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
-import { Plus, Trash2, CheckCircle, Send, Loader2, MapPin, X } from "lucide-react"
+import {
+  Plus,
+  Trash2,
+  CheckCircle,
+  Send,
+  Loader2,
+  MapPin,
+  X,
+} from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
-import AddressAutocomplete, { type QuickFill } from "@/components/forms/AddressAutocomplete"
+import AddressAutocomplete, {
+  type QuickFill,
+} from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import DatePicker from "@/components/forms/DatePicker"
 import { useAuth } from "@/hooks/useAuth"
@@ -143,7 +153,8 @@ export default function MileageReimbursement() {
           className="mx-auto max-w-lg rounded-xl p-10 text-center"
           style={{
             background: "#ffffff",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <CheckCircle
@@ -221,13 +232,18 @@ export default function MileageReimbursement() {
               <input
                 type="text"
                 value={accountCode}
-                onChange={(e) => setAccountCode(formatBudgetCode(e.target.value))}
+                onChange={(e) =>
+                  setAccountCode(formatBudgetCode(e.target.value))
+                }
                 placeholder="##-###-###-###-###-###"
                 required
                 maxLength={20}
                 className="input-neu w-full font-mono"
               />
-              <BudgetCodeBuilder value={accountCode} onChange={setAccountCode} />
+              <BudgetCodeBuilder
+                value={accountCode}
+                onChange={setAccountCode}
+              />
             </Field>
           </div>
         </Section>
@@ -414,7 +430,8 @@ function TripRow({
     if (trip.from.length >= 5) onCalcDistance(index, trip.from, val)
   }
 
-  const canCalc = trip.from.length >= 5 && trip.to.length >= 5 && !calculatingMiles
+  const canCalc =
+    trip.from.length >= 5 && trip.to.length >= 5 && !calculatingMiles
 
   return (
     <div className="py-3 first:pt-0 last:pb-0">

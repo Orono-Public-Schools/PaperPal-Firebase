@@ -8,7 +8,14 @@ initializeApp()
 const db = getFirestore()
 
 // OneSync column order: OneSyncID, BuildingInitials, Username, Email, EmployeeID, LastName, FirstName, Title
-const COL = { BUILDING: 1, EMAIL: 3, EMPLOYEE_ID: 4, LAST_NAME: 5, FIRST_NAME: 6, TITLE: 7 }
+const COL = {
+  BUILDING: 1,
+  EMAIL: 3,
+  EMPLOYEE_ID: 4,
+  LAST_NAME: 5,
+  FIRST_NAME: 6,
+  TITLE: 7,
+}
 
 async function syncStaffFromSheet() {
   // Read config from Firestore
@@ -78,10 +85,9 @@ async function syncStaffFromSheet() {
   await Promise.all(batches)
 
   // Update last sync timestamp
-  await db.doc("settings/app").set(
-    { lastStaffSync: FieldValue.serverTimestamp() },
-    { merge: true }
-  )
+  await db
+    .doc("settings/app")
+    .set({ lastStaffSync: FieldValue.serverTimestamp() }, { merge: true })
 
   return { rowCount: rows.length, imported: records.length }
 }
@@ -102,25 +108,24 @@ exports.scheduledStaffSync = onSchedule(
     if (!settings.staffSyncEnabled) return
 
     const result = await syncStaffFromSheet()
-    console.log(`Scheduled sync complete: ${result.imported} records from ${result.rowCount} rows`)
+    console.log(
+      `Scheduled sync complete: ${result.imported} records from ${result.rowCount} rows`
+    )
   }
 )
 
 // Callable function — admin can trigger sync manually from the UI
-exports.syncStaffNow = onCall(
-  { region: "us-central1" },
-  async (request) => {
-    // Verify the caller is an admin
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in")
-    }
-    const userSnap = await db.doc(`users/${request.auth.uid}`).get()
-    const user = userSnap.data()
-    if (!user || (user.role !== "admin" && user.role !== "business_office")) {
-      throw new HttpsError("permission-denied", "Admin access required")
-    }
-
-    const result = await syncStaffFromSheet()
-    return result
+exports.syncStaffNow = onCall({ region: "us-central1" }, async (request) => {
+  // Verify the caller is an admin
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in")
   }
-)
+  const userSnap = await db.doc(`users/${request.auth.uid}`).get()
+  const user = userSnap.data()
+  if (!user || (user.role !== "admin" && user.role !== "business_office")) {
+    throw new HttpsError("permission-denied", "Admin access required")
+  }
+
+  const result = await syncStaffFromSheet()
+  return result
+})

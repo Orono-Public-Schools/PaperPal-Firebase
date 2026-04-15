@@ -21,14 +21,15 @@ export default function Profile() {
   const [supervisorEmail, setSupervisorEmail] = useState(
     userProfile?.supervisorEmail ?? ""
   )
-  const [homeAddress, setHomeAddress] = useState(
-    userProfile?.homeAddress ?? ""
-  )
+  const [homeAddress, setHomeAddress] = useState(userProfile?.homeAddress ?? "")
 
   // Auto-focus home address field when navigated from mileage form
   useEffect(() => {
     if (searchParams.get("focus") === "homeAddress" && homeAddressRef.current) {
-      homeAddressRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+      homeAddressRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
       const input = homeAddressRef.current.querySelector("input")
       if (input) setTimeout(() => input.focus(), 400)
     }

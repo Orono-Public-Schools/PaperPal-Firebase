@@ -187,8 +187,8 @@ function GeneralSettingsSection() {
               Final Approver
             </p>
             <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
-              After a supervisor approves, the submission goes to this person for
-              final sign-off before it reaches the business office.
+              After a supervisor approves, the submission goes to this person
+              for final sign-off before it reaches the business office.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Name">
@@ -229,14 +229,28 @@ function GeneralSettingsSection() {
               <Field label="Fiscal Year Starts">
                 <select
                   value={settings.fiscalYearStartMonth}
-                  onChange={(e) => update("fiscalYearStartMonth", parseInt(e.target.value))}
+                  onChange={(e) =>
+                    update("fiscalYearStartMonth", parseInt(e.target.value))
+                  }
                   className="input-neu w-full cursor-pointer"
                 >
                   {[
-                    "January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December",
+                    "January",
+                    "February",
+                    "March",
+                    "April",
+                    "May",
+                    "June",
+                    "July",
+                    "August",
+                    "September",
+                    "October",
+                    "November",
+                    "December",
                   ].map((m, i) => (
-                    <option key={i} value={i}>{m}</option>
+                    <option key={i} value={i}>
+                      {m}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -275,8 +289,15 @@ const SEGMENT_LABELS: Record<BudgetSegmentType, string> = {
 }
 
 function BudgetSegmentsSection() {
-  const [segments, setSegments] = useState<Record<BudgetSegmentType, BudgetSegment[]>>({
-    fund: [], org: [], proj: [], fin: [], course: [], obj: [],
+  const [segments, setSegments] = useState<
+    Record<BudgetSegmentType, BudgetSegment[]>
+  >({
+    fund: [],
+    org: [],
+    proj: [],
+    fin: [],
+    course: [],
+    obj: [],
   })
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
@@ -284,7 +305,9 @@ function BudgetSegmentsSection() {
   const [saved, setSaved] = useState(false)
   const [pasteData, setPasteData] = useState("")
   const [pasteTarget, setPasteTarget] = useState<BudgetSegmentType>("fund")
-  const [openCategory, setOpenCategory] = useState<BudgetSegmentType | null>(null)
+  const [openCategory, setOpenCategory] = useState<BudgetSegmentType | null>(
+    null
+  )
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editCode, setEditCode] = useState("")
   const [editTitle, setEditTitle] = useState("")
@@ -303,8 +326,9 @@ function BudgetSegmentsSection() {
     if (!code.trim()) return
     setSegments((prev) => ({
       ...prev,
-      [type]: [...prev[type], { code: code.trim(), title: title.trim() }]
-        .sort((a, b) => a.code.localeCompare(b.code)),
+      [type]: [...prev[type], { code: code.trim(), title: title.trim() }].sort(
+        (a, b) => a.code.localeCompare(b.code)
+      ),
     }))
   }
 
@@ -342,7 +366,10 @@ function BudgetSegmentsSection() {
   }
 
   function handlePasteImport() {
-    const lines = pasteData.trim().split("\n").filter((l) => l.trim())
+    const lines = pasteData
+      .trim()
+      .split("\n")
+      .filter((l) => l.trim())
     for (const line of lines) {
       const parts = line.split("\t").map((s) => s.trim())
       if (parts[0]) {
@@ -360,7 +387,10 @@ function BudgetSegmentsSection() {
     setSaving(false)
   }
 
-  const totalCount = Object.values(segments).reduce((sum, arr) => sum + arr.length, 0)
+  const totalCount = Object.values(segments).reduce(
+    (sum, arr) => sum + arr.length,
+    0
+  )
 
   return (
     <Section
@@ -370,12 +400,15 @@ function BudgetSegmentsSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : (
         <>
           <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
-            {totalCount} segment{totalCount !== 1 && "s"} across {Object.values(segments).filter((a) => a.length > 0).length} categories.
-            These populate the Budget Code Builder on forms.
+            {totalCount} segment{totalCount !== 1 && "s"} across{" "}
+            {Object.values(segments).filter((a) => a.length > 0).length}{" "}
+            categories. These populate the Budget Code Builder on forms.
           </p>
 
           {/* Paste import */}
@@ -383,34 +416,51 @@ function BudgetSegmentsSection() {
             className="mb-4 rounded-xl p-3"
             style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
           >
-            <p className="mb-2 text-xs font-semibold" style={{ color: "#1d2a5d" }}>
+            <p
+              className="mb-2 text-xs font-semibold"
+              style={{ color: "#1d2a5d" }}
+            >
               Quick Import
             </p>
             <div className="mb-2 flex gap-2">
               <select
                 value={pasteTarget}
-                onChange={(e) => setPasteTarget(e.target.value as BudgetSegmentType)}
+                onChange={(e) =>
+                  setPasteTarget(e.target.value as BudgetSegmentType)
+                }
                 className="input-neu cursor-pointer text-xs"
                 style={{ maxWidth: "150px" }}
               >
-                {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((t) => (
-                  <option key={t} value={t}>{SEGMENT_LABELS[t]}</option>
-                ))}
+                {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map(
+                  (t) => (
+                    <option key={t} value={t}>
+                      {SEGMENT_LABELS[t]}
+                    </option>
+                  )
+                )}
               </select>
             </div>
             <textarea
               value={pasteData}
               onChange={(e) => setPasteData(e.target.value)}
-              placeholder={"Paste tab-separated: Code \\t Title\n01\tGeneral Fund\n02\tSpecial Revenue"}
+              placeholder={
+                "Paste tab-separated: Code \\t Title\n01\tGeneral Fund\n02\tSpecial Revenue"
+              }
               rows={3}
               className="input-neu mb-2 w-full"
-              style={{ resize: "vertical", fontFamily: "monospace", fontSize: "0.7rem" }}
+              style={{
+                resize: "vertical",
+                fontFamily: "monospace",
+                fontSize: "0.7rem",
+              }}
             />
             <button
               onClick={handlePasteImport}
               disabled={!pasteData.trim()}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)" }}
+              style={{
+                background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              }}
             >
               <Plus size={12} />
               Import to {SEGMENT_LABELS[pasteTarget]}
@@ -419,193 +469,268 @@ function BudgetSegmentsSection() {
 
           {/* Segment categories (collapsible) */}
           <div className="space-y-2">
-            {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((type) => {
-              const items = segments[type]
-              const isOpen = openCategory === type
+            {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map(
+              (type) => {
+                const items = segments[type]
+                const isOpen = openCategory === type
 
-              return (
-                <div
-                  key={type}
-                  className="rounded-lg"
-                  style={{ border: "1px solid #e2e5ea" }}
-                >
-                  {/* Category header */}
-                  <button
-                    onClick={() => setOpenCategory(isOpen ? null : type)}
-                    className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5"
-                    style={{ background: isOpen ? "#f8f9fb" : "transparent" }}
+                return (
+                  <div
+                    key={type}
+                    className="rounded-lg"
+                    style={{ border: "1px solid #e2e5ea" }}
                   >
-                    <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: "#1d2a5d" }}>
-                      {SEGMENT_LABELS[type]}
-                    </span>
-                    <div className="flex items-center gap-2">
+                    {/* Category header */}
+                    <button
+                      onClick={() => setOpenCategory(isOpen ? null : type)}
+                      className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5"
+                      style={{ background: isOpen ? "#f8f9fb" : "transparent" }}
+                    >
                       <span
-                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        style={{ background: "#eaecf5", color: "#4356a9" }}
+                        className="text-xs font-semibold tracking-wider uppercase"
+                        style={{ color: "#1d2a5d" }}
                       >
-                        {items.length}
+                        {SEGMENT_LABELS[type]}
                       </span>
-                      {isOpen ? (
-                        <ChevronUp size={14} style={{ color: "#64748b" }} />
-                      ) : (
-                        <ChevronDown size={14} style={{ color: "#64748b" }} />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Expanded content */}
-                  {isOpen && (
-                    <div className="border-t px-3 pb-3" style={{ borderColor: "#e2e5ea" }}>
-                      {items.length > 0 && (
-                        <div className="max-h-60 overflow-y-auto">
-                          <table className="w-full text-left text-xs">
-                            <thead>
-                              <tr style={{ borderBottom: "1px solid #e2e5ea" }}>
-                                <th className="py-2 pr-2 font-semibold" style={{ color: "#94a3b8", width: "80px" }}>Code</th>
-                                <th className="py-2 pr-2 font-semibold" style={{ color: "#94a3b8" }}>Title</th>
-                                <th className="py-2" style={{ width: "60px" }} />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {items.map((s, i) => {
-                                const isEditing = editingKey === `${type}-${i}`
-                                return (
-                                  <tr key={i} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                                    {isEditing ? (
-                                      <>
-                                        <td className="py-1.5 pr-2">
-                                          <input
-                                            type="text"
-                                            value={editCode}
-                                            onChange={(e) => setEditCode(e.target.value)}
-                                            className="input-neu font-mono text-xs"
-                                            style={{ width: "70px" }}
-                                          />
-                                        </td>
-                                        <td className="py-1.5 pr-2">
-                                          <input
-                                            type="text"
-                                            value={editTitle}
-                                            onChange={(e) => setEditTitle(e.target.value)}
-                                            className="input-neu w-full text-xs"
-                                          />
-                                        </td>
-                                        <td className="py-1.5">
-                                          <div className="flex gap-1">
-                                            <button
-                                              onClick={() => saveEdit(type, i)}
-                                              className="cursor-pointer rounded px-2 py-1 text-[10px] font-semibold text-white"
-                                              style={{ background: "#1d2a5d" }}
-                                            >
-                                              Save
-                                            </button>
-                                            <button
-                                              onClick={() => setEditingKey(null)}
-                                              className="cursor-pointer text-[10px] font-medium"
-                                              style={{ color: "#64748b" }}
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <td className="py-1.5 pr-2 font-mono font-semibold" style={{ color: "#1d2a5d" }}>
-                                          {s.code}
-                                        </td>
-                                        <td className="py-1.5 pr-2" style={{ color: "#64748b" }}>
-                                          {s.title}
-                                        </td>
-                                        <td className="py-1.5">
-                                          <div className="flex gap-1">
-                                            <button
-                                              onClick={() => startEdit(type, i)}
-                                              className="cursor-pointer rounded p-0.5 text-[10px] font-medium transition-colors"
-                                              style={{ color: "#4356a9" }}
-                                            >
-                                              Edit
-                                            </button>
-                                            <button
-                                              onClick={() => removeSegment(type, i)}
-                                              className="cursor-pointer rounded p-0.5 transition-colors"
-                                              style={{ color: "#94a3b8" }}
-                                              onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                                              onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-                                            >
-                                              <Trash2 size={12} />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </>
-                                    )}
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {/* Add new segment */}
-                      {addingTo === type ? (
-                        <div className="mt-2 flex items-end gap-2">
-                          <div>
-                            <label className="mb-0.5 block text-[10px] font-semibold uppercase" style={{ color: "#94a3b8" }}>Code</label>
-                            <input
-                              type="text"
-                              value={newCode}
-                              onChange={(e) => setNewCode(e.target.value)}
-                              placeholder="000"
-                              className="input-neu font-mono text-xs"
-                              style={{ width: "70px" }}
-                              autoFocus
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label className="mb-0.5 block text-[10px] font-semibold uppercase" style={{ color: "#94a3b8" }}>Title</label>
-                            <input
-                              type="text"
-                              value={newTitle}
-                              onChange={(e) => setNewTitle(e.target.value)}
-                              placeholder="Description"
-                              className="input-neu w-full text-xs"
-                              onKeyDown={(e) => e.key === "Enter" && handleAddSubmit(type)}
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleAddSubmit(type)}
-                            disabled={!newCode.trim()}
-                            className="cursor-pointer rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                            style={{ background: "#1d2a5d" }}
-                          >
-                            Add
-                          </button>
-                          <button
-                            onClick={() => { setAddingTo(null); setNewCode(""); setNewTitle("") }}
-                            className="cursor-pointer px-2 py-2 text-xs font-medium"
-                            style={{ color: "#64748b" }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setAddingTo(type)}
-                          className="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors"
-                          style={{ color: "#4356a9" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "#1d2a5d")}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = "#4356a9")}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ background: "#eaecf5", color: "#4356a9" }}
                         >
-                          <Plus size={12} />
-                          Add {SEGMENT_LABELS[type]} Code
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                          {items.length}
+                        </span>
+                        {isOpen ? (
+                          <ChevronUp size={14} style={{ color: "#64748b" }} />
+                        ) : (
+                          <ChevronDown size={14} style={{ color: "#64748b" }} />
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Expanded content */}
+                    {isOpen && (
+                      <div
+                        className="border-t px-3 pb-3"
+                        style={{ borderColor: "#e2e5ea" }}
+                      >
+                        {items.length > 0 && (
+                          <div className="max-h-60 overflow-y-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr
+                                  style={{ borderBottom: "1px solid #e2e5ea" }}
+                                >
+                                  <th
+                                    className="py-2 pr-2 font-semibold"
+                                    style={{ color: "#94a3b8", width: "80px" }}
+                                  >
+                                    Code
+                                  </th>
+                                  <th
+                                    className="py-2 pr-2 font-semibold"
+                                    style={{ color: "#94a3b8" }}
+                                  >
+                                    Title
+                                  </th>
+                                  <th
+                                    className="py-2"
+                                    style={{ width: "60px" }}
+                                  />
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {items.map((s, i) => {
+                                  const isEditing =
+                                    editingKey === `${type}-${i}`
+                                  return (
+                                    <tr
+                                      key={i}
+                                      style={{
+                                        borderBottom: "1px solid #f0f2f5",
+                                      }}
+                                    >
+                                      {isEditing ? (
+                                        <>
+                                          <td className="py-1.5 pr-2">
+                                            <input
+                                              type="text"
+                                              value={editCode}
+                                              onChange={(e) =>
+                                                setEditCode(e.target.value)
+                                              }
+                                              className="input-neu font-mono text-xs"
+                                              style={{ width: "70px" }}
+                                            />
+                                          </td>
+                                          <td className="py-1.5 pr-2">
+                                            <input
+                                              type="text"
+                                              value={editTitle}
+                                              onChange={(e) =>
+                                                setEditTitle(e.target.value)
+                                              }
+                                              className="input-neu w-full text-xs"
+                                            />
+                                          </td>
+                                          <td className="py-1.5">
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() =>
+                                                  saveEdit(type, i)
+                                                }
+                                                className="cursor-pointer rounded px-2 py-1 text-[10px] font-semibold text-white"
+                                                style={{
+                                                  background: "#1d2a5d",
+                                                }}
+                                              >
+                                                Save
+                                              </button>
+                                              <button
+                                                onClick={() =>
+                                                  setEditingKey(null)
+                                                }
+                                                className="cursor-pointer text-[10px] font-medium"
+                                                style={{ color: "#64748b" }}
+                                              >
+                                                Cancel
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <td
+                                            className="py-1.5 pr-2 font-mono font-semibold"
+                                            style={{ color: "#1d2a5d" }}
+                                          >
+                                            {s.code}
+                                          </td>
+                                          <td
+                                            className="py-1.5 pr-2"
+                                            style={{ color: "#64748b" }}
+                                          >
+                                            {s.title}
+                                          </td>
+                                          <td className="py-1.5">
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() =>
+                                                  startEdit(type, i)
+                                                }
+                                                className="cursor-pointer rounded p-0.5 text-[10px] font-medium transition-colors"
+                                                style={{ color: "#4356a9" }}
+                                              >
+                                                Edit
+                                              </button>
+                                              <button
+                                                onClick={() =>
+                                                  removeSegment(type, i)
+                                                }
+                                                className="cursor-pointer rounded p-0.5 transition-colors"
+                                                style={{ color: "#94a3b8" }}
+                                                onMouseEnter={(e) =>
+                                                  (e.currentTarget.style.color =
+                                                    "#ad2122")
+                                                }
+                                                onMouseLeave={(e) =>
+                                                  (e.currentTarget.style.color =
+                                                    "#94a3b8")
+                                                }
+                                              >
+                                                <Trash2 size={12} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </>
+                                      )}
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Add new segment */}
+                        {addingTo === type ? (
+                          <div className="mt-2 flex items-end gap-2">
+                            <div>
+                              <label
+                                className="mb-0.5 block text-[10px] font-semibold uppercase"
+                                style={{ color: "#94a3b8" }}
+                              >
+                                Code
+                              </label>
+                              <input
+                                type="text"
+                                value={newCode}
+                                onChange={(e) => setNewCode(e.target.value)}
+                                placeholder="000"
+                                className="input-neu font-mono text-xs"
+                                style={{ width: "70px" }}
+                                autoFocus
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label
+                                className="mb-0.5 block text-[10px] font-semibold uppercase"
+                                style={{ color: "#94a3b8" }}
+                              >
+                                Title
+                              </label>
+                              <input
+                                type="text"
+                                value={newTitle}
+                                onChange={(e) => setNewTitle(e.target.value)}
+                                placeholder="Description"
+                                className="input-neu w-full text-xs"
+                                onKeyDown={(e) =>
+                                  e.key === "Enter" && handleAddSubmit(type)
+                                }
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleAddSubmit(type)}
+                              disabled={!newCode.trim()}
+                              className="cursor-pointer rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                              style={{ background: "#1d2a5d" }}
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => {
+                                setAddingTo(null)
+                                setNewCode("")
+                                setNewTitle("")
+                              }}
+                              className="cursor-pointer px-2 py-2 text-xs font-medium"
+                              style={{ color: "#64748b" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setAddingTo(type)}
+                            className="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors"
+                            style={{ color: "#4356a9" }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.color = "#1d2a5d")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.color = "#4356a9")
+                            }
+                          >
+                            <Plus size={12} />
+                            Add {SEGMENT_LABELS[type]} Code
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+            )}
           </div>
 
           <div className="mt-4 flex items-center gap-3">
@@ -614,7 +739,10 @@ function BudgetSegmentsSection() {
               <span>{saving ? "Saving…" : "Save Segments"}</span>
             </button>
             {saved && (
-              <span className="text-sm font-medium" style={{ color: "#4356a9" }}>
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
                 Saved!
               </span>
             )}
@@ -694,7 +822,12 @@ function BuildingsSection() {
     setBuildings((prev) =>
       prev.map((b) =>
         b.id === id
-          ? { ...b, address: editAddress.trim(), approverEmail: editEmail.trim(), approverName: editName.trim() }
+          ? {
+              ...b,
+              address: editAddress.trim(),
+              approverEmail: editEmail.trim(),
+              approverName: editName.trim(),
+            }
           : b
       )
     )
@@ -902,8 +1035,7 @@ function BuildingsSection() {
               className="mt-3 flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
               style={{ color: "#4356a9" }}
               onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor =
-                  "rgba(67,86,169,0.06)")
+                (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.backgroundColor = "transparent")
@@ -959,21 +1091,34 @@ function StaffSyncSection() {
     setSyncResult(null)
     try {
       // Save config first so the Cloud Function has it
-      await updateAppSettings({ staffSheetId: sheetId, staffSheetRange: sheetRange })
-      const syncStaffNow = httpsCallable<unknown, { rowCount: number; imported: number }>(functions, "syncStaffNow")
+      await updateAppSettings({
+        staffSheetId: sheetId,
+        staffSheetRange: sheetRange,
+      })
+      const syncStaffNow = httpsCallable<
+        unknown,
+        { rowCount: number; imported: number }
+      >(functions, "syncStaffNow")
       const result = await syncStaffNow()
-      setSyncResult(`Synced ${result.data.imported} staff records from ${result.data.rowCount} rows.`)
+      setSyncResult(
+        `Synced ${result.data.imported} staff records from ${result.data.rowCount} rows.`
+      )
       // Refresh settings to get updated lastStaffSync
       const updated = await getAppSettings()
       setSettings(updated)
     } catch (err) {
-      setSyncResult(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`)
+      setSyncResult(
+        `Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`
+      )
     }
     setSyncing(false)
   }
 
   const lastSync = settings?.lastStaffSync
-    ? new Date((settings.lastStaffSync as unknown as { seconds: number }).seconds * 1000).toLocaleString()
+    ? new Date(
+        (settings.lastStaffSync as unknown as { seconds: number }).seconds *
+          1000
+      ).toLocaleString()
     : null
 
   const formatHour = (h: number) => {
@@ -990,9 +1135,12 @@ function StaffSyncSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-        Connect a Google Sheet (from OneSync) to sync staff data. Share the sheet
-        with <span style={{ fontFamily: "monospace", color: "#1d2a5d" }}>firebase-adminsdk-fbsvc@paperpal-orono.iam.gserviceaccount.com</span> as
-        a Viewer.
+        Connect a Google Sheet (from OneSync) to sync staff data. Share the
+        sheet with{" "}
+        <span style={{ fontFamily: "monospace", color: "#1d2a5d" }}>
+          firebase-adminsdk-fbsvc@paperpal-orono.iam.gserviceaccount.com
+        </span>{" "}
+        as a Viewer.
       </p>
 
       <div className="space-y-3">
@@ -1022,7 +1170,10 @@ function StaffSyncSection() {
         {/* Nightly sync schedule */}
         <div
           className="rounded-lg p-3"
-          style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+          style={{
+            background: "#f8f9fb",
+            border: "1px solid rgba(180,185,195,0.25)",
+          }}
         >
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -1038,7 +1189,9 @@ function StaffSyncSection() {
 
           {syncEnabled && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs" style={{ color: "#64748b" }}>Sync at</span>
+              <span className="text-xs" style={{ color: "#64748b" }}>
+                Sync at
+              </span>
               <select
                 value={syncHour}
                 onChange={(e) => setSyncHour(Number(e.target.value))}
@@ -1046,10 +1199,14 @@ function StaffSyncSection() {
                 style={{ width: 120 }}
               >
                 {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>{formatHour(i)}</option>
+                  <option key={i} value={i}>
+                    {formatHour(i)}
+                  </option>
                 ))}
               </select>
-              <span className="text-xs" style={{ color: "#64748b" }}>Central Time</span>
+              <span className="text-xs" style={{ color: "#64748b" }}>
+                Central Time
+              </span>
             </div>
           )}
         </div>
@@ -1080,7 +1237,11 @@ function StaffSyncSection() {
         {syncResult && (
           <p
             className="text-xs font-medium"
-            style={{ color: syncResult.startsWith("Sync failed") ? "#dc2626" : "#059669" }}
+            style={{
+              color: syncResult.startsWith("Sync failed")
+                ? "#dc2626"
+                : "#059669",
+            }}
           >
             {syncResult}
           </p>
@@ -1108,14 +1269,16 @@ function SupervisorMappingsSection() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    Promise.all([getSupervisorMappings(), getUniqueStaffTitles(), getAllUsers()]).then(
-      ([m, t, u]) => {
-        setMappings(m)
-        setTitles(t)
-        setUsers(u)
-        setLoading(false)
-      }
-    )
+    Promise.all([
+      getSupervisorMappings(),
+      getUniqueStaffTitles(),
+      getAllUsers(),
+    ]).then(([m, t, u]) => {
+      setMappings(m)
+      setTitles(t)
+      setUsers(u)
+      setLoading(false)
+    })
   }, [])
 
   // Titles that aren't assigned to any mapping yet
@@ -1141,7 +1304,9 @@ function SupervisorMappingsSection() {
         {
           titles: [title],
           supervisorEmail: supervisor.email,
-          supervisorName: supervisor.fullName || `${supervisor.firstName} ${supervisor.lastName}`,
+          supervisorName:
+            supervisor.fullName ||
+            `${supervisor.firstName} ${supervisor.lastName}`,
         },
       ]
     })
@@ -1175,7 +1340,9 @@ function SupervisorMappingsSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : titles.length === 0 ? (
         <p className="text-sm" style={{ color: "#64748b" }}>
           No staff titles found. Sync staff data first to see titles here.
@@ -1183,8 +1350,8 @@ function SupervisorMappingsSection() {
       ) : (
         <>
           <p className="mb-4 text-xs" style={{ color: "#64748b" }}>
-            Assign a supervisor to each job title. When staff submit forms, their
-            title determines who approves it.
+            Assign a supervisor to each job title. When staff submit forms,
+            their title determines who approves it.
           </p>
 
           {/* Current mappings */}
@@ -1194,14 +1361,20 @@ function SupervisorMappingsSection() {
                 <div
                   key={mapping.supervisorEmail}
                   className="rounded-lg p-3"
-                  style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+                  style={{
+                    background: "#f8f9fb",
+                    border: "1px solid rgba(180,185,195,0.25)",
+                  }}
                 >
                   <p
                     className="mb-2 text-xs font-semibold tracking-wider uppercase"
                     style={{ color: "#1d2a5d" }}
                   >
                     {mapping.supervisorName}
-                    <span className="ml-2 font-normal normal-case tracking-normal" style={{ color: "#94a3b8" }}>
+                    <span
+                      className="ml-2 font-normal tracking-normal normal-case"
+                      style={{ color: "#94a3b8" }}
+                    >
                       {mapping.supervisorEmail}
                     </span>
                   </p>
@@ -1214,7 +1387,9 @@ function SupervisorMappingsSection() {
                       >
                         {title}
                         <button
-                          onClick={() => handleRemoveTitle(title, mapping.supervisorEmail)}
+                          onClick={() =>
+                            handleRemoveTitle(title, mapping.supervisorEmail)
+                          }
                           className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
                           style={{ color: "#94a3b8" }}
                         >
@@ -1242,15 +1417,22 @@ function SupervisorMappingsSection() {
                   <div
                     key={title}
                     className="flex items-center gap-3 rounded-lg p-2.5"
-                    style={{ background: "#fffbeb", border: "1px solid rgba(234,179,8,0.25)" }}
+                    style={{
+                      background: "#fffbeb",
+                      border: "1px solid rgba(234,179,8,0.25)",
+                    }}
                   >
-                    <span className="flex-1 text-sm" style={{ color: "#334155" }}>
+                    <span
+                      className="flex-1 text-sm"
+                      style={{ color: "#334155" }}
+                    >
                       {title}
                     </span>
                     <select
                       defaultValue=""
                       onChange={(e) => {
-                        if (e.target.value) handleAssignTitle(title, e.target.value)
+                        if (e.target.value)
+                          handleAssignTitle(title, e.target.value)
                         e.target.value = ""
                       }}
                       className="input-neu text-xs"
@@ -1258,8 +1440,17 @@ function SupervisorMappingsSection() {
                     >
                       <option value="">Assign supervisor…</option>
                       {users
-                        .filter((u) => u.role === "supervisor" || u.role === "admin" || u.role === "business_office")
-                        .sort((a, b) => (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName))
+                        .filter(
+                          (u) =>
+                            u.role === "supervisor" ||
+                            u.role === "admin" ||
+                            u.role === "business_office"
+                        )
+                        .sort((a, b) =>
+                          (a.fullName || a.lastName).localeCompare(
+                            b.fullName || b.lastName
+                          )
+                        )
                         .map((u) => (
                           <option key={u.uid} value={u.email}>
                             {u.fullName || `${u.firstName} ${u.lastName}`}
@@ -1303,8 +1494,12 @@ function StaffSection() {
     })
   }, [])
 
-  const buildings = [...new Set(records.map((r) => r.building).filter(Boolean))].sort()
-  const titles = [...new Set(records.map((r) => r.title).filter(Boolean))].sort()
+  const buildings = [
+    ...new Set(records.map((r) => r.building).filter(Boolean)),
+  ].sort()
+  const titles = [
+    ...new Set(records.map((r) => r.title).filter(Boolean)),
+  ].sort()
 
   const filtered = records.filter((r) => {
     const q = search.toLowerCase()
@@ -1326,7 +1521,9 @@ function StaffSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : records.length === 0 ? (
         <p className="text-sm" style={{ color: "#64748b" }}>
           No staff records yet. Use Staff Sync to pull data from OneSync.
@@ -1334,7 +1531,8 @@ function StaffSection() {
       ) : (
         <>
           <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-            {records.length} staff record{records.length !== 1 && "s"} synced from OneSync.
+            {records.length} staff record{records.length !== 1 && "s"} synced
+            from OneSync.
           </p>
 
           {/* Search + Filters */}
@@ -1355,7 +1553,9 @@ function StaffSection() {
             >
               <option value="">All Buildings</option>
               {buildings.map((b) => (
-                <option key={b} value={b}>{b}</option>
+                <option key={b} value={b}>
+                  {b}
+                </option>
               ))}
             </select>
             <select
@@ -1366,13 +1566,18 @@ function StaffSection() {
             >
               <option value="">All Titles</option>
               {titles.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>
+                  {t}
+                </option>
               ))}
             </select>
           </div>
 
           {filtered.length === 0 ? (
-            <p className="py-4 text-center text-xs" style={{ color: "#94a3b8" }}>
+            <p
+              className="py-4 text-center text-xs"
+              style={{ color: "#94a3b8" }}
+            >
               No records match your search.
             </p>
           ) : (
@@ -1467,14 +1672,18 @@ function RolesSection() {
   async function handleAddUser() {
     if (!addEmail) return
     setAdding(true)
-    const staff = staffRecords.find((s) => s.email.toLowerCase() === addEmail.toLowerCase())
+    const staff = staffRecords.find(
+      (s) => s.email.toLowerCase() === addEmail.toLowerCase()
+    )
     const uid = `pre-${addEmail.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
     const profile: Partial<UserProfile> = {
       uid,
       email: addEmail.toLowerCase(),
       firstName: staff?.firstName ?? "",
       lastName: staff?.lastName ?? "",
-      fullName: staff ? `${staff.firstName} ${staff.lastName}`.trim() : addEmail,
+      fullName: staff
+        ? `${staff.firstName} ${staff.lastName}`.trim()
+        : addEmail,
       employeeId: staff?.employeeId ?? "",
       building: staff?.building ?? "",
       role: addRole,
@@ -1506,7 +1715,9 @@ function RolesSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1530,7 +1741,9 @@ function RolesSection() {
                 (e.currentTarget.style.backgroundColor = "rgba(29,42,93,0.08)")
               }
               onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = showAdd ? "rgba(29,42,93,0.1)" : "transparent")
+                (e.currentTarget.style.backgroundColor = showAdd
+                  ? "rgba(29,42,93,0.1)"
+                  : "transparent")
               }
             >
               <Plus size={13} />
@@ -1542,7 +1755,10 @@ function RolesSection() {
           {showAdd && (
             <div
               className="mb-4 rounded-lg p-3"
-              style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+              style={{
+                background: "#f8f9fb",
+                border: "1px solid rgba(180,185,195,0.25)",
+              }}
             >
               <p
                 className="mb-2 text-xs font-semibold tracking-wider uppercase"
@@ -1559,7 +1775,11 @@ function RolesSection() {
                   >
                     <option value="">Select staff member…</option>
                     {availableStaff
-                      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+                      .sort((a, b) =>
+                        `${a.lastName} ${a.firstName}`.localeCompare(
+                          `${b.lastName} ${b.firstName}`
+                        )
+                      )
                       .map((s) => (
                         <option key={s.email} value={s.email}>
                           {s.firstName} {s.lastName} — {s.email}
@@ -1575,7 +1795,9 @@ function RolesSection() {
                     style={{ minWidth: 130 }}
                   >
                     {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1584,7 +1806,8 @@ function RolesSection() {
                   disabled={adding || !addEmail}
                   className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                   style={{
-                    background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
                   }}
                 >
                   <Plus size={13} />
@@ -1626,7 +1849,9 @@ function RolesSection() {
                     }}
                   >
                     <td className="py-2" style={{ color: "#1d2a5d" }}>
-                      {u.fullName || `${u.firstName} ${u.lastName}`.trim() || u.email}
+                      {u.fullName ||
+                        `${u.firstName} ${u.lastName}`.trim() ||
+                        u.email}
                     </td>
                     <td className="py-2" style={{ color: "#64748b" }}>
                       {u.email}

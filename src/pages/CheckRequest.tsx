@@ -102,7 +102,8 @@ export default function CheckRequest() {
           className="mx-auto max-w-lg rounded-xl p-10 text-center"
           style={{
             background: "#ffffff",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <CheckCircle
@@ -390,7 +391,9 @@ function ExpenseRow({
             value={expense.code}
             required
             placeholder="##-###-###-###-###-###"
-            onChange={(e) => onChange(index, "code", formatBudgetCode(e.target.value))}
+            onChange={(e) =>
+              onChange(index, "code", formatBudgetCode(e.target.value))
+            }
             maxLength={20}
             className="input-neu font-mono"
           />

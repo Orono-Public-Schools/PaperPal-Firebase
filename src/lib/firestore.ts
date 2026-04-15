@@ -13,7 +13,16 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import type { Submission, UserProfile, Building, StaffRecord, AppSettings, BudgetSegmentType, BudgetSegment, SupervisorMapping } from "./types"
+import type {
+  Submission,
+  UserProfile,
+  Building,
+  StaffRecord,
+  AppSettings,
+  BudgetSegmentType,
+  BudgetSegment,
+  SupervisorMapping,
+} from "./types"
 
 // ─── ID Generator ─────────────────────────────────────────────────────────────
 
@@ -224,20 +233,32 @@ export async function updateAppSettings(
 
 // ─── Budget Segments ────────────────────────────────────────────────────────
 
-export async function getBudgetSegments(): Promise<Record<BudgetSegmentType, BudgetSegment[]>> {
+export async function getBudgetSegments(): Promise<
+  Record<BudgetSegmentType, BudgetSegment[]>
+> {
   const ref = doc(db, "settings", "budgetSegments")
   const snap = await getDoc(ref)
   const defaults: Record<BudgetSegmentType, BudgetSegment[]> = {
-    fund: [], org: [], proj: [], fin: [], course: [], obj: [],
+    fund: [],
+    org: [],
+    proj: [],
+    fin: [],
+    course: [],
+    obj: [],
   }
   if (snap.exists()) {
-    const data = { ...defaults, ...snap.data() as Record<BudgetSegmentType, BudgetSegment[]> }
+    const data = {
+      ...defaults,
+      ...(snap.data() as Record<BudgetSegmentType, BudgetSegment[]>),
+    }
     // Seed defaults if any category is empty
     const hasEmpty = Object.values(data).some((arr) => arr.length === 0)
     if (hasEmpty) {
       import("./defaultBudgetSegments").then(({ DEFAULT_SEGMENTS }) => {
         const merged = { ...data }
-        for (const key of Object.keys(DEFAULT_SEGMENTS) as BudgetSegmentType[]) {
+        for (const key of Object.keys(
+          DEFAULT_SEGMENTS
+        ) as BudgetSegmentType[]) {
           if (merged[key].length === 0) merged[key] = DEFAULT_SEGMENTS[key]
         }
         updateBudgetSegments(merged)
@@ -264,7 +285,9 @@ export async function updateBudgetSegments(
 export async function getSupervisorMappings(): Promise<SupervisorMapping[]> {
   const ref = doc(db, "settings", "supervisorMappings")
   const snap = await getDoc(ref)
-  return snap.exists() ? (snap.data().mappings as SupervisorMapping[]) ?? [] : []
+  return snap.exists()
+    ? ((snap.data().mappings as SupervisorMapping[]) ?? [])
+    : []
 }
 
 export async function updateSupervisorMappings(
@@ -296,7 +319,8 @@ export async function resolveSupervisor(
   if (staff.building) {
     const buildings = await getBuildings()
     const building = buildings.find((b) => b.name === staff.building)
-    if (building) return { email: building.approverEmail, name: building.approverName }
+    if (building)
+      return { email: building.approverEmail, name: building.approverName }
   }
 
   return null
@@ -304,7 +328,9 @@ export async function resolveSupervisor(
 
 // ─── Staff Sync Metadata ────────────────────────────────────────────────────
 
-export async function getStaffRecord(email: string): Promise<StaffRecord | null> {
+export async function getStaffRecord(
+  email: string
+): Promise<StaffRecord | null> {
   const ref = doc(db, "staff", email.toLowerCase())
   const snap = await getDoc(ref)
   return snap.exists() ? (snap.data() as StaffRecord) : null

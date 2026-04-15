@@ -74,19 +74,31 @@ export default function Dashboard() {
     tabParam === "pending" || tabParam === "history" ? tabParam : "new"
   )
 
-  const [submissionData, setSubmissionData] = useState<{ uid: string; data: Submission[] } | null>(null)
+  const [submissionData, setSubmissionData] = useState<{
+    uid: string
+    data: Submission[]
+  } | null>(null)
 
   useEffect(() => {
     if (!user || (activeTab !== "pending" && activeTab !== "history")) return
     let cancelled = false
     getUserSubmissions(user.uid)
-      .then((data) => { if (!cancelled) setSubmissionData({ uid: user.uid, data }) })
+      .then((data) => {
+        if (!cancelled) setSubmissionData({ uid: user.uid, data })
+      })
       .catch(console.error)
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [user, activeTab])
 
-  const submissions = (submissionData && submissionData.uid === user?.uid) ? submissionData.data : []
-  const loadingSubmissions = (activeTab === "pending" || activeTab === "history") && submissionData?.uid !== user?.uid
+  const submissions =
+    submissionData && submissionData.uid === user?.uid
+      ? submissionData.data
+      : []
+  const loadingSubmissions =
+    (activeTab === "pending" || activeTab === "history") &&
+    submissionData?.uid !== user?.uid
 
   const pendingSubmissions = submissions.filter((s) => s.status === "pending")
   const historySubmissions = submissions.filter((s) => s.status !== "pending")
@@ -122,7 +134,8 @@ export default function Dashboard() {
               style={
                 active
                   ? {
-                      background: "linear-gradient(135deg, #ad2122 0%, #c9393a 100%)",
+                      background:
+                        "linear-gradient(135deg, #ad2122 0%, #c9393a 100%)",
                       color: "white",
                       boxShadow: "0 2px 10px rgba(173,33,34,0.35)",
                     }
@@ -130,14 +143,18 @@ export default function Dashboard() {
               }
               onMouseEnter={(e) => {
                 if (!active) {
-                  ;(e.currentTarget as HTMLButtonElement).style.color = "#ffffff"
-                  ;(e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"
+                  ;(e.currentTarget as HTMLButtonElement).style.color =
+                    "#ffffff"
+                  ;(e.currentTarget as HTMLButtonElement).style.background =
+                    "rgba(255,255,255,0.08)"
                 }
               }}
               onMouseLeave={(e) => {
                 if (!active) {
-                  ;(e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)"
-                  ;(e.currentTarget as HTMLButtonElement).style.background = "transparent"
+                  ;(e.currentTarget as HTMLButtonElement).style.color =
+                    "rgba(255,255,255,0.5)"
+                  ;(e.currentTarget as HTMLButtonElement).style.background =
+                    "transparent"
                 }
               }}
             >
@@ -164,17 +181,21 @@ export default function Dashboard() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.maxHeight = "340px"
-                  e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.25)"
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 32px rgba(0,0,0,0.25)"
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.maxHeight = "180px"
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)"
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 16px rgba(0,0,0,0.15)"
                 }}
               >
                 {/* Color accent bar */}
                 <div
                   className="h-1 w-full"
-                  style={{ background: `linear-gradient(90deg, ${pill.from}, ${pill.to})` }}
+                  style={{
+                    background: `linear-gradient(90deg, ${pill.from}, ${pill.to})`,
+                  }}
                 />
 
                 {/* Icon */}
@@ -313,7 +334,8 @@ function SubmissionList({
             className="flex items-center justify-between rounded-xl px-5 py-4"
             style={{
               background: "#ffffff",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
             <div className="min-w-0">

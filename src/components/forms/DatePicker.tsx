@@ -10,8 +10,18 @@ interface Props {
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ]
 
 function pad(n: number) {
@@ -36,7 +46,10 @@ export default function DatePicker({
 }: Props) {
   const parsed = parseValue(value)
   const today = new Date()
-  const [viewOffset, setViewOffset] = useState<{ year: number; month: number } | null>(null)
+  const [viewOffset, setViewOffset] = useState<{
+    year: number
+    month: number
+  } | null>(null)
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -46,12 +59,19 @@ export default function DatePicker({
   const viewYear = viewOffset?.year ?? baseYear
   const viewMonth = viewOffset?.month ?? baseMonth
 
-  function setViewYear(y: number) { setViewOffset({ year: y, month: viewMonth }) }
-  function setViewMonth(m: number) { setViewOffset({ year: viewYear, month: m }) }
+  function setViewYear(y: number) {
+    setViewOffset({ year: y, month: viewMonth })
+  }
+  function setViewMonth(m: number) {
+    setViewOffset({ year: viewYear, month: m })
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }
@@ -90,7 +110,11 @@ export default function DatePicker({
   for (let i = 0; i < firstDay; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
-  const todayStr = toDateStr(today.getFullYear(), today.getMonth(), today.getDate())
+  const todayStr = toDateStr(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  )
   const displayValue = parsed
     ? `${pad(parsed.month + 1)}/${pad(parsed.day)}/${parsed.year}`
     : ""
@@ -103,7 +127,12 @@ export default function DatePicker({
         required={required}
         readOnly
         tabIndex={-1}
-        style={{ position: "absolute", opacity: 0, pointerEvents: "none", height: 0 }}
+        style={{
+          position: "absolute",
+          opacity: 0,
+          pointerEvents: "none",
+          height: 0,
+        }}
       />
       <button
         type="button"
@@ -123,7 +152,8 @@ export default function DatePicker({
           className="absolute z-50 mt-1 rounded-xl p-3"
           style={{
             background: "#ffffff",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
             border: "1px solid #e2e5ea",
             width: "260px",
           }}

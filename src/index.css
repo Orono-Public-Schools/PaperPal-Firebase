@@ -116,7 +116,9 @@
     font-size: 0.875rem;
     color: #1d2a5d;
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
     width: 100%;
   }
   .input-neu:focus {
@@ -173,8 +175,12 @@
     transform: scale(0.95);
   }
   @keyframes fly-1 {
-    from { transform: translateY(0.1em); }
-    to { transform: translateY(-0.1em); }
+    from {
+      transform: translateY(0.1em);
+    }
+    to {
+      transform: translateY(-0.1em);
+    }
   }
 
   .btn-save {

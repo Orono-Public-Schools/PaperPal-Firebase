@@ -5,6 +5,7 @@
 PaperPal is an internal web app for **Orono Public Schools** staff to submit and track expense forms through a supervisor approval workflow. Built by Joel Mellor.
 
 **Live forms:**
+
 - Check Request (`/forms/check`)
 - Mileage Reimbursement (`/forms/mileage`) — $0.72/mile rate
 - Travel Reimbursement (`/forms/travel`)
@@ -15,14 +16,14 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 
 ## Tech Stack
 
-| Layer | Tool |
-|---|---|
-| Frontend | React 18 + TypeScript + Vite |
-| Routing | React Router v7 (`useNavigate`, `useLocation`, `useSearchParams`) |
-| Styling | Tailwind CSS v4 (no config file — uses CSS `@import "tailwindcss"`) |
-| Backend | Firebase: Auth, Firestore, Hosting |
-| Auth | Google SSO — restricted to `@orono.k12.mn.us` domain |
-| Icons | Lucide React |
+| Layer    | Tool                                                                |
+| -------- | ------------------------------------------------------------------- |
+| Frontend | React 18 + TypeScript + Vite                                        |
+| Routing  | React Router v7 (`useNavigate`, `useLocation`, `useSearchParams`)   |
+| Styling  | Tailwind CSS v4 (no config file — uses CSS `@import "tailwindcss"`) |
+| Backend  | Firebase: Auth, Firestore, Hosting                                  |
+| Auth     | Google SSO — restricted to `@orono.k12.mn.us` domain                |
+| Icons    | Lucide React                                                        |
 
 ---
 
@@ -45,6 +46,7 @@ Input background:  #f4f5f7
 ```
 
 **Input fields** use the `.input-neu` utility class (defined in `src/index.css`):
+
 - Inset shadow, no border, `border-radius: 10px`, background `#f4f5f7`
 
 **Cards / Sections** use the `Section` local component pattern (each page defines its own inline — do not extract to a shared component unless asked).
@@ -106,13 +108,17 @@ src/
 ## Key Patterns
 
 ### Auth
+
 `useAuth()` returns `{ user: FirebaseUser | null, userProfile: UserProfile | null, signOut }`. All protected pages gate on both being non-null before submitting.
 
 ### Firestore submissions
+
 `createSubmission(data)` in `firestore.ts` generates a `REQ-XXXXX` id and writes to the `submissions` collection. Returns the id string.
 
 ### Form pages structure
+
 Each form page:
+
 1. Reads `userProfile` to pre-fill name, employeeId
 2. Full Name is a plain editable input (pre-filled from profile)
 3. Account Code field has `BudgetCodeBuilder` link below it + auto-format on typing
@@ -123,17 +129,20 @@ Each form page:
 8. On submit: calls `createSubmission`, shows a confirmation screen (replaces the form)
 
 ### Button classes
+
 - `btn-submit` — OPS red, Send icon fly animation on hover. Used for form submissions.
 - `btn-save` — OPS red solid, icon slides right on hover, dims on hover. Used for save actions.
 - `btn-cancel` — Transparent with border, grey fill on hover, X icon. Used for cancel actions.
 
 ### Google Maps integration
+
 - `AddressAutocomplete` — uses Places API (New) REST endpoint for suggestions
 - `calculateDrivingDistance` — uses Routes API REST endpoint
 - Quick-fill dropdown shows Home (from `userProfile.homeAddress`) and School (from `AppSettings.schoolAddress`)
 - API key stored in `VITE_GOOGLE_MAPS_API_KEY` env var
 
 ### Budget Code Builder
+
 - Full-screen modal, 6-segment step-by-step flow (Fund → Org → Proj → Fin → Course → Obj)
 - Format: `##-###-###-###-###-###`
 - Segments stored in Firestore `settings/budgetSegments` doc
@@ -141,27 +150,30 @@ Each form page:
 - Admin panel manages segments (collapsible categories, inline edit, add, delete, Quick Import)
 
 ### Dashboard tabs
+
 Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()` sets initial tab state.
 
 ### Navigation
+
 `AppHeader` has a hamburger that opens a right-side sidebar with sections: Navigate, New Request, My Submissions, Account, Admin (admin-only). Profile icon/name is clickable → `/profile`.
 
 ### Roles
+
 `UserProfile.role`: `"staff"` | `"admin"` | `"business_office"`. Admin UI shown when `role === "admin" || role === "business_office"`.
 
 ---
 
 ## Firestore Collections
 
-| Collection / Document | Purpose |
-|---|---|
-| `users/{uid}` | UserProfile documents |
-| `submissions/{REQ-XXXXX}` | All form submissions |
-| `buildings/{id}` | Building/org with name, address, approver |
-| `staff/{email}` | Imported staff records |
-| `settings/app` | AppSettings (email, school address, final approver, fiscal year) |
-| `settings/budgetSegments` | Budget code segments (fund, org, proj, fin, course, obj arrays) |
-| `mail/{id}` | Firebase Extension trigger docs for outbound email |
+| Collection / Document     | Purpose                                                          |
+| ------------------------- | ---------------------------------------------------------------- |
+| `users/{uid}`             | UserProfile documents                                            |
+| `submissions/{REQ-XXXXX}` | All form submissions                                             |
+| `buildings/{id}`          | Building/org with name, address, approver                        |
+| `staff/{email}`           | Imported staff records                                           |
+| `settings/app`            | AppSettings (email, school address, final approver, fiscal year) |
+| `settings/budgetSegments` | Budget code segments (fund, org, proj, fin, course, obj arrays)  |
+| `mail/{id}`               | Firebase Extension trigger docs for outbound email               |
 
 ---
 

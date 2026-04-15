@@ -90,7 +90,9 @@ export default function AddressAutocomplete({
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!open) return
 
-    const totalItems = showQuickFills ? validQuickFills.length : suggestions.length
+    const totalItems = showQuickFills
+      ? validQuickFills.length
+      : suggestions.length
     if (totalItems === 0) return
 
     if (e.key === "ArrowDown") {
@@ -141,83 +143,99 @@ export default function AddressAutocomplete({
         className="input-neu w-full"
         autoComplete="off"
       />
-      {open && (showQuickFills ? hasQuickFillContent : suggestions.length > 0) && (
-        <ul
-          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg py-1"
-          style={{
-            background: "#ffffff",
-            boxShadow:
-              "0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08)",
-            border: "1px solid #e2e5ea",
-          }}
-        >
-          {showQuickFills ? (
-            <>
-              {validQuickFills.map((q, i) => {
-                const Icon = IconMap[q.icon]
-                return (
+      {open &&
+        (showQuickFills ? hasQuickFillContent : suggestions.length > 0) && (
+          <ul
+            className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg py-1"
+            style={{
+              background: "#ffffff",
+              boxShadow:
+                "0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08)",
+              border: "1px solid #e2e5ea",
+            }}
+          >
+            {showQuickFills ? (
+              <>
+                {validQuickFills.map((q, i) => {
+                  const Icon = IconMap[q.icon]
+                  return (
+                    <li
+                      key={q.label}
+                      onMouseDown={() => selectSuggestion(q.address)}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
+                      style={{
+                        color: "#334155",
+                        background:
+                          i === activeIndex ? "#f0f2f5" : "transparent",
+                      }}
+                    >
+                      <Icon
+                        size={14}
+                        style={{ color: "#4356a9", flexShrink: 0 }}
+                      />
+                      <div className="min-w-0">
+                        <span
+                          className="font-medium"
+                          style={{ color: "#1d2a5d" }}
+                        >
+                          {q.label}
+                        </span>
+                        <span
+                          className="ml-1.5 text-xs"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          {q.address}
+                        </span>
+                      </div>
+                    </li>
+                  )
+                })}
+                {showAddHome && (
                   <li
-                    key={q.label}
-                    onMouseDown={() => selectSuggestion(q.address)}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
+                    onMouseDown={() => navigate("/profile?focus=homeAddress")}
+                    onMouseEnter={() => setActiveIndex(-1)}
+                    className="flex cursor-pointer items-center gap-2 border-t px-3 py-2 text-sm transition-colors duration-150"
                     style={{
-                      color: "#334155",
-                      background: i === activeIndex ? "#f0f2f5" : "transparent",
+                      borderColor: "rgba(180,185,195,0.25)",
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = "#f0f2f5"
+                      e.currentTarget.style.color = "#1d2a5d"
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "#4356a9"
                     }}
                   >
-                    <Icon size={14} style={{ color: "#4356a9", flexShrink: 0 }} />
-                    <div className="min-w-0">
-                      <span className="font-medium" style={{ color: "#1d2a5d" }}>
-                        {q.label}
-                      </span>
-                      <span className="ml-1.5 text-xs" style={{ color: "#94a3b8" }}>
-                        {q.address}
-                      </span>
-                    </div>
+                    <Plus
+                      size={14}
+                      style={{ color: "#4356a9", flexShrink: 0 }}
+                    />
+                    <span className="font-medium" style={{ color: "inherit" }}>
+                      Add home address
+                    </span>
                   </li>
-                )
-              })}
-              {showAddHome && (
+                )}
+              </>
+            ) : (
+              suggestions.map((s, i) => (
                 <li
-                  onMouseDown={() => navigate("/profile?focus=homeAddress")}
-                  onMouseEnter={() => setActiveIndex(-1)}
-                  className="flex cursor-pointer items-center gap-2 border-t px-3 py-2 text-sm transition-colors duration-150"
+                  key={s.placeId}
+                  onMouseDown={() => selectSuggestion(s.text)}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className="cursor-pointer px-3 py-2 text-sm"
                   style={{
-                    borderColor: "rgba(180,185,195,0.25)",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = "#f0f2f5"
-                    e.currentTarget.style.color = "#1d2a5d"
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = "transparent"
-                    e.currentTarget.style.color = "#4356a9"
+                    color: "#334155",
+                    background: i === activeIndex ? "#f0f2f5" : "transparent",
                   }}
                 >
-                  <Plus size={14} style={{ color: "#4356a9", flexShrink: 0 }} />
-                  <span className="font-medium" style={{ color: "inherit" }}>Add home address</span>
+                  {s.text}
                 </li>
-              )}
-            </>
-          ) : (
-            suggestions.map((s, i) => (
-              <li
-                key={s.placeId}
-                onMouseDown={() => selectSuggestion(s.text)}
-                onMouseEnter={() => setActiveIndex(i)}
-                className="cursor-pointer px-3 py-2 text-sm"
-                style={{
-                  color: "#334155",
-                  background: i === activeIndex ? "#f0f2f5" : "transparent",
-                }}
-              >
-                {s.text}
-              </li>
-            ))
-          )}
-        </ul>
-      )}
+              ))
+            )}
+          </ul>
+        )}
     </div>
   )
 }
