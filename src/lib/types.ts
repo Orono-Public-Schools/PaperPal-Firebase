@@ -1,5 +1,49 @@
 import { Timestamp } from "firebase/firestore"
 
+// ─── Roles ───────────────────────────────────────────────────────────────────
+
+export type UserRole = "staff" | "supervisor" | "business_office" | "admin"
+
+// ─── Buildings ───────────────────────────────────────────────────────────────
+
+export interface Building {
+  id: string
+  name: string
+  address?: string
+  approverEmail: string
+  approverName: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+// ─── Staff Records (imported) ────────────────────────────────────────────────
+
+export interface StaffRecord {
+  email: string
+  firstName: string
+  lastName: string
+  employeeId: string
+  building: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+// ─── App Settings ────────────────────────────────────────────────────────────
+
+export interface AppSettings {
+  senderEmail: string
+  senderName: string
+  replyToEmail: string
+  notifyOnSubmit: boolean
+  notifyOnApproval: boolean
+  notifyOnDenial: boolean
+  notifyOnRevision: boolean
+  schoolAddressLabel: string
+  schoolAddress: string
+  finalApproverEmail: string
+  finalApproverName: string
+}
+
 // ─── User ────────────────────────────────────────────────────────────────────
 
 export interface UserProfile {
@@ -12,8 +56,10 @@ export interface UserProfile {
   building?: string
   buildingOverride?: string
   supervisorEmail?: string
+  homeAddress?: string
   savedSignatureUrl?: string
-  role: "staff" | "admin" | "business_office"
+  photoURL?: string
+  role: UserRole
   allowedFormTypes?: string[]
   createdAt: Timestamp
   updatedAt: Timestamp

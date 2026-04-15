@@ -1,17 +1,8 @@
 import { createContext } from "react"
 import type { User } from "firebase/auth"
+import type { UserProfile } from "@/lib/types"
 
-export interface UserProfile {
-  uid: string
-  email: string
-  firstName: string
-  lastName: string
-  fullName: string
-  photoURL: string
-  role: "staff" | "admin" | "business_office"
-  createdAt: unknown
-  updatedAt: unknown
-}
+export type { UserProfile }
 
 export interface AuthContextValue {
   user: User | null

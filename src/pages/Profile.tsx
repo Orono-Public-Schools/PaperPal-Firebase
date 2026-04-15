@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react"
-import { Check, Trash2, Pencil, Type } from "lucide-react"
+import { Check, Trash2, Pencil, Type, Save } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
+import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import { createOrUpdateUserProfile } from "@/lib/firestore"
 
@@ -16,6 +17,9 @@ export default function Profile() {
   const [building, setBuilding] = useState(userProfile?.building ?? "")
   const [supervisorEmail, setSupervisorEmail] = useState(
     userProfile?.supervisorEmail ?? ""
+  )
+  const [homeAddress, setHomeAddress] = useState(
+    userProfile?.homeAddress ?? ""
   )
 
   // Signature
@@ -132,6 +136,7 @@ export default function Profile() {
         employeeId,
         building,
         supervisorEmail,
+        homeAddress,
         ...(sigDataUrl ? { savedSignatureUrl: sigDataUrl } : {}),
       })
       if (sigDataUrl) setSavedSig(sigDataUrl)
@@ -145,10 +150,10 @@ export default function Profile() {
   return (
     <AppLayout>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
           Profile Settings
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+        <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
           Your saved details pre-fill forms automatically.
         </p>
       </div>
@@ -202,6 +207,13 @@ export default function Profile() {
                 className="input-neu"
               />
             </Field>
+            <Field label="Home Address">
+              <AddressAutocomplete
+                value={homeAddress}
+                onChange={setHomeAddress}
+                placeholder="Used as default 'From' on mileage forms"
+              />
+            </Field>
             <Field label="Email">
               <input
                 type="text"
@@ -221,11 +233,10 @@ export default function Profile() {
 
           {/* Tab switcher */}
           <div
-            className="mb-4 inline-flex gap-1 rounded-xl p-1"
+            className="mb-4 inline-flex gap-1 rounded-lg border p-1"
             style={{
-              background: "linear-gradient(145deg, #eaecf0, #f5f6f8)",
-              boxShadow:
-                "inset 2px 2px 5px rgba(180,185,195,0.3), inset -2px -2px 5px rgba(255,255,255,0.7)",
+              background: "#f8f9fb",
+              borderColor: "#e2e5ea",
             }}
           >
             {(["draw", "type"] as SigTab[]).map((t) => (
@@ -255,15 +266,14 @@ export default function Profile() {
             <div>
               <canvas
                 ref={canvasRef}
-                width={600}
-                height={150}
+                width={800}
+                height={250}
                 className="w-full touch-none rounded-[14px]"
                 style={{
-                  background: "#f4f5f7",
-                  boxShadow:
-                    "inset 2px 2px 5px rgba(180,185,195,0.35), inset -2px -2px 5px rgba(255,255,255,0.9)",
+                  background: "#f8f9fb",
+                  border: "1px solid #e2e5ea",
                   cursor: "crosshair",
-                  maxHeight: "150px",
+                  maxHeight: "250px",
                 }}
                 onMouseDown={startDraw}
                 onMouseMove={draw}
@@ -338,26 +348,19 @@ export default function Profile() {
         </Section>
 
         {/* Save button */}
-        <div className="flex justify-end gap-3">
+        <div className="flex items-center justify-end gap-3">
           {saved && (
             <span
               className="flex items-center gap-1.5 text-sm font-medium"
-              style={{ color: "#059669" }}
+              style={{ color: "#4356a9" }}
             >
               <Check size={15} />
               Saved!
             </span>
           )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
-            style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
-            }}
-          >
-            {saving ? "Saving…" : "Save Profile"}
+          <button type="submit" disabled={saving} className="btn-save">
+            <Save size={16} />
+            <span>{saving ? "Saving…" : "Save Profile"}</span>
           </button>
         </div>
       </form>
@@ -374,11 +377,10 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-[18px] p-5"
+      className="rounded-xl p-5"
       style={{
-        background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-        boxShadow:
-          "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+        background: "#ffffff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
       }}
     >
       <h2

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600;700&family=Caveat:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Caveat:wght@400;500;600;700&display=swap");
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -7,7 +7,7 @@
 
 @theme {
   --font-sans:
-    "Roboto", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   --font-signature: "Caveat", cursive;
 
@@ -102,36 +102,149 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-color: #f0f2f5;
+    background: linear-gradient(160deg, #0f1a3e 0%, #1a2754 40%, #1e2d5a 100%);
+    min-height: 100vh;
   }
 }
 
 @layer components {
   .input-neu {
-    background: #f4f5f7;
-    border: none;
-    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e5ea;
+    border-radius: 8px;
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
     color: #1d2a5d;
-    box-shadow:
-      inset 2px 2px 4px rgba(180, 185, 195, 0.3),
-      inset -2px -2px 4px rgba(255, 255, 255, 0.9);
     outline: none;
-    transition: box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
     width: 100%;
   }
   .input-neu:focus {
-    box-shadow:
-      inset 2px 2px 5px rgba(180, 185, 195, 0.35),
-      inset -2px -2px 5px rgba(255, 255, 255, 1),
-      0 0 0 2px rgba(45, 63, 137, 0.2);
+    border-color: #2d3f89;
+    box-shadow: 0 0 0 3px rgba(45, 63, 137, 0.1);
   }
   .input-neu:read-only {
+    background: #f8f9fb;
     color: #94a3b8;
     cursor: default;
   }
   .input-neu::placeholder {
     color: #94a3b8;
+  }
+
+  .btn-submit {
+    background: #ad2122;
+    color: white;
+    padding: 0.6em 1em 0.6em 0.9em;
+    display: inline-flex;
+    align-items: center;
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .btn-submit:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .btn-submit span {
+    display: block;
+    margin-left: 0.3em;
+    transition: all 0.3s ease-in-out;
+  }
+  .btn-submit svg {
+    display: block;
+    transform-origin: center center;
+    transition: transform 0.3s ease-in-out;
+  }
+  .btn-submit:hover:not(:disabled) .svg-wrapper {
+    animation: fly-1 0.6s ease-in-out infinite alternate;
+  }
+  .btn-submit:hover:not(:disabled) svg {
+    transform: translateX(1.2em) rotate(45deg) scale(1.1);
+  }
+  .btn-submit:hover:not(:disabled) span {
+    transform: translateX(10em);
+  }
+  .btn-submit:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+  @keyframes fly-1 {
+    from { transform: translateY(0.1em); }
+    to { transform: translateY(-0.1em); }
+  }
+
+  .btn-save {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: #ad2122;
+    color: #fff;
+    border: none;
+    border-radius: 11px;
+    padding: 0.55em 1.4em 0.55em 0.9em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    overflow: hidden;
+  }
+  .btn-save:hover:not(:disabled) {
+    background: #8a1a1b;
+  }
+  .btn-save:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+  .btn-save:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .btn-save svg {
+    display: block;
+    margin-right: 0.5em;
+    transition: transform 0.4s ease;
+  }
+  .btn-save:hover:not(:disabled) svg {
+    transform: translateX(3px);
+  }
+  .btn-save span {
+    display: block;
+  }
+
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 11px;
+    padding: 0.55em 1.4em 0.55em 0.9em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    overflow: hidden;
+  }
+  .btn-cancel:hover {
+    background: rgba(148, 163, 184, 0.15);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #fff;
+  }
+  .btn-cancel:active {
+    transform: scale(0.95);
+  }
+  .btn-cancel svg {
+    display: block;
+    margin-right: 0.5em;
+    transition: transform 0.4s ease;
+  }
+  .btn-cancel:hover svg {
+    transform: translateX(-3px);
+  }
+  .btn-cancel span {
+    display: block;
   }
 }

@@ -1,13 +1,15 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
-import { Plus, Trash2, CheckCircle } from "lucide-react"
+import { Plus, Trash2, CheckCircle, Send, Loader2, MapPin, X } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import NameField from "@/components/forms/NameField"
+import AddressAutocomplete, { type QuickFill } from "@/components/forms/AddressAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import { createSubmission } from "@/lib/firestore"
+import { createSubmission, getAppSettings } from "@/lib/firestore"
+import { calculateDrivingDistance } from "@/lib/googleMaps"
 import type { MileageTrip } from "@/lib/types"
 
-const RATE = 0.7
+const RATE = 0.72
 
 function emptyTrip(): MileageTrip {
   return {
@@ -35,6 +37,46 @@ export default function MileageReimbursement() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
+  const [calculatingMiles, setCalculatingMiles] = useState<number | null>(null)
+  const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+
+  // Build quick-fill options for From/To fields
+  useEffect(() => {
+    const fills: QuickFill[] = []
+
+    if (userProfile?.homeAddress) {
+      fills.push({
+        label: "Home",
+        address: userProfile.homeAddress,
+        icon: "home",
+      })
+    }
+
+    getAppSettings().then((settings) => {
+      if (settings.schoolAddress) {
+        fills.push({
+          label: settings.schoolAddressLabel || "School",
+          address: settings.schoolAddress,
+          icon: "building",
+        })
+      }
+      setQuickFills(fills)
+    })
+  }, [userProfile?.homeAddress])
+
+  // Auto-calculate distance when From or To changes
+  async function calcDistance(index: number, from: string, to: string) {
+    if (from.length < 5 || to.length < 5) return
+
+    setCalculatingMiles(index)
+    const miles = await calculateDrivingDistance(from, to)
+    setCalculatingMiles((prev) => (prev === index ? null : prev))
+    if (miles !== null) {
+      setTrips((prev) =>
+        prev.map((t, i) => (i === index ? { ...t, miles } : t))
+      )
+    }
+  }
 
   const totalMiles = trips.reduce(
     (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
@@ -96,17 +138,16 @@ export default function MileageReimbursement() {
     return (
       <AppLayout>
         <div
-          className="mx-auto max-w-lg rounded-[20px] p-10 text-center"
+          className="mx-auto max-w-lg rounded-xl p-10 text-center"
           style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "6px 6px 14px rgba(180,185,195,0.4), -6px -6px 14px rgba(255,255,255,0.8)",
+            background: "#ffffff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <CheckCircle
             size={48}
             className="mx-auto mb-4"
-            style={{ color: "#059669" }}
+            style={{ color: "#4356a9" }}
           />
           <h2 className="text-xl font-bold" style={{ color: "#1d2a5d" }}>
             Submitted!
@@ -120,7 +161,7 @@ export default function MileageReimbursement() {
           </p>
           <p
             className="mt-1 text-sm font-semibold"
-            style={{ color: "#059669" }}
+            style={{ color: "#4356a9" }}
           >
             ${totalReimbursement.toFixed(2)} for {totalMiles.toFixed(1)} miles
           </p>
@@ -143,11 +184,11 @@ export default function MileageReimbursement() {
     <AppLayout>
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
           Mileage Reimbursement
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
-          Reimbursed at <span className="font-semibold">$0.70 per mile</span>.
+        <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+          Reimbursed at <span className="font-semibold">$0.72 per mile</span>.
           Enter each trip below and submit for supervisor approval.
         </p>
       </div>
@@ -196,6 +237,10 @@ export default function MileageReimbursement() {
                 index={i}
                 onChange={updateTrip}
                 onRemove={trips.length > 1 ? () => removeTrip(i) : undefined}
+                onCalcDistance={(idx, from, to) => calcDistance(idx, from, to)}
+                calculatingMiles={calculatingMiles === i}
+                quickFills={quickFills}
+                showAddHome={!userProfile?.homeAddress}
               />
             ))}
           </div>
@@ -203,9 +248,9 @@ export default function MileageReimbursement() {
             type="button"
             onClick={addTrip}
             className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
-            style={{ color: "#059669" }}
+            style={{ color: "#4356a9" }}
             onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(5,150,105,0.06)")
+              (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
             }
             onMouseLeave={(e) =>
               (e.currentTarget.style.backgroundColor = "transparent")
@@ -218,11 +263,10 @@ export default function MileageReimbursement() {
 
         {/* Totals */}
         <div
-          className="rounded-[18px] p-5"
+          className="rounded-xl p-5"
           style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+            background: "#ffffff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
         >
           <div className="flex items-center justify-between">
@@ -238,7 +282,7 @@ export default function MileageReimbursement() {
               Rate
             </span>
             <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-              $0.70 / mile
+              $0.72 / mile
             </span>
           </div>
           <div
@@ -248,7 +292,7 @@ export default function MileageReimbursement() {
             <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
               Total Reimbursement
             </span>
-            <span className="text-lg font-bold" style={{ color: "#059669" }}>
+            <span className="text-lg font-bold" style={{ color: "#4356a9" }}>
               ${totalReimbursement.toFixed(2)}
             </span>
           </div>
@@ -259,27 +303,16 @@ export default function MileageReimbursement() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-medium transition-all duration-200"
-            style={{ color: "#64748b" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(100,116,139,0.08)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
+            className="btn-cancel"
           >
-            Cancel
+            <X size={16} />
+            <span>Cancel</span>
           </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
-            style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
-            }}
-          >
-            {submitting ? "Submitting…" : "Submit Request"}
+          <button type="submit" disabled={submitting} className="btn-submit">
+            <div className="svg-wrapper">
+              <Send size={16} />
+            </div>
+            <span>{submitting ? "Submitting…" : "Submit"}</span>
           </button>
         </div>
       </form>
@@ -298,11 +331,10 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-[18px] p-5"
+      className="rounded-xl p-5"
       style={{
-        background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-        boxShadow:
-          "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+        background: "#ffffff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
       }}
     >
       <h2
@@ -341,6 +373,10 @@ function TripRow({
   index,
   onChange,
   onRemove,
+  onCalcDistance,
+  calculatingMiles,
+  quickFills,
+  showAddHome,
 }: {
   trip: MileageTrip
   index: number
@@ -350,7 +386,28 @@ function TripRow({
     value: MileageTrip[K]
   ) => void
   onRemove?: () => void
+  onCalcDistance: (index: number, from: string, to: string) => void
+  calculatingMiles: boolean
+  quickFills: QuickFill[]
+  showAddHome: boolean
 }) {
+  function handleFromChange(val: string) {
+    onChange(index, "from", val)
+  }
+  function handleToChange(val: string) {
+    onChange(index, "to", val)
+  }
+  function handleFromSelect(val: string) {
+    onChange(index, "from", val)
+    if (trip.to.length >= 5) onCalcDistance(index, val, trip.to)
+  }
+  function handleToSelect(val: string) {
+    onChange(index, "to", val)
+    if (trip.from.length >= 5) onCalcDistance(index, trip.from, val)
+  }
+
+  const canCalc = trip.from.length >= 5 && trip.to.length >= 5 && !calculatingMiles
+
   return (
     <div className="py-3 first:pt-0 last:pb-0">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -364,38 +421,62 @@ function TripRow({
           />
         </Field>
         <Field label="From">
-          <input
-            type="text"
+          <AddressAutocomplete
             value={trip.from}
+            onChange={handleFromChange}
+            onSelect={handleFromSelect}
+            placeholder="Origin address"
             required
-            placeholder="Origin"
-            onChange={(e) => onChange(index, "from", e.target.value)}
-            className="input-neu w-full"
+            quickFills={quickFills}
+            showAddHome={showAddHome}
           />
         </Field>
         <Field label="To">
-          <input
-            type="text"
+          <AddressAutocomplete
             value={trip.to}
+            onChange={handleToChange}
+            onSelect={handleToSelect}
+            placeholder="Destination address"
             required
-            placeholder="Destination"
-            onChange={(e) => onChange(index, "to", e.target.value)}
-            className="input-neu w-full"
+            quickFills={quickFills}
+            showAddHome={showAddHome}
           />
         </Field>
         <Field label="Miles (one way)">
-          <input
-            type="number"
-            value={trip.miles || ""}
-            required
-            min={0}
-            step="0.1"
-            placeholder="0.0"
-            onChange={(e) =>
-              onChange(index, "miles", parseFloat(e.target.value) || 0)
-            }
-            className="input-neu w-full"
-          />
+          <div className="flex gap-1.5">
+            <input
+              type="number"
+              value={trip.miles || ""}
+              required
+              min={0}
+              step="0.1"
+              placeholder="0.0"
+              onChange={(e) =>
+                onChange(index, "miles", parseFloat(e.target.value) || 0)
+              }
+              className="input-neu w-full"
+            />
+            <button
+              type="button"
+              disabled={!canCalc}
+              onClick={() => onCalcDistance(index, trip.from, trip.to)}
+              className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
+              style={{ color: calculatingMiles ? "#4356a9" : "#64748b" }}
+              title="Calculate distance"
+              onMouseEnter={(e) => {
+                if (canCalc) e.currentTarget.style.color = "#4356a9"
+              }}
+              onMouseLeave={(e) => {
+                if (!calculatingMiles) e.currentTarget.style.color = "#64748b"
+              }}
+            >
+              {calculatingMiles ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <MapPin size={16} />
+              )}
+            </button>
+          </div>
         </Field>
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -418,13 +499,13 @@ function TripRow({
               type="checkbox"
               checked={trip.isRoundTrip}
               onChange={(e) => onChange(index, "isRoundTrip", e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-[#059669]"
+              className="h-4 w-4 cursor-pointer accent-[#4356a9]"
             />
             Round trip
             {trip.isRoundTrip && trip.miles > 0 && (
               <span
                 className="text-xs font-semibold"
-                style={{ color: "#059669" }}
+                style={{ color: "#4356a9" }}
               >
                 ({(trip.miles * 2).toFixed(1)} mi total)
               </span>

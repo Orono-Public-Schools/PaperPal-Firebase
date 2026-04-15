@@ -38,11 +38,10 @@ export default function Login() {
 
       {/* Card */}
       <div
-        className="relative w-full max-w-sm rounded-[20px] p-8 text-center"
+        className="relative w-full max-w-sm rounded-xl p-8 text-center"
         style={{
-          background: "linear-gradient(145deg, #fafbfd, #eaecf0)",
-          boxShadow:
-            "3px 3px 8px rgba(180,185,195,0.22), -3px -3px 8px rgba(255,255,255,0.5)",
+          background: "#ffffff",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
         {/* Logo mark */}

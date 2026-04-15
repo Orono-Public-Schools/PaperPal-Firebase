@@ -12,15 +12,15 @@ const FORM_TYPES = [
     title: "Check Request",
     description: "Submit a payment request for a vendor or service.",
     icon: FileText,
-    pill: { from: "#1e3a8a", to: "#3b82f6" },
+    pill: { from: "#1d2a5d", to: "#2d3f89" },
     path: "/forms/check",
   },
   {
     id: "mileage",
     title: "Mileage Reimbursement",
-    description: "Claim mileage reimbursement at $0.70 per mile.",
+    description: "Claim mileage reimbursement at $0.72 per mile.",
     icon: Car,
-    pill: { from: "#059669", to: "#34d399" },
+    pill: { from: "#ad2122", to: "#c9393a" },
     path: "/forms/mileage",
   },
   {
@@ -29,7 +29,7 @@ const FORM_TYPES = [
     description:
       "Request reimbursement for travel with estimated and actual expenses.",
     icon: Briefcase,
-    pill: { from: "#8b5cf6", to: "#a855f7" },
+    pill: { from: "#4356a9", to: "#6b7fd4" },
     path: "/forms/travel",
   },
 ]
@@ -46,7 +46,7 @@ const STATUS_STYLES: Record<
 > = {
   pending: { label: "Pending", bg: "rgba(245,158,11,0.12)", color: "#b45309" },
   reviewed: {
-    label: "Reviewed",
+    label: "Awaiting Final Approval",
     bg: "rgba(59,130,246,0.12)",
     color: "#1d4ed8",
   },
@@ -93,12 +93,12 @@ export default function Dashboard() {
     <AppLayout>
       {/* Page title */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
           {userProfile?.firstName
             ? `Welcome back, ${userProfile.firstName}.`
             : "Welcome back."}
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+        <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
           Manage your district forms and reimbursement requests.
         </p>
       </div>
@@ -107,9 +107,7 @@ export default function Dashboard() {
       <div
         className="mb-6 flex gap-1 rounded-xl p-1"
         style={{
-          background: "linear-gradient(145deg, #eaecf0, #f5f6f8)",
-          boxShadow:
-            "inset 2px 2px 5px rgba(180,185,195,0.3), inset -2px -2px 5px rgba(255,255,255,0.7)",
+          background: "rgba(255,255,255,0.08)",
         }}
       >
         {TABS.map(({ id, label, icon: Icon }) => {
@@ -122,20 +120,23 @@ export default function Dashboard() {
               style={
                 active
                   ? {
-                      background:
-                        "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                      background: "linear-gradient(135deg, #ad2122 0%, #c9393a 100%)",
                       color: "white",
-                      boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                      boxShadow: "0 2px 10px rgba(173,33,34,0.35)",
                     }
-                  : { color: "#64748b" }
+                  : { color: "rgba(255,255,255,0.5)" }
               }
               onMouseEnter={(e) => {
-                if (!active)
-                  (e.currentTarget as HTMLButtonElement).style.color = "#1d2a5d"
+                if (!active) {
+                  ;(e.currentTarget as HTMLButtonElement).style.color = "#ffffff"
+                  ;(e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"
+                }
               }}
               onMouseLeave={(e) => {
-                if (!active)
-                  (e.currentTarget as HTMLButtonElement).style.color = "#64748b"
+                if (!active) {
+                  ;(e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)"
+                  ;(e.currentTarget as HTMLButtonElement).style.background = "transparent"
+                }
               }}
             >
               <Icon size={15} />
@@ -153,36 +154,38 @@ export default function Dashboard() {
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group cursor-pointer overflow-hidden rounded-[20px] text-center transition-all duration-500"
+                className="group cursor-pointer overflow-hidden rounded-xl text-center transition-all duration-500"
                 style={{
-                  backgroundColor: "#edeef1",
-                  border: "8px solid #edeef1",
-                  maxHeight: "160px",
-                  boxShadow:
-                    "inset 4px 4px 8px rgba(180,185,195,0.45), inset -4px -4px 8px rgba(255,255,255,0.85)",
+                  backgroundColor: "#ffffff",
+                  maxHeight: "180px",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.maxHeight = "320px"
+                  e.currentTarget.style.maxHeight = "340px"
+                  e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.25)"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.maxHeight = "160px"
+                  e.currentTarget.style.maxHeight = "180px"
+                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)"
                 }}
               >
-                {/* Icon circle */}
+                {/* Color accent bar */}
                 <div
-                  className="mx-auto mt-5 mb-3 flex h-14 w-14 items-center justify-center rounded-full"
-                  style={{
-                    backgroundColor: "#edeef1",
-                    boxShadow:
-                      "6px 6px 10px rgba(180,185,195,0.45), -6px -6px 10px rgba(255,255,255,0.85)",
-                  }}
+                  className="h-1 w-full"
+                  style={{ background: `linear-gradient(90deg, ${pill.from}, ${pill.to})` }}
+                />
+
+                {/* Icon */}
+                <div
+                  className="mx-auto mt-5 mb-3 flex h-14 w-14 items-center justify-center rounded-xl"
+                  style={{ background: `${pill.from}15` }}
                 >
-                  <Icon size={24} style={{ color: pill.from }} />
+                  <Icon size={26} style={{ color: pill.from }} />
                 </div>
 
                 {/* Title */}
                 <div
-                  className="px-4 pb-4 text-sm font-semibold"
+                  className="px-4 pb-4 text-base font-bold"
                   style={{ color: "#1d2a5d" }}
                 >
                   {title}
@@ -190,25 +193,21 @@ export default function Dashboard() {
 
                 {/* Hover content */}
                 <div
-                  className="mx-3 mb-3 -translate-y-6 scale-0 rounded-xl px-4 py-3 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
-                  style={{
-                    backgroundColor: "#edeef1",
-                    boxShadow:
-                      "5px 5px 8px rgba(180,185,195,0.4), -5px -5px 8px rgba(255,255,255,0.8)",
-                  }}
+                  className="mx-4 mb-4 -translate-y-6 scale-0 rounded-lg px-4 py-4 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
+                  style={{ backgroundColor: `${pill.from}08` }}
                 >
                   <p
-                    className="text-[13px] leading-relaxed font-medium"
-                    style={{ color: "#334155" }}
+                    className="text-sm leading-relaxed"
+                    style={{ color: "#64748b" }}
                   >
                     {description}
                   </p>
-                  <p
-                    className="mt-3 text-[13px] font-bold"
-                    style={{ color: pill.from }}
+                  <div
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white"
+                    style={{ background: pill.from }}
                   >
-                    Start →
-                  </p>
+                    Get Started →
+                  </div>
                 </div>
               </button>
             )
@@ -262,8 +261,8 @@ function SubmissionList({
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="h-16 animate-pulse rounded-[14px]"
-            style={{ background: "#edeef1" }}
+            className="h-16 animate-pulse rounded-xl"
+            style={{ background: "rgba(255,255,255,0.1)" }}
           />
         ))}
       </div>
@@ -273,11 +272,10 @@ function SubmissionList({
   if (submissions.length === 0) {
     return (
       <div
-        className="rounded-[18px] p-8 text-center"
+        className="rounded-xl p-8 text-center"
         style={{
-          background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-          boxShadow:
-            "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+          background: "#ffffff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
         }}
       >
         <EmptyIcon
@@ -310,11 +308,10 @@ function SubmissionList({
         return (
           <div
             key={s.id}
-            className="flex items-center justify-between rounded-[14px] px-5 py-4"
+            className="flex items-center justify-between rounded-xl px-5 py-4"
             style={{
-              background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-              boxShadow:
-                "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+              background: "#ffffff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
             <div className="min-w-0">

@@ -14,6 +14,12 @@ async function isAllowedEmail(email: string): Promise<boolean> {
   return snap.exists()
 }
 
+async function getStaffRecord(email: string) {
+  const ref = doc(db, "staff", email.toLowerCase())
+  const snap = await getDoc(ref)
+  return snap.exists() ? snap.data() : null
+}
+
 async function ensureUserProfile(
   uid: string,
   email: string,
@@ -25,20 +31,23 @@ async function ensureUserProfile(
 
   if (snap.exists()) return snap.data() as UserProfile
 
+  const staff = await getStaffRecord(email)
   const nameParts = (displayName ?? "").split(" ")
-  const firstName = nameParts[0] ?? ""
-  const lastName = nameParts.slice(1).join(" ")
+  const firstName = staff?.firstName ?? nameParts[0] ?? ""
+  const lastName = staff?.lastName ?? nameParts.slice(1).join(" ")
 
   const profile: UserProfile = {
     uid,
     email,
     firstName,
     lastName,
-    fullName: displayName ?? "",
+    fullName: staff ? `${firstName} ${lastName}`.trim() : displayName ?? "",
+    employeeId: staff?.employeeId ?? "",
+    building: staff?.building ?? "",
     photoURL: photoURL ?? "",
     role: "staff",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: serverTimestamp() as unknown as import("firebase/firestore").Timestamp,
   }
 
   await setDoc(ref, profile)

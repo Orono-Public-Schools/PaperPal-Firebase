@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
-import { Plus, Trash2, CheckCircle } from "lucide-react"
+import { Plus, Trash2, CheckCircle, Send, X } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import NameField from "@/components/forms/NameField"
 import { useAuth } from "@/hooks/useAuth"
@@ -84,7 +84,7 @@ export default function TravelReimbursement() {
     })
   }, [dateStart, dateEnd])
 
-  const MILEAGE_RATE = 0.7
+  const MILEAGE_RATE = 0.72
   const mealTotal = meals.reduce(
     (sum, m) => sum + (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0),
     0
@@ -195,17 +195,16 @@ export default function TravelReimbursement() {
     return (
       <AppLayout>
         <div
-          className="mx-auto max-w-lg rounded-[20px] p-10 text-center"
+          className="mx-auto max-w-lg rounded-xl p-10 text-center"
           style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "6px 6px 14px rgba(180,185,195,0.4), -6px -6px 14px rgba(255,255,255,0.8)",
+            background: "#ffffff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <CheckCircle
             size={48}
             className="mx-auto mb-4"
-            style={{ color: "#8b5cf6" }}
+            style={{ color: "#4356a9" }}
           />
           <h2 className="text-xl font-bold" style={{ color: "#1d2a5d" }}>
             Submitted!
@@ -219,7 +218,7 @@ export default function TravelReimbursement() {
           </p>
           <p
             className="mt-1 text-sm font-semibold"
-            style={{ color: "#8b5cf6" }}
+            style={{ color: "#4356a9" }}
           >
             Final claim: ${finalClaim.toFixed(2)}
           </p>
@@ -241,10 +240,10 @@ export default function TravelReimbursement() {
   return (
     <AppLayout>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#1d2a5d" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
           Travel Reimbursement
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+        <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
           Request reimbursement for travel with estimated and actual expenses.
         </p>
       </div>
@@ -459,9 +458,8 @@ export default function TravelReimbursement() {
                   key={i}
                   className="grid grid-cols-[1fr_auto_auto] gap-3 rounded-[14px] p-3"
                   style={{
-                    background: "#edeef1",
-                    boxShadow:
-                      "inset 2px 2px 5px rgba(180,185,195,0.4), inset -2px -2px 5px rgba(255,255,255,0.8)",
+                    background: "#f8f9fb",
+                    border: "1px solid #e2e5ea",
                   }}
                 >
                   <Field label="Description">
@@ -521,9 +519,9 @@ export default function TravelReimbursement() {
             type="button"
             onClick={() => setActOthers((prev) => [...prev, emptyOther()])}
             className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
-            style={{ color: "#8b5cf6" }}
+            style={{ color: "#4356a9" }}
             onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(139,92,246,0.06)")
+              (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
             }
             onMouseLeave={(e) =>
               (e.currentTarget.style.backgroundColor = "transparent")
@@ -548,9 +546,8 @@ export default function TravelReimbursement() {
                   key={meal.date}
                   className="grid grid-cols-[1fr_repeat(3,auto)] items-end gap-4 rounded-[14px] p-4"
                   style={{
-                    background: "#edeef1",
-                    boxShadow:
-                      "inset 2px 2px 5px rgba(180,185,195,0.4), inset -2px -2px 5px rgba(255,255,255,0.8)",
+                    background: "#f8f9fb",
+                    border: "1px solid #e2e5ea",
                   }}
                 >
                   <span
@@ -621,11 +618,10 @@ export default function TravelReimbursement() {
 
         {/* Summary */}
         <div
-          className="space-y-2 rounded-[18px] p-5"
+          className="space-y-2 rounded-xl p-5"
           style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+            background: "#ffffff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
         >
           <div className="flex items-center justify-between text-sm">
@@ -659,7 +655,7 @@ export default function TravelReimbursement() {
             <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
               Final Claim
             </span>
-            <span className="text-lg font-bold" style={{ color: "#8b5cf6" }}>
+            <span className="text-lg font-bold" style={{ color: "#4356a9" }}>
               ${finalClaim.toFixed(2)}
             </span>
           </div>
@@ -670,27 +666,16 @@ export default function TravelReimbursement() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-medium transition-all duration-200"
-            style={{ color: "#64748b" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(100,116,139,0.08)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
+            className="btn-cancel"
           >
-            Cancel
+            <X size={16} />
+            <span>Cancel</span>
           </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
-            style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
-            }}
-          >
-            {submitting ? "Submitting…" : "Submit Request"}
+          <button type="submit" disabled={submitting} className="btn-submit">
+            <div className="svg-wrapper">
+              <Send size={16} />
+            </div>
+            <span>{submitting ? "Submitting…" : "Submit"}</span>
           </button>
         </div>
       </form>
@@ -709,11 +694,10 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-[18px] p-5"
+      className="rounded-xl p-5"
       style={{
-        background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-        boxShadow:
-          "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+        background: "#ffffff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
       }}
     >
       <h2

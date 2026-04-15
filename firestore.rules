@@ -3,9 +3,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper: check if user has a given role
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() {
+      return userRole() == 'admin';
+    }
+    function isAdminOrBO() {
+      return userRole() in ['admin', 'business_office'];
+    }
+
     // Users can read and write their own profile
+    // Admins can read all profiles and update roles
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null
+                  && (request.auth.uid == uid || isAdminOrBO());
+      allow write: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && isAdmin();
     }
 
     // Any authenticated user can check if their email is on the allowlist
@@ -14,14 +29,46 @@ service cloud.firestore {
     }
 
     // Submissions: authenticated users can create; can read/update their own
+    // Supervisors can read submissions routed to them
+    // Admin/BO can read all
     match /submissions/{submissionId} {
       allow create: if request.auth != null
                     && request.resource.data.submitterUid == request.auth.uid;
       allow read: if request.auth != null
-                  && resource.data.submitterUid == request.auth.uid;
+                  && (resource.data.submitterUid == request.auth.uid
+                      || resource.data.supervisorEmail == request.auth.token.email
+                      || isAdminOrBO());
       allow update: if request.auth != null
-                    && resource.data.submitterUid == request.auth.uid
-                    && resource.data.status == 'revisions_requested';
+                    && (
+                      (resource.data.submitterUid == request.auth.uid
+                       && resource.data.status == 'revisions_requested')
+                      || resource.data.supervisorEmail == request.auth.token.email
+                      || isAdminOrBO()
+                    );
+    }
+
+    // Buildings: anyone authenticated can read; admins can write
+    match /buildings/{buildingId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // Staff records: anyone authenticated can read their own; admins can read/write all
+    match /staff/{email} {
+      allow read: if request.auth != null
+                  && (request.auth.token.email == email || isAdminOrBO());
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // App settings: admins can read/write
+    match /settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // Mail trigger docs: authenticated users can create (for notifications)
+    match /mail/{mailId} {
+      allow create: if request.auth != null;
     }
 
     // Deny everything else by default
