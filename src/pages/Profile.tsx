@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { useSearchParams } from "react-router"
 import { Check, Trash2, Pencil, Type, Save } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
@@ -9,6 +10,8 @@ type SigTab = "draw" | "type"
 
 export default function Profile() {
   const { user, userProfile } = useAuth()
+  const [searchParams] = useSearchParams()
+  const homeAddressRef = useRef<HTMLDivElement>(null)
 
   // Editable profile fields
   const [firstName, setFirstName] = useState(userProfile?.firstName ?? "")
@@ -21,6 +24,15 @@ export default function Profile() {
   const [homeAddress, setHomeAddress] = useState(
     userProfile?.homeAddress ?? ""
   )
+
+  // Auto-focus home address field when navigated from mileage form
+  useEffect(() => {
+    if (searchParams.get("focus") === "homeAddress" && homeAddressRef.current) {
+      homeAddressRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+      const input = homeAddressRef.current.querySelector("input")
+      if (input) setTimeout(() => input.focus(), 400)
+    }
+  }, [searchParams])
 
   // Signature
   const [sigTab, setSigTab] = useState<SigTab>("draw")
@@ -207,13 +219,15 @@ export default function Profile() {
                 className="input-neu"
               />
             </Field>
-            <Field label="Home Address">
-              <AddressAutocomplete
-                value={homeAddress}
-                onChange={setHomeAddress}
-                placeholder="Used as default 'From' on mileage forms"
-              />
-            </Field>
+            <div ref={homeAddressRef}>
+              <Field label="Home Address">
+                <AddressAutocomplete
+                  value={homeAddress}
+                  onChange={setHomeAddress}
+                  placeholder="Used as default 'From' on mileage forms"
+                />
+              </Field>
+            </div>
             <Field label="Email">
               <input
                 type="text"

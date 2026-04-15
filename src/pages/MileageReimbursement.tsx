@@ -2,8 +2,9 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
 import { Plus, Trash2, CheckCircle, Send, Loader2, MapPin, X } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
-import NameField from "@/components/forms/NameField"
 import AddressAutocomplete, { type QuickFill } from "@/components/forms/AddressAutocomplete"
+import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import DatePicker from "@/components/forms/DatePicker"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission, getAppSettings } from "@/lib/firestore"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
@@ -197,11 +198,15 @@ export default function MileageReimbursement() {
         {/* Employee info */}
         <Section title="Employee Information">
           <div className="grid gap-4 sm:grid-cols-2">
-            <NameField
-              defaultName={userProfile?.fullName ?? ""}
-              value={submitterName}
-              onChange={setSubmitterName}
-            />
+            <Field label="Full Name">
+              <input
+                type="text"
+                value={submitterName}
+                onChange={(e) => setSubmitterName(e.target.value)}
+                required
+                className="input-neu w-full"
+              />
+            </Field>
             <Field label="Employee ID">
               <input
                 type="text"
@@ -216,10 +221,11 @@ export default function MileageReimbursement() {
                 type="text"
                 value={accountCode}
                 onChange={(e) => setAccountCode(e.target.value)}
-                placeholder="e.g. 01-000-0000-000-000"
+                placeholder="##-###-###-###-###-###"
                 required
                 className="input-neu w-full"
               />
+              <BudgetCodeBuilder value={accountCode} onChange={setAccountCode} />
             </Field>
           </div>
         </Section>
@@ -412,12 +418,10 @@ function TripRow({
     <div className="py-3 first:pt-0 last:pb-0">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Date">
-          <input
-            type="date"
+          <DatePicker
             value={trip.date}
+            onChange={(v) => onChange(index, "date", v)}
             required
-            onChange={(e) => onChange(index, "date", e.target.value)}
-            className="input-neu w-full"
           />
         </Field>
         <Field label="From">

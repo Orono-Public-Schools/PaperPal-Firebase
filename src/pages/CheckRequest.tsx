@@ -2,7 +2,8 @@ import { useState } from "react"
 import { useNavigate } from "react-router"
 import { Plus, Trash2, CheckCircle, Send, X } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
-import NameField from "@/components/forms/NameField"
+import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import DatePicker from "@/components/forms/DatePicker"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission } from "@/lib/firestore"
 import type { CheckRequestExpense } from "@/lib/types"
@@ -155,27 +156,27 @@ export default function CheckRequest() {
         {/* Request details */}
         <Section title="Request Details">
           <div className="grid gap-4 sm:grid-cols-3">
-            <NameField
-              defaultName={userProfile?.fullName ?? ""}
-              value={submitterName}
-              onChange={setSubmitterName}
-            />
-            <Field label="Date of Request">
+            <Field label="Full Name">
               <input
-                type="date"
-                value={dateRequest}
+                type="text"
+                value={submitterName}
+                onChange={(e) => setSubmitterName(e.target.value)}
                 required
-                onChange={(e) => setDateRequest(e.target.value)}
-                className="input-neu"
+                className="input-neu w-full"
+              />
+            </Field>
+            <Field label="Date of Request">
+              <DatePicker
+                value={dateRequest}
+                onChange={setDateRequest}
+                required
               />
             </Field>
             <Field label="Date Check Needed">
-              <input
-                type="date"
+              <DatePicker
                 value={dateNeeded}
+                onChange={setDateNeeded}
                 required
-                onChange={(e) => setDateNeeded(e.target.value)}
-                className="input-neu"
               />
             </Field>
           </div>
@@ -387,9 +388,13 @@ function ExpenseRow({
             type="text"
             value={expense.code}
             required
-            placeholder="Code"
+            placeholder="##-###-###-###-###-###"
             onChange={(e) => onChange(index, "code", e.target.value)}
             className="input-neu"
+          />
+          <BudgetCodeBuilder
+            value={expense.code}
+            onChange={(v) => onChange(index, "code", v)}
           />
         </Field>
         <Field label="Description">

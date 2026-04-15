@@ -22,19 +22,15 @@ export async function fetchAddressSuggestions(
         body: JSON.stringify({
           input,
           includedRegionCodes: ["us"],
-          includedPrimaryTypes: [
-            "street_address",
-            "subpremise",
-            "route",
-            "locality",
-            "school",
-            "establishment",
-          ],
         }),
       }
     )
 
-    if (!res.ok) return []
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      console.error("Places API error:", res.status, err)
+      return []
+    }
 
     const data = await res.json()
     return (data.suggestions ?? [])

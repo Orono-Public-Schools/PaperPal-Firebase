@@ -9,6 +9,7 @@ import {
   Mail,
   Shield,
   Settings,
+  Grid3X3,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
@@ -27,6 +28,8 @@ import {
   updateUserRole,
   getAppSettings,
   updateAppSettings,
+  getBudgetSegments,
+  updateBudgetSegments,
 } from "@/lib/firestore"
 import type {
   Building,
@@ -34,6 +37,8 @@ import type {
   UserProfile,
   UserRole,
   AppSettings,
+  BudgetSegmentType,
+  BudgetSegment,
 } from "@/lib/types"
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -77,6 +82,7 @@ export default function Admin() {
 
       <div className="space-y-6">
         <GeneralSettingsSection />
+        <BudgetSegmentsSection />
         <BuildingsSection />
         <StaffSection />
         <RolesSection />
@@ -114,6 +120,7 @@ function GeneralSettingsSection() {
       schoolAddress: settings.schoolAddress,
       finalApproverEmail: settings.finalApproverEmail,
       finalApproverName: settings.finalApproverName,
+      fiscalYearStartMonth: settings.fiscalYearStartMonth,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
@@ -197,6 +204,37 @@ function GeneralSettingsSection() {
             </div>
           </div>
 
+          <div
+            className="mt-5 border-t pt-5"
+            style={{ borderColor: "rgba(180,185,195,0.25)" }}
+          >
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Fiscal Year
+            </p>
+            <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+              The budget year on forms rolls over on the 1st of this month.
+            </p>
+            <div style={{ maxWidth: "200px" }}>
+              <Field label="Fiscal Year Starts">
+                <select
+                  value={settings.fiscalYearStartMonth}
+                  onChange={(e) => update("fiscalYearStartMonth", parseInt(e.target.value))}
+                  className="input-neu w-full cursor-pointer"
+                >
+                  {[
+                    "January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December",
+                  ].map((m, i) => (
+                    <option key={i} value={i}>{m}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </div>
+
           <div className="mt-4 flex items-center gap-3">
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
@@ -207,6 +245,198 @@ function GeneralSettingsSection() {
                 className="text-sm font-medium"
                 style={{ color: "#4356a9" }}
               >
+                Saved!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Budget Segments ─────────────────────────────────────────────────────────
+
+const SEGMENT_LABELS: Record<BudgetSegmentType, string> = {
+  fund: "Fund",
+  org: "Organization",
+  proj: "Project",
+  fin: "Finance",
+  course: "Course",
+  obj: "Object",
+}
+
+function BudgetSegmentsSection() {
+  const [segments, setSegments] = useState<Record<BudgetSegmentType, BudgetSegment[]>>({
+    fund: [], org: [], proj: [], fin: [], course: [], obj: [],
+  })
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [pasteData, setPasteData] = useState("")
+  const [pasteTarget, setPasteTarget] = useState<BudgetSegmentType>("fund")
+
+  useEffect(() => {
+    getBudgetSegments().then((s) => {
+      setSegments(s)
+      setLoading(false)
+    })
+  }, [])
+
+  function addSegment(type: BudgetSegmentType, code: string, title: string) {
+    if (!code.trim()) return
+    setSegments((prev) => ({
+      ...prev,
+      [type]: [...prev[type], { code: code.trim(), title: title.trim() }],
+    }))
+  }
+
+  function removeSegment(type: BudgetSegmentType, index: number) {
+    setSegments((prev) => ({
+      ...prev,
+      [type]: prev[type].filter((_, i) => i !== index),
+    }))
+  }
+
+  function handlePasteImport() {
+    const lines = pasteData.trim().split("\n").filter((l) => l.trim())
+    for (const line of lines) {
+      const parts = line.split("\t").map((s) => s.trim())
+      if (parts[0]) {
+        addSegment(pasteTarget, parts[0], parts[1] || "")
+      }
+    }
+    setPasteData("")
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await updateBudgetSegments(segments)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  const totalCount = Object.values(segments).reduce((sum, arr) => sum + arr.length, 0)
+
+  return (
+    <Section
+      title="Budget Code Segments"
+      icon={Grid3X3}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {loading ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+      ) : (
+        <>
+          <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+            {totalCount} segment{totalCount !== 1 && "s"} across {Object.values(segments).filter((a) => a.length > 0).length} categories.
+            These populate the Budget Code Builder on forms.
+          </p>
+
+          {/* Paste import */}
+          <div
+            className="mb-4 rounded-xl p-3"
+            style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
+          >
+            <p className="mb-2 text-xs font-semibold" style={{ color: "#1d2a5d" }}>
+              Quick Import
+            </p>
+            <div className="mb-2 flex gap-2">
+              <select
+                value={pasteTarget}
+                onChange={(e) => setPasteTarget(e.target.value as BudgetSegmentType)}
+                className="input-neu cursor-pointer text-xs"
+                style={{ maxWidth: "150px" }}
+              >
+                {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((t) => (
+                  <option key={t} value={t}>{SEGMENT_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <textarea
+              value={pasteData}
+              onChange={(e) => setPasteData(e.target.value)}
+              placeholder={"Paste tab-separated: Code \\t Title\n01\tGeneral Fund\n02\tSpecial Revenue"}
+              rows={3}
+              className="input-neu mb-2 w-full"
+              style={{ resize: "vertical", fontFamily: "monospace", fontSize: "0.7rem" }}
+            />
+            <button
+              onClick={handlePasteImport}
+              disabled={!pasteData.trim()}
+              className="flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+              style={{ background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)" }}
+            >
+              <Plus size={12} />
+              Import to {SEGMENT_LABELS[pasteTarget]}
+            </button>
+          </div>
+
+          {/* Segment tables */}
+          <div className="space-y-4">
+            {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((type) => {
+              const items = segments[type]
+              return (
+                <div key={type}>
+                  <p
+                    className="mb-1.5 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    {SEGMENT_LABELS[type]} ({items.length})
+                  </p>
+                  {items.length > 0 && (
+                    <div
+                      className="mb-2 max-h-40 overflow-y-auto rounded-lg"
+                      style={{ border: "1px solid #e2e5ea" }}
+                    >
+                      <table className="w-full text-left text-xs">
+                        <tbody>
+                          {items.map((s, i) => (
+                            <tr
+                              key={i}
+                              style={{ borderBottom: "1px solid #f0f2f5" }}
+                            >
+                              <td
+                                className="px-3 py-1.5 font-mono font-semibold"
+                                style={{ color: "#1d2a5d", width: "80px" }}
+                              >
+                                {s.code}
+                              </td>
+                              <td className="px-3 py-1.5" style={{ color: "#64748b" }}>
+                                {s.title}
+                              </td>
+                              <td className="px-2 py-1.5" style={{ width: "30px" }}>
+                                <button
+                                  onClick={() => removeSegment(type, i)}
+                                  className="cursor-pointer rounded p-0.5 transition-colors"
+                                  style={{ color: "#94a3b8" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save Segments"}</span>
+            </button>
+            {saved && (
+              <span className="text-sm font-medium" style={{ color: "#4356a9" }}>
                 Saved!
               </span>
             )}

@@ -42,6 +42,7 @@ export interface AppSettings {
   schoolAddress: string
   finalApproverEmail: string
   finalApproverName: string
+  fiscalYearStartMonth: number // 0-indexed (6 = July)
 }
 
 // ─── User ────────────────────────────────────────────────────────────────────

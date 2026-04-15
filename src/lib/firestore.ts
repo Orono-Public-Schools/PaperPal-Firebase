@@ -13,7 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import type { Submission, UserProfile, Building, StaffRecord, AppSettings } from "./types"
+import type { Submission, UserProfile, Building, StaffRecord, AppSettings, BudgetSegmentType, BudgetSegment } from "./types"
 
 // ─── ID Generator ─────────────────────────────────────────────────────────────
 
@@ -196,6 +196,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   schoolAddress: "",
   finalApproverEmail: "",
   finalApproverName: "",
+  fiscalYearStartMonth: 6, // July
 }
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -211,4 +212,37 @@ export async function updateAppSettings(
 ): Promise<void> {
   const ref = doc(db, "settings", "app")
   await setDoc(ref, data, { merge: true })
+}
+
+// ─── Budget Segments ────────────────────────────────────────────────────────
+
+export async function getBudgetSegments(): Promise<Record<BudgetSegmentType, BudgetSegment[]>> {
+  const ref = doc(db, "settings", "budgetSegments")
+  const snap = await getDoc(ref)
+  const defaults: Record<BudgetSegmentType, BudgetSegment[]> = {
+    fund: [], org: [], proj: [], fin: [], course: [], obj: [],
+  }
+  if (snap.exists()) {
+    const data = { ...defaults, ...snap.data() as Record<BudgetSegmentType, BudgetSegment[]> }
+    // Seed default Object codes from UFARS if none exist
+    if (data.obj.length === 0) {
+      import("./defaultBudgetSegments").then(({ DEFAULT_OBJECT_CODES }) => {
+        updateBudgetSegments({ ...data, obj: DEFAULT_OBJECT_CODES })
+      })
+      return { ...data, obj: [] }
+    }
+    return data
+  }
+  // First load — seed with UFARS Object codes
+  import("./defaultBudgetSegments").then(({ DEFAULT_OBJECT_CODES }) => {
+    updateBudgetSegments({ ...defaults, obj: DEFAULT_OBJECT_CODES })
+  })
+  return defaults
+}
+
+export async function updateBudgetSegments(
+  data: Record<BudgetSegmentType, BudgetSegment[]>
+): Promise<void> {
+  const ref = doc(db, "settings", "budgetSegments")
+  await setDoc(ref, data)
 }

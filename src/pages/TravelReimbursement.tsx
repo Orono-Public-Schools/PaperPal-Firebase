@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
-import { Plus, Trash2, CheckCircle, Send, X } from "lucide-react"
+import { Plus, Trash2, CheckCircle, Send, X, Loader2, MapPin, Upload, FileText, Image, File } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
-import NameField from "@/components/forms/NameField"
+import DatePicker from "@/components/forms/DatePicker"
+import AddressAutocomplete, { type QuickFill } from "@/components/forms/AddressAutocomplete"
+import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import { useAuth } from "@/hooks/useAuth"
-import { createSubmission } from "@/lib/firestore"
-import type { TravelMeal, TravelActualOther } from "@/lib/types"
+import { createSubmission, getAppSettings } from "@/lib/firestore"
+import { calculateDrivingDistance } from "@/lib/googleMaps"
+import { storage } from "@/lib/firebase"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import type { TravelMeal, TravelActualOther, Attachment } from "@/lib/types"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -55,7 +60,22 @@ export default function TravelReimbursement() {
   const [timeAwayStart, setTimeAwayStart] = useState("")
   const [timeAwayEnd, setTimeAwayEnd] = useState("")
   const [justification, setJustification] = useState("")
+  const [routeRequestTo, setRouteRequestTo] = useState(
+    userProfile?.supervisorEmail ?? ""
+  )
   const [advanceRequested, setAdvanceRequested] = useState(0)
+
+  // Mileage within travel
+  const [mileageFrom, setMileageFrom] = useState("")
+  const [mileageTo, setMileageTo] = useState("")
+  const [calculatingMiles, setCalculatingMiles] = useState(false)
+  const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+
+  // File uploads
+  const [justificationFiles, setJustificationFiles] = useState<Attachment[]>([])
+  const [mealReceipts, setMealReceipts] = useState<Attachment[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadingReceipts, setUploadingReceipts] = useState(false)
 
   // Estimated costs
   const [estTransport, setEstTransport] = useState(0)
@@ -83,6 +103,83 @@ export default function TravelReimbursement() {
       return dates.map((d) => map[d] ?? emptyMeal(d))
     })
   }, [dateStart, dateEnd])
+
+  // Build quick-fill options for mileage addresses
+  useEffect(() => {
+    const fills: QuickFill[] = []
+    if (userProfile?.homeAddress) {
+      fills.push({ label: "Home", address: userProfile.homeAddress, icon: "home" })
+    }
+    getAppSettings().then((settings) => {
+      // Auto-fill budget year from fiscal year setting
+      // Budget year = the ending calendar year of the fiscal period
+      // e.g. FY starting July 2025 → budget year "2026", rolls to "2027" on July 1 2026
+      if (!budgetYear) {
+        const now = new Date()
+        const year = now.getFullYear()
+        const startMonth = settings.fiscalYearStartMonth ?? 6
+        const fy = now.getMonth() >= startMonth ? year + 1 : year
+        setBudgetYear(String(fy))
+      }
+
+      if (settings.schoolAddress) {
+        fills.push({
+          label: settings.schoolAddressLabel || "School",
+          address: settings.schoolAddress,
+          icon: "building",
+        })
+      }
+      setQuickFills(fills)
+    })
+  }, [userProfile?.homeAddress])
+
+  async function calcDistance() {
+    if (mileageFrom.length < 5 || mileageTo.length < 5) return
+    setCalculatingMiles(true)
+    const miles = await calculateDrivingDistance(mileageFrom, mileageTo)
+    setCalculatingMiles(false)
+    if (miles !== null) setActMiles(miles)
+  }
+
+  async function handleFileUpload(files: FileList | null) {
+    if (!files || !user) return
+    setUploading(true)
+    const newAttachments: Attachment[] = []
+    for (const file of Array.from(files)) {
+      const path = `travel-attachments/${user.uid}/${Date.now()}-${file.name}`
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      newAttachments.push({
+        name: file.name,
+        url,
+        mimeType: file.type,
+        size: file.size,
+      })
+    }
+    setJustificationFiles((prev) => [...prev, ...newAttachments])
+    setUploading(false)
+  }
+
+  async function handleReceiptUpload(files: FileList | null) {
+    if (!files || !user) return
+    setUploadingReceipts(true)
+    const newAttachments: Attachment[] = []
+    for (const file of Array.from(files)) {
+      const path = `travel-receipts/${user.uid}/${Date.now()}-${file.name}`
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      newAttachments.push({
+        name: file.name,
+        url,
+        mimeType: file.type,
+        size: file.size,
+      })
+    }
+    setMealReceipts((prev) => [...prev, ...newAttachments])
+    setUploadingReceipts(false)
+  }
 
   const MILEAGE_RATE = 0.72
   const mealTotal = meals.reduce(
@@ -142,7 +239,7 @@ export default function TravelReimbursement() {
         submitterUid: user.uid,
         submitterEmail: user.email ?? "",
         submitterName: userProfile.fullName,
-        supervisorEmail: userProfile.supervisorEmail ?? "",
+        supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
         formData: {
           name: submitterName,
           employeeId,
@@ -179,7 +276,7 @@ export default function TravelReimbursement() {
           advanceRequested,
           finalClaim,
         },
-        attachments: [],
+        attachments: justificationFiles,
         revisionHistory: [],
         summary: `Travel — ${meetingTitle || location}`,
         amount: finalClaim,
@@ -244,7 +341,7 @@ export default function TravelReimbursement() {
           Travel Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Request reimbursement for travel with estimated and actual expenses.
+          Request reimbursement for travel with pre-approved and actual expenses.
         </p>
       </div>
 
@@ -252,11 +349,15 @@ export default function TravelReimbursement() {
         {/* Employee / trip info */}
         <Section title="Employee & Trip Information">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <NameField
-              defaultName={userProfile?.fullName ?? ""}
-              value={submitterName}
-              onChange={setSubmitterName}
-            />
+            <Field label="Full Name">
+              <input
+                type="text"
+                value={submitterName}
+                onChange={(e) => setSubmitterName(e.target.value)}
+                required
+                className="input-neu w-full"
+              />
+            </Field>
             <Field label="Employee ID">
               <input
                 type="text"
@@ -267,12 +368,10 @@ export default function TravelReimbursement() {
               />
             </Field>
             <Field label="Form Date">
-              <input
-                type="date"
+              <DatePicker
                 value={formDate}
+                onChange={setFormDate}
                 required
-                onChange={(e) => setFormDate(e.target.value)}
-                className="input-neu"
               />
             </Field>
             <Field label="Home Address">
@@ -300,10 +399,11 @@ export default function TravelReimbursement() {
                 type="text"
                 value={accountCode}
                 required
-                placeholder="e.g. 01-000-0000-000-000"
+                placeholder="##-###-###-###-###-###"
                 onChange={(e) => setAccountCode(e.target.value)}
                 className="input-neu"
               />
+              <BudgetCodeBuilder value={accountCode} onChange={setAccountCode} />
             </Field>
             <Field label="Meeting / Conference Title">
               <input
@@ -328,56 +428,168 @@ export default function TravelReimbursement() {
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Date — Start">
-              <input
-                type="date"
+              <DatePicker
                 value={dateStart}
+                onChange={setDateStart}
                 required
-                onChange={(e) => setDateStart(e.target.value)}
-                className="input-neu"
               />
             </Field>
             <Field label="Date — End">
-              <input
-                type="date"
+              <DatePicker
                 value={dateEnd}
+                onChange={setDateEnd}
                 required
-                onChange={(e) => setDateEnd(e.target.value)}
-                className="input-neu"
               />
             </Field>
-            <Field label="Time Away — Depart">
-              <input
-                type="time"
+            <Field label="Away From Job — Start">
+              <DatePicker
                 value={timeAwayStart}
-                onChange={(e) => setTimeAwayStart(e.target.value)}
-                className="input-neu"
+                onChange={setTimeAwayStart}
               />
             </Field>
-            <Field label="Time Away — Return">
-              <input
-                type="time"
+            <Field label="Away From Job — End">
+              <DatePicker
                 value={timeAwayEnd}
-                onChange={(e) => setTimeAwayEnd(e.target.value)}
-                className="input-neu"
+                onChange={setTimeAwayEnd}
               />
             </Field>
           </div>
-          <div className="mt-4">
-            <Field label="Justification / Purpose">
-              <textarea
-                value={justification}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Route Request To">
+              <input
+                type="text"
+                value={routeRequestTo}
                 required
-                rows={3}
-                placeholder="Explain the purpose and benefit of this travel…"
-                onChange={(e) => setJustification(e.target.value)}
-                className="input-neu resize-none"
+                placeholder="Supervisor or department admin"
+                onChange={(e) => setRouteRequestTo(e.target.value)}
+                className="input-neu"
               />
+              <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                Usually your supervisor, or a specific department admin.
+              </p>
             </Field>
           </div>
         </Section>
 
-        {/* Estimated costs */}
-        <Section title="Estimated Costs">
+        {/* Justification for Release */}
+        <Section title="Justification for Release">
+          <Field label="Justification / Purpose">
+            <textarea
+              value={justification}
+              required
+              rows={3}
+              placeholder="Additional details or justification comments…"
+              onChange={(e) => setJustification(e.target.value)}
+              className="input-neu resize-none"
+            />
+          </Field>
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Attachments
+              </p>
+              <span className="text-[11px] font-medium" style={{ color: "#94a3b8" }}>
+                Supported: PDF, IMG, DOC
+              </span>
+            </div>
+            <label
+              className="mt-2 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 transition-colors"
+              style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#4356a9"
+                e.currentTarget.style.background = "rgba(67,86,169,0.03)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = "#4356a9"
+                e.currentTarget.style.background = "rgba(67,86,169,0.06)"
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+                handleFileUpload(e.dataTransfer.files)
+              }}
+            >
+              <Upload size={24} style={{ color: "#4356a9" }} />
+              <p className="text-sm">
+                <span className="font-semibold underline" style={{ color: "#4356a9" }}>
+                  Click to upload
+                </span>{" "}
+                or drag and drop
+              </p>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx"
+                className="hidden"
+                onChange={(e) => handleFileUpload(e.target.files)}
+              />
+            </label>
+            {uploading && (
+              <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: "#4356a9" }}>
+                <Loader2 size={14} className="animate-spin" />
+                Uploading…
+              </div>
+            )}
+            {justificationFiles.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {justificationFiles.map((f, i) => {
+                  const isImage = f.mimeType.startsWith("image/")
+                  const isPdf = f.mimeType === "application/pdf"
+                  const Icon = isImage ? Image : isPdf ? FileText : File
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2"
+                      style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
+                    >
+                      <Icon size={16} style={{ color: "#4356a9", flexShrink: 0 }} />
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 flex-1 truncate text-sm font-medium underline"
+                        style={{ color: "#1d2a5d" }}
+                      >
+                        {f.name}
+                      </a>
+                      <span className="text-[11px]" style={{ color: "#94a3b8" }}>
+                        {(f.size / 1024).toFixed(0)} KB
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setJustificationFiles((prev) => prev.filter((_, j) => j !== i))
+                        }
+                        className="cursor-pointer rounded p-1 transition-colors"
+                        style={{ color: "#94a3b8" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* Pre-approved costs */}
+        <Section title="Pre-Approved Estimated Expenses">
           <div className="grid gap-4 sm:grid-cols-3">
             <DollarField
               label="Transportation"
@@ -410,23 +622,93 @@ export default function TravelReimbursement() {
               onChange={setEstOther}
             />
           </div>
-          <TotalRow label="Estimated Total" value={estTotal} />
+          <TotalRow label="Total Estimated" value={estTotal} />
         </Section>
 
         {/* Actual costs */}
         <Section title="Actual Costs">
+          {/* Transportation by Car */}
+          <div
+            className="mb-4 rounded-xl p-4"
+            style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#1d2a5d" }}
+              >
+                Transportation by Car
+              </p>
+              <span className="text-xs" style={{ color: "#94a3b8" }}>
+                Rate: ${MILEAGE_RATE.toFixed(2)} / mile
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="From">
+                <AddressAutocomplete
+                  value={mileageFrom}
+                  onChange={setMileageFrom}
+                  onSelect={(v) => {
+                    setMileageFrom(v)
+                    if (mileageTo.length >= 5) calcDistance()
+                  }}
+                  placeholder="Origin"
+                  quickFills={quickFills}
+                  showAddHome={!userProfile?.homeAddress}
+                />
+              </Field>
+              <Field label="To">
+                <AddressAutocomplete
+                  value={mileageTo}
+                  onChange={setMileageTo}
+                  onSelect={(v) => {
+                    setMileageTo(v)
+                    if (mileageFrom.length >= 5) calcDistance()
+                  }}
+                  placeholder="Destination"
+                  quickFills={quickFills}
+                  showAddHome={!userProfile?.homeAddress}
+                />
+              </Field>
+              <Field label="Miles">
+                <div className="flex gap-1.5">
+                  <input
+                    type="number"
+                    value={actMiles || ""}
+                    min={0}
+                    step="0.1"
+                    placeholder="0.0"
+                    onChange={(e) => setActMiles(parseFloat(e.target.value) || 0)}
+                    className="input-neu w-full"
+                  />
+                  <button
+                    type="button"
+                    disabled={mileageFrom.length < 5 || mileageTo.length < 5 || calculatingMiles}
+                    onClick={calcDistance}
+                    className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
+                    style={{ color: calculatingMiles ? "#4356a9" : "#64748b" }}
+                    title="Calculate distance"
+                  >
+                    {calculatingMiles ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <MapPin size={16} />
+                    )}
+                  </button>
+                </div>
+              </Field>
+              <Field label="Mileage Cost">
+                <div
+                  className="input-neu flex items-center"
+                  style={{ background: "#f0f2f5", color: "#1d2a5d", fontWeight: 600 }}
+                >
+                  ${(actMiles * MILEAGE_RATE).toFixed(2)}
+                </div>
+              </Field>
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label={`Miles Driven (@ $${MILEAGE_RATE}/mi)`}>
-              <input
-                type="number"
-                value={actMiles || ""}
-                min={0}
-                step="0.1"
-                placeholder="0.0"
-                onChange={(e) => setActMiles(parseFloat(e.target.value) || 0)}
-                className="input-neu"
-              />
-            </Field>
             <DollarField
               label="Other Transportation"
               value={actOtherTransport}
@@ -538,83 +820,216 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Meals per day */}
-        {meals.length > 0 && (
-          <Section title="Meals (Per Day)">
-            <div className="space-y-3">
-              {meals.map((meal, i) => (
-                <div
-                  key={meal.date}
-                  className="grid grid-cols-[1fr_repeat(3,auto)] items-end gap-4 rounded-[14px] p-4"
-                  style={{
-                    background: "#f8f9fb",
-                    border: "1px solid #e2e5ea",
-                  }}
-                >
-                  <span
-                    className="pb-0.5 text-sm font-semibold"
-                    style={{ color: "#1d2a5d" }}
-                  >
-                    {new Date(meal.date + "T00:00:00").toLocaleDateString(
-                      "en-US",
-                      {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      }
-                    )}
-                  </span>
-                  <Field label="Breakfast">
-                    <input
-                      type="number"
-                      value={meal.breakfast || ""}
-                      min={0}
-                      step="0.01"
-                      placeholder="0.00"
-                      onChange={(e) =>
-                        updateMeal(
-                          i,
-                          "breakfast",
-                          parseFloat(e.target.value) || 0
-                        )
-                      }
-                      className="input-neu"
-                      style={{ maxWidth: "90px" }}
-                    />
-                  </Field>
-                  <Field label="Lunch">
-                    <input
-                      type="number"
-                      value={meal.lunch || ""}
-                      min={0}
-                      step="0.01"
-                      placeholder="0.00"
-                      onChange={(e) =>
-                        updateMeal(i, "lunch", parseFloat(e.target.value) || 0)
-                      }
-                      className="input-neu"
-                      style={{ maxWidth: "90px" }}
-                    />
-                  </Field>
-                  <Field label="Dinner">
-                    <input
-                      type="number"
-                      value={meal.dinner || ""}
-                      min={0}
-                      step="0.01"
-                      placeholder="0.00"
-                      onChange={(e) =>
-                        updateMeal(i, "dinner", parseFloat(e.target.value) || 0)
-                      }
-                      className="input-neu"
-                      style={{ maxWidth: "90px" }}
-                    />
-                  </Field>
-                </div>
-              ))}
+        <Section title="Meal Expenses">
+            <div
+              className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2"
+              style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+            >
+              <span className="text-xs font-semibold" style={{ color: "#ad2122" }}>
+                *Attach Original Receipts
+              </span>
             </div>
+            <div className="overflow-visible">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #e2e5ea" }}>
+                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Date</th>
+                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Breakfast</th>
+                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Lunch</th>
+                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Dinner</th>
+                    <th className="pb-2 text-right text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Total</th>
+                    <th className="pb-2" style={{ width: "32px" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {meals.map((meal, i) => {
+                    const rowTotal = (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0)
+                    return (
+                      <tr key={meal.date} style={{ borderBottom: "1px solid #f0f2f5" }}>
+                        <td className="py-2 pr-3" style={{ minWidth: "140px" }}>
+                          <DatePicker
+                            value={meal.date}
+                            onChange={(v) => updateMeal(i, "date", v)}
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: "#94a3b8" }}>$</span>
+                            <input
+                              type="number"
+                              value={meal.breakfast || ""}
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={(e) => updateMeal(i, "breakfast", parseFloat(e.target.value) || 0)}
+                              className="input-neu"
+                              style={{ maxWidth: "80px" }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: "#94a3b8" }}>$</span>
+                            <input
+                              type="number"
+                              value={meal.lunch || ""}
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={(e) => updateMeal(i, "lunch", parseFloat(e.target.value) || 0)}
+                              className="input-neu"
+                              style={{ maxWidth: "80px" }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: "#94a3b8" }}>$</span>
+                            <input
+                              type="number"
+                              value={meal.dinner || ""}
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={(e) => updateMeal(i, "dinner", parseFloat(e.target.value) || 0)}
+                              className="input-neu"
+                              style={{ maxWidth: "80px" }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 text-right">
+                          <span className="font-semibold" style={{ color: "#1d2a5d" }}>
+                            ${rowTotal.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          <button
+                            type="button"
+                            onClick={() => setMeals((prev) => prev.filter((_, j) => j !== i))}
+                            className="cursor-pointer rounded p-1 transition-colors"
+                            style={{ color: "#94a3b8" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMeals((prev) => [...prev, emptyMeal(todayStr())])}
+              className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
+              style={{ color: "#4356a9" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            >
+              <Plus size={15} />
+              Add Meal Row
+            </button>
             <TotalRow label="Meal Total" value={mealTotal} />
+
+            {/* Receipt upload */}
+            <div className="mt-4">
+              <p
+                className="mb-2 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Meal Receipts
+              </p>
+              <label
+                className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-4 transition-colors"
+                style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#4356a9"
+                  e.currentTarget.style.background = "rgba(67,86,169,0.03)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.style.borderColor = "#4356a9"
+                  e.currentTarget.style.background = "rgba(67,86,169,0.06)"
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                  handleReceiptUpload(e.dataTransfer.files)
+                }}
+              >
+                <Upload size={20} style={{ color: "#4356a9" }} />
+                <p className="text-xs">
+                  <span className="font-semibold underline" style={{ color: "#4356a9" }}>
+                    Upload receipts
+                  </span>{" "}
+                  or drag and drop
+                </p>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.gif"
+                  className="hidden"
+                  onChange={(e) => handleReceiptUpload(e.target.files)}
+                />
+              </label>
+              {uploadingReceipts && (
+                <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: "#4356a9" }}>
+                  <Loader2 size={14} className="animate-spin" />
+                  Uploading…
+                </div>
+              )}
+              {mealReceipts.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {mealReceipts.map((f, i) => {
+                    const isImg = f.mimeType.startsWith("image/")
+                    const Icon = isImg ? Image : FileText
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-lg px-3 py-1.5"
+                        style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
+                      >
+                        <Icon size={14} style={{ color: "#4356a9", flexShrink: 0 }} />
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 flex-1 truncate text-xs font-medium underline"
+                          style={{ color: "#1d2a5d" }}
+                        >
+                          {f.name}
+                        </a>
+                        <span className="text-[10px]" style={{ color: "#94a3b8" }}>
+                          {(f.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMealReceipts((prev) => prev.filter((_, j) => j !== i))}
+                          className="cursor-pointer rounded p-0.5 transition-colors"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </Section>
-        )}
 
         {/* Summary */}
         <div

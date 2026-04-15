@@ -70,7 +70,7 @@ export default function AddressAutocomplete({
   function handleFocus() {
     if (suggestions.length > 0) {
       setOpen(true)
-    } else if (value.length < 3 && hasQuickFillContent) {
+    } else if (hasQuickFillContent) {
       setShowQuickFills(true)
       setOpen(true)
     }
@@ -180,15 +180,23 @@ export default function AddressAutocomplete({
               })}
               {showAddHome && (
                 <li
-                  onMouseDown={() => navigate("/profile")}
-                  className="flex cursor-pointer items-center gap-2 border-t px-3 py-2 text-sm"
+                  onMouseDown={() => navigate("/profile?focus=homeAddress")}
+                  onMouseEnter={() => setActiveIndex(-1)}
+                  className="flex cursor-pointer items-center gap-2 border-t px-3 py-2 text-sm transition-colors duration-150"
                   style={{
-                    color: "#4356a9",
                     borderColor: "rgba(180,185,195,0.25)",
                   }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = "#f0f2f5"
+                    e.currentTarget.style.color = "#1d2a5d"
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = "transparent"
+                    e.currentTarget.style.color = "#4356a9"
+                  }}
                 >
-                  <Plus size={14} style={{ flexShrink: 0 }} />
-                  <span className="font-medium">Add home address</span>
+                  <Plus size={14} style={{ color: "#4356a9", flexShrink: 0 }} />
+                  <span className="font-medium" style={{ color: "inherit" }}>Add home address</span>
                 </li>
               )}
             </>
