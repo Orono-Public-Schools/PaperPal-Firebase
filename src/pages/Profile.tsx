@@ -221,11 +221,10 @@ export default function Profile() {
 
           {/* Tab switcher */}
           <div
-            className="mb-4 inline-flex gap-1 rounded-xl p-1"
+            className="mb-4 inline-flex gap-1 rounded border p-1"
             style={{
-              background: "linear-gradient(145deg, #eaecf0, #f5f6f8)",
-              boxShadow:
-                "inset 2px 2px 5px rgba(180,185,195,0.3), inset -2px -2px 5px rgba(255,255,255,0.7)",
+              background: "#f8f9fb",
+              borderColor: "#e2e5ea",
             }}
           >
             {(["draw", "type"] as SigTab[]).map((t) => (
@@ -233,7 +232,7 @@ export default function Profile() {
                 key={t}
                 type="button"
                 onClick={() => setSigTab(t)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
+                className="flex cursor-pointer items-center gap-1.5 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
                 style={
                   sigTab === t
                     ? {
@@ -257,11 +256,10 @@ export default function Profile() {
                 ref={canvasRef}
                 width={600}
                 height={150}
-                className="w-full touch-none rounded-[14px]"
+                className="w-full touch-none rounded"
                 style={{
-                  background: "#f4f5f7",
-                  boxShadow:
-                    "inset 2px 2px 5px rgba(180,185,195,0.35), inset -2px -2px 5px rgba(255,255,255,0.9)",
+                  background: "#f8f9fb",
+                  border: "1px solid #e2e5ea",
                   cursor: "crosshair",
                   maxHeight: "150px",
                 }}
@@ -276,7 +274,7 @@ export default function Profile() {
               <button
                 type="button"
                 onClick={clearCanvas}
-                className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                className="mt-2 flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors"
                 style={{ color: "#94a3b8" }}
                 onMouseEnter={(e) =>
                   ((e.currentTarget as HTMLButtonElement).style.color =
@@ -330,7 +328,7 @@ export default function Profile() {
               <img
                 src={savedSig}
                 alt="Saved signature"
-                className="rounded-[10px]"
+                className="rounded"
                 style={{ maxHeight: "80px", background: "#f4f5f7" }}
               />
             </div>
@@ -351,7 +349,7 @@ export default function Profile() {
           <button
             type="submit"
             disabled={saving}
-            className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
+            className="cursor-pointer rounded px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
             style={{
               background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
               boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
@@ -374,20 +372,21 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-[18px] p-5"
+      className="rounded-2xl p-2.5"
       style={{
-        background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-        boxShadow:
-          "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+        background: "#ffffff",
+        boxShadow: "0 30px 30px -25px rgba(29,42,93,0.12)",
       }}
     >
-      <h2
-        className="mb-4 text-sm font-semibold tracking-widest uppercase"
-        style={{ color: "#1d2a5d" }}
-      >
-        {title}
-      </h2>
-      {children}
+      <div className="rounded-xl p-5" style={{ background: "#f5f7ff" }}>
+        <h2
+          className="mb-4 text-sm font-semibold tracking-widest uppercase"
+          style={{ color: "#425275" }}
+        >
+          {title}
+        </h2>
+        {children}
+      </div>
     </div>
   )
 }

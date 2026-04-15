@@ -12,7 +12,10 @@ const FORM_TYPES = [
     title: "Check Request",
     description: "Submit a payment request for a vendor or service.",
     icon: FileText,
-    pill: { from: "#1e3a8a", to: "#3b82f6" },
+    color: "#1e3a8a",
+    innerBg: "#ecf0ff",
+    iconBg: "#bed6fb",
+    shadow: "rgba(30,58,138,0.2)",
     path: "/forms/check",
   },
   {
@@ -20,7 +23,10 @@ const FORM_TYPES = [
     title: "Mileage Reimbursement",
     description: "Claim mileage reimbursement at $0.70 per mile.",
     icon: Car,
-    pill: { from: "#059669", to: "#34d399" },
+    color: "#059669",
+    innerBg: "#e6faf2",
+    iconBg: "#a7f3d0",
+    shadow: "rgba(5,150,105,0.2)",
     path: "/forms/mileage",
   },
   {
@@ -29,7 +35,10 @@ const FORM_TYPES = [
     description:
       "Request reimbursement for travel with estimated and actual expenses.",
     icon: Briefcase,
-    pill: { from: "#8b5cf6", to: "#a855f7" },
+    color: "#7c3aed",
+    innerBg: "#f0ecff",
+    iconBg: "#c4b5fd",
+    shadow: "rgba(124,58,237,0.2)",
     path: "/forms/travel",
   },
 ]
@@ -105,11 +114,10 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div
-        className="mb-6 flex gap-1 rounded-xl p-1"
+        className="mb-6 flex gap-1 rounded border p-1"
         style={{
-          background: "linear-gradient(145deg, #eaecf0, #f5f6f8)",
-          boxShadow:
-            "inset 2px 2px 5px rgba(180,185,195,0.3), inset -2px -2px 5px rgba(255,255,255,0.7)",
+          background: "#f8f9fb",
+          borderColor: "#e2e5ea",
         }}
       >
         {TABS.map(({ id, label, icon: Icon }) => {
@@ -118,7 +126,7 @@ export default function Dashboard() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-all duration-200"
               style={
                 active
                   ? {
@@ -147,68 +155,59 @@ export default function Dashboard() {
 
       {/* Tab: New Request */}
       {activeTab === "new" && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FORM_TYPES.map(
-            ({ id, title, description, icon: Icon, pill, path }) => (
+            ({ id, title, description, icon: Icon, color, innerBg, iconBg, shadow, path }) => (
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group cursor-pointer overflow-hidden rounded-[20px] text-center transition-all duration-500"
+                className="group cursor-pointer rounded-2xl p-2.5 text-left transition-all duration-200 hover:-translate-y-1"
                 style={{
-                  backgroundColor: "#edeef1",
-                  border: "8px solid #edeef1",
-                  maxHeight: "160px",
-                  boxShadow:
-                    "inset 4px 4px 8px rgba(180,185,195,0.45), inset -4px -4px 8px rgba(255,255,255,0.85)",
+                  background: "#ffffff",
+                  boxShadow: `0 30px 30px -25px ${shadow}`,
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.maxHeight = "320px"
+                  e.currentTarget.style.boxShadow = `0 35px 35px -20px ${shadow}`
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.maxHeight = "160px"
+                  e.currentTarget.style.boxShadow = `0 30px 30px -25px ${shadow}`
                 }}
               >
-                {/* Icon circle */}
                 <div
-                  className="mx-auto mt-5 mb-3 flex h-14 w-14 items-center justify-center rounded-full"
-                  style={{
-                    backgroundColor: "#edeef1",
-                    boxShadow:
-                      "6px 6px 10px rgba(180,185,195,0.45), -6px -6px 10px rgba(255,255,255,0.85)",
-                  }}
+                  className="flex flex-col rounded-xl px-5 pt-10 pb-6"
+                  style={{ background: innerBg }}
                 >
-                  <Icon size={24} style={{ color: pill.from }} />
-                </div>
+                  {/* Icon */}
+                  <div
+                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-full"
+                    style={{ background: iconBg }}
+                  >
+                    <Icon size={22} style={{ color: "#ffffff" }} />
+                  </div>
 
-                {/* Title */}
-                <div
-                  className="px-4 pb-4 text-sm font-semibold"
-                  style={{ color: "#1d2a5d" }}
-                >
-                  {title}
-                </div>
+                  {/* Title */}
+                  <h3
+                    className="mb-1.5 text-lg font-semibold"
+                    style={{ color: "#425275" }}
+                  >
+                    {title}
+                  </h3>
 
-                {/* Hover content */}
-                <div
-                  className="mx-3 mb-3 -translate-y-6 scale-0 rounded-xl px-4 py-3 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
-                  style={{
-                    backgroundColor: "#edeef1",
-                    boxShadow:
-                      "5px 5px 8px rgba(180,185,195,0.4), -5px -5px 8px rgba(255,255,255,0.8)",
-                  }}
-                >
+                  {/* Description */}
                   <p
-                    className="text-[13px] leading-relaxed font-medium"
-                    style={{ color: "#334155" }}
+                    className="mb-5 text-sm leading-relaxed"
+                    style={{ color: "#697e91" }}
                   >
                     {description}
                   </p>
-                  <p
-                    className="mt-3 text-[13px] font-bold"
-                    style={{ color: pill.from }}
+
+                  {/* CTA */}
+                  <div
+                    className="mt-auto w-full rounded-md py-2.5 text-center text-sm font-semibold text-white transition-opacity duration-200"
+                    style={{ background: color }}
                   >
-                    Start →
-                  </p>
+                    Get Started
+                  </div>
                 </div>
               </button>
             )
@@ -262,8 +261,8 @@ function SubmissionList({
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="h-16 animate-pulse rounded-[14px]"
-            style={{ background: "#edeef1" }}
+            className="h-16 animate-pulse rounded-2xl"
+            style={{ background: "#f5f7ff" }}
           />
         ))}
       </div>
@@ -273,24 +272,25 @@ function SubmissionList({
   if (submissions.length === 0) {
     return (
       <div
-        className="rounded-[18px] p-8 text-center"
+        className="rounded-2xl p-2.5"
         style={{
-          background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-          boxShadow:
-            "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+          background: "#ffffff",
+          boxShadow: "0 30px 30px -25px rgba(29,42,93,0.12)",
         }}
       >
-        <EmptyIcon
-          size={32}
-          className="mx-auto mb-3"
-          style={{ color: "#9ca3af" }}
-        />
-        <p className="font-medium" style={{ color: "#1d2a5d" }}>
-          {emptyTitle}
-        </p>
-        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
-          {emptySubtitle}
-        </p>
+        <div className="rounded-xl p-8 text-center" style={{ background: "#f5f7ff" }}>
+          <EmptyIcon
+            size={32}
+            className="mx-auto mb-3"
+            style={{ color: "#9ca3af" }}
+          />
+          <p className="font-medium" style={{ color: "#425275" }}>
+            {emptyTitle}
+          </p>
+          <p className="mt-1 text-sm" style={{ color: "#697e91" }}>
+            {emptySubtitle}
+          </p>
+        </div>
       </div>
     )
   }
@@ -310,11 +310,10 @@ function SubmissionList({
         return (
           <div
             key={s.id}
-            className="flex items-center justify-between rounded-[14px] px-5 py-4"
+            className="flex items-center justify-between rounded-2xl px-5 py-4"
             style={{
-              background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-              boxShadow:
-                "3px 3px 8px rgba(180,185,195,0.25), -3px -3px 8px rgba(255,255,255,0.55)",
+              background: "#ffffff",
+              boxShadow: "0 20px 25px -20px rgba(29,42,93,0.1)",
             }}
           >
             <div className="min-w-0">

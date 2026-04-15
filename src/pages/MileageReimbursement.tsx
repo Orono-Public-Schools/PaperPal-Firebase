@@ -96,44 +96,28 @@ export default function MileageReimbursement() {
     return (
       <AppLayout>
         <div
-          className="mx-auto max-w-lg rounded-[20px] p-10 text-center"
-          style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "6px 6px 14px rgba(180,185,195,0.4), -6px -6px 14px rgba(255,255,255,0.8)",
-          }}
+          className="mx-auto max-w-lg rounded-2xl p-2.5"
+          style={{ background: "#ffffff", boxShadow: "0 30px 30px -25px rgba(5,150,105,0.15)" }}
         >
-          <CheckCircle
-            size={48}
-            className="mx-auto mb-4"
-            style={{ color: "#059669" }}
-          />
-          <h2 className="text-xl font-bold" style={{ color: "#1d2a5d" }}>
-            Submitted!
-          </h2>
-          <p className="mt-2 text-sm" style={{ color: "#64748b" }}>
-            Your mileage reimbursement request{" "}
-            <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-              {submissionId}
-            </span>{" "}
-            has been submitted for approval.
-          </p>
-          <p
-            className="mt-1 text-sm font-semibold"
-            style={{ color: "#059669" }}
-          >
-            ${totalReimbursement.toFixed(2)} for {totalMiles.toFixed(1)} miles
-          </p>
-          <button
-            onClick={() => navigate("/")}
-            className="mt-6 cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200"
-            style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
-            }}
-          >
-            Back to Dashboard
-          </button>
+          <div className="rounded-xl p-10 text-center" style={{ background: "#e6faf2" }}>
+            <CheckCircle size={48} className="mx-auto mb-4" style={{ color: "#059669" }} />
+            <h2 className="text-xl font-bold" style={{ color: "#425275" }}>Submitted!</h2>
+            <p className="mt-2 text-sm" style={{ color: "#697e91" }}>
+              Your mileage reimbursement request{" "}
+              <span className="font-semibold" style={{ color: "#425275" }}>{submissionId}</span>{" "}
+              has been submitted for approval.
+            </p>
+            <p className="mt-1 text-sm font-semibold" style={{ color: "#059669" }}>
+              ${totalReimbursement.toFixed(2)} for {totalMiles.toFixed(1)} miles
+            </p>
+            <button
+              onClick={() => navigate("/")}
+              className="mt-6 cursor-pointer rounded-md px-6 py-2.5 text-sm font-semibold text-white"
+              style={{ background: "#1d2a5d" }}
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
       </AppLayout>
     )
@@ -187,7 +171,7 @@ export default function MileageReimbursement() {
         <Section title="Trip Log">
           <div
             className="divide-y"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
+            style={{ borderColor: "#e2e5ea" }}
           >
             {trips.map((trip, i) => (
               <TripRow
@@ -202,7 +186,7 @@ export default function MileageReimbursement() {
           <button
             type="button"
             onClick={addTrip}
-            className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
+            className="mt-3 flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
             style={{ color: "#059669" }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.backgroundColor = "rgba(5,150,105,0.06)")
@@ -218,39 +202,22 @@ export default function MileageReimbursement() {
 
         {/* Totals */}
         <div
-          className="rounded-[18px] p-5"
-          style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
-          }}
+          className="rounded-2xl p-2.5"
+          style={{ background: "#ffffff", boxShadow: "0 30px 30px -25px rgba(5,150,105,0.15)" }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium" style={{ color: "#64748b" }}>
-              Total Miles
-            </span>
-            <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-              {totalMiles.toFixed(1)} mi
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-sm font-medium" style={{ color: "#64748b" }}>
-              Rate
-            </span>
-            <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-              $0.70 / mile
-            </span>
-          </div>
-          <div
-            className="mt-3 flex items-center justify-between border-t pt-3"
-            style={{ borderColor: "rgba(180,185,195,0.4)" }}
-          >
-            <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
-              Total Reimbursement
-            </span>
-            <span className="text-lg font-bold" style={{ color: "#059669" }}>
-              ${totalReimbursement.toFixed(2)}
-            </span>
+          <div className="rounded-xl p-5" style={{ background: "#e6faf2" }}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium" style={{ color: "#697e91" }}>Total Miles</span>
+              <span className="font-semibold" style={{ color: "#425275" }}>{totalMiles.toFixed(1)} mi</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-sm font-medium" style={{ color: "#697e91" }}>Rate</span>
+              <span className="font-semibold" style={{ color: "#425275" }}>$0.70 / mile</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t pt-3" style={{ borderColor: "rgba(5,150,105,0.15)" }}>
+              <span className="text-base font-bold" style={{ color: "#425275" }}>Total Reimbursement</span>
+              <span className="text-lg font-bold" style={{ color: "#059669" }}>${totalReimbursement.toFixed(2)}</span>
+            </div>
           </div>
         </div>
 
@@ -259,7 +226,7 @@ export default function MileageReimbursement() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-medium transition-all duration-200"
+            className="cursor-pointer rounded px-5 py-2.5 text-sm font-medium transition-all duration-200"
             style={{ color: "#64748b" }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.backgroundColor = "rgba(100,116,139,0.08)")
@@ -273,7 +240,7 @@ export default function MileageReimbursement() {
           <button
             type="submit"
             disabled={submitting}
-            className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
+            className="cursor-pointer rounded px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
             style={{
               background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
               boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
@@ -298,20 +265,21 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-[18px] p-5"
+      className="rounded-2xl p-2.5"
       style={{
-        background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-        boxShadow:
-          "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+        background: "#ffffff",
+        boxShadow: "0 30px 30px -25px rgba(29,42,93,0.12)",
       }}
     >
-      <h2
-        className="mb-4 text-sm font-semibold tracking-widest uppercase"
-        style={{ color: "#1d2a5d" }}
-      >
-        {title}
-      </h2>
-      {children}
+      <div className="rounded-xl p-5" style={{ background: "#f5f7ff" }}>
+        <h2
+          className="mb-4 text-sm font-semibold tracking-widest uppercase"
+          style={{ color: "#425275" }}
+        >
+          {title}
+        </h2>
+        {children}
+      </div>
     </div>
   )
 }
@@ -434,7 +402,7 @@ function TripRow({
             <button
               type="button"
               onClick={onRemove}
-              className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+              className="cursor-pointer rounded p-1.5 transition-colors duration-150"
               style={{ color: "#94a3b8" }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLButtonElement).style.color = "#ad2122")

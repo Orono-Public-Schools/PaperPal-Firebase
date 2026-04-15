@@ -105,14 +105,17 @@ export default function AppHeader() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex cursor-pointer items-center justify-center rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex cursor-pointer items-center justify-center rounded p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
             aria-label="Open menu"
           >
             <Menu size={20} />
           </button>
 
           {userProfile && (
-            <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate("/profile")}
+              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 transition-colors hover:bg-white/10"
+            >
               {userProfile.photoURL ? (
                 <img
                   src={userProfile.photoURL}
@@ -132,12 +135,12 @@ export default function AppHeader() {
               <span className="text-sm text-white/90">
                 {userProfile.firstName}
               </span>
-            </div>
+            </button>
           )}
 
           <button
             onClick={signOut}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
             title="Sign out"
           >
             <LogOut size={14} />
@@ -175,7 +178,7 @@ export default function AppHeader() {
           </span>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="cursor-pointer rounded-lg p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            className="cursor-pointer rounded p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X size={18} />
           </button>
@@ -198,7 +201,7 @@ export default function AppHeader() {
                     <button
                       key={path}
                       onClick={() => handleNav(path)}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150"
+                      className="flex cursor-pointer items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors duration-150"
                       style={{
                         background: active
                           ? "rgba(255,255,255,0.15)"
@@ -233,7 +236,7 @@ export default function AppHeader() {
         >
           <button
             onClick={signOut}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
             <LogOut size={15} />
             Sign out

@@ -97,44 +97,44 @@ export default function CheckRequest() {
     return (
       <AppLayout>
         <div
-          className="mx-auto max-w-lg rounded-[20px] p-10 text-center"
+          className="mx-auto max-w-lg rounded-2xl p-2.5"
           style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "6px 6px 14px rgba(180,185,195,0.4), -6px -6px 14px rgba(255,255,255,0.8)",
+            background: "#ffffff",
+            boxShadow: "0 30px 30px -25px rgba(5,150,105,0.15)",
           }}
         >
-          <CheckCircle
-            size={48}
-            className="mx-auto mb-4"
-            style={{ color: "#1e3a8a" }}
-          />
-          <h2 className="text-xl font-bold" style={{ color: "#1d2a5d" }}>
-            Submitted!
-          </h2>
-          <p className="mt-2 text-sm" style={{ color: "#64748b" }}>
-            Your check request{" "}
-            <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-              {submissionId}
-            </span>{" "}
-            has been submitted for approval.
-          </p>
-          <p
-            className="mt-1 text-sm font-semibold"
-            style={{ color: "#1e3a8a" }}
-          >
-            ${grandTotal.toFixed(2)} payable to {payee}
-          </p>
-          <button
-            onClick={() => navigate("/")}
-            className="mt-6 cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200"
-            style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-              boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
-            }}
-          >
-            Back to Dashboard
-          </button>
+          <div className="rounded-xl p-10 text-center" style={{ background: "#e6faf2" }}>
+            <CheckCircle
+              size={48}
+              className="mx-auto mb-4"
+              style={{ color: "#059669" }}
+            />
+            <h2 className="text-xl font-bold" style={{ color: "#425275" }}>
+              Submitted!
+            </h2>
+            <p className="mt-2 text-sm" style={{ color: "#697e91" }}>
+              Your check request{" "}
+              <span className="font-semibold" style={{ color: "#425275" }}>
+                {submissionId}
+              </span>{" "}
+              has been submitted for approval.
+            </p>
+            <p
+              className="mt-1 text-sm font-semibold"
+              style={{ color: "#059669" }}
+            >
+              ${grandTotal.toFixed(2)} payable to {payee}
+            </p>
+            <button
+              onClick={() => navigate("/")}
+              className="mt-6 cursor-pointer rounded-md px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200"
+              style={{
+                background: "#1d2a5d",
+              }}
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
       </AppLayout>
     )
@@ -246,7 +246,7 @@ export default function CheckRequest() {
         <Section title="Expenses">
           <div
             className="divide-y"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
+            style={{ borderColor: "#e2e5ea" }}
           >
             {expenses.map((expense, i) => (
               <ExpenseRow
@@ -263,7 +263,7 @@ export default function CheckRequest() {
           <button
             type="button"
             onClick={addExpense}
-            className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
+            className="mt-3 flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
             style={{ color: "#1e3a8a" }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.backgroundColor = "rgba(30,58,138,0.06)")
@@ -279,15 +279,17 @@ export default function CheckRequest() {
 
         {/* Total */}
         <div
-          className="rounded-[18px] p-5"
+          className="rounded-2xl p-2.5"
           style={{
-            background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-            boxShadow:
-              "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+            background: "#ffffff",
+            boxShadow: "0 30px 30px -25px rgba(30,58,138,0.12)",
           }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
+          <div
+            className="flex items-center justify-between rounded-xl p-5"
+            style={{ background: "#ecf0ff" }}
+          >
+            <span className="text-base font-bold" style={{ color: "#425275" }}>
               Grand Total
             </span>
             <span className="text-lg font-bold" style={{ color: "#1e3a8a" }}>
@@ -301,7 +303,7 @@ export default function CheckRequest() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="cursor-pointer rounded-xl px-5 py-2.5 text-sm font-medium transition-all duration-200"
+            className="cursor-pointer rounded px-5 py-2.5 text-sm font-medium transition-all duration-200"
             style={{ color: "#64748b" }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.backgroundColor = "rgba(100,116,139,0.08)")
@@ -315,7 +317,7 @@ export default function CheckRequest() {
           <button
             type="submit"
             disabled={submitting}
-            className="cursor-pointer rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
+            className="cursor-pointer rounded px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60"
             style={{
               background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
               boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
@@ -340,20 +342,24 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-[18px] p-5"
+      className="rounded-2xl p-2.5"
       style={{
-        background: "linear-gradient(145deg, #fafbfd, #edeef1)",
-        boxShadow:
-          "4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)",
+        background: "#ffffff",
+        boxShadow: "0 30px 30px -25px rgba(29,42,93,0.12)",
       }}
     >
-      <h2
-        className="mb-4 text-sm font-semibold tracking-widest uppercase"
-        style={{ color: "#1d2a5d" }}
+      <div
+        className="rounded-xl p-5"
+        style={{ background: "#f5f7ff" }}
       >
-        {title}
-      </h2>
-      {children}
+        <h2
+          className="mb-4 text-sm font-semibold tracking-widest uppercase"
+          style={{ color: "#425275" }}
+        >
+          {title}
+        </h2>
+        {children}
+      </div>
     </div>
   )
 }
@@ -436,7 +442,7 @@ function ExpenseRow({
             <button
               type="button"
               onClick={onRemove}
-              className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+              className="cursor-pointer rounded p-1.5 transition-colors duration-150"
               style={{ color: "#94a3b8" }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLButtonElement).style.color = "#ad2122")

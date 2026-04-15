@@ -48,7 +48,7 @@ export default function NameField({
             type="button"
             onClick={clearOverride}
             title="Use my name"
-            className="flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors duration-150"
+            className="flex cursor-pointer items-center justify-center rounded p-2 transition-colors duration-150"
             style={{ color: "#94a3b8" }}
             onMouseEnter={(e) =>
               ((e.currentTarget as HTMLButtonElement).style.color = "#ad2122")
@@ -64,7 +64,7 @@ export default function NameField({
             type="button"
             onClick={startOverride}
             title="Fill on behalf of someone else"
-            className="flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors duration-150"
+            className="flex cursor-pointer items-center justify-center rounded p-2 transition-colors duration-150"
             style={{ color: "#94a3b8" }}
             onMouseEnter={(e) =>
               ((e.currentTarget as HTMLButtonElement).style.color = "#1d2a5d")
