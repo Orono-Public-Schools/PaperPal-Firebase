@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router"
 import { Plus, Trash2, CheckCircle } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
+import NameField from "@/components/forms/NameField"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission } from "@/lib/firestore"
 import type { TravelMeal, TravelActualOther } from "@/lib/types"
@@ -39,6 +40,9 @@ export default function TravelReimbursement() {
   const navigate = useNavigate()
 
   // Employee / trip header
+  const [submitterName, setSubmitterName] = useState(
+    userProfile?.fullName ?? ""
+  )
   const [employeeId, setEmployeeId] = useState(userProfile?.employeeId ?? "")
   const [formDate, setFormDate] = useState(todayStr())
   const [address, setAddress] = useState("")
@@ -140,7 +144,7 @@ export default function TravelReimbursement() {
         submitterName: userProfile.fullName,
         supervisorEmail: userProfile.supervisorEmail ?? "",
         formData: {
-          name: userProfile.fullName,
+          name: submitterName,
           employeeId,
           formDate,
           address,
@@ -249,14 +253,11 @@ export default function TravelReimbursement() {
         {/* Employee / trip info */}
         <Section title="Employee & Trip Information">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Employee Name">
-              <input
-                type="text"
-                readOnly
-                value={userProfile?.fullName ?? ""}
-                className="input-neu"
-              />
-            </Field>
+            <NameField
+              defaultName={userProfile?.fullName ?? ""}
+              value={submitterName}
+              onChange={setSubmitterName}
+            />
             <Field label="Employee ID">
               <input
                 type="text"

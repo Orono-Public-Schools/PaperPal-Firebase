@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router"
 import { Plus, Trash2, CheckCircle } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
+import NameField from "@/components/forms/NameField"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission } from "@/lib/firestore"
 import type { MileageTrip } from "@/lib/types"
@@ -23,8 +24,13 @@ export default function MileageReimbursement() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
 
+  const [submitterName, setSubmitterName] = useState(
+    userProfile?.fullName ?? ""
+  )
   const [employeeId, setEmployeeId] = useState(userProfile?.employeeId ?? "")
-  const [accountCode, setAccountCode] = useState("")
+  const [accountCode, setAccountCode] = useState(
+    userProfile?.savedSignatureUrl ? "" : ""
+  )
   const [trips, setTrips] = useState<MileageTrip[]>([emptyTrip()])
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -67,7 +73,7 @@ export default function MileageReimbursement() {
         submitterName: userProfile.fullName,
         supervisorEmail: userProfile.supervisorEmail ?? "",
         formData: {
-          name: userProfile.fullName,
+          name: submitterName,
           employeeId,
           accountCode,
           trips,
@@ -150,14 +156,11 @@ export default function MileageReimbursement() {
         {/* Employee info */}
         <Section title="Employee Information">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Full Name">
-              <input
-                type="text"
-                readOnly
-                value={userProfile?.fullName ?? ""}
-                className="input-neu w-full"
-              />
-            </Field>
+            <NameField
+              defaultName={userProfile?.fullName ?? ""}
+              value={submitterName}
+              onChange={setSubmitterName}
+            />
             <Field label="Employee ID">
               <input
                 type="text"

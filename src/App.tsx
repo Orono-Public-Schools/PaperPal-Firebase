@@ -8,6 +8,7 @@ import MileageReimbursement from "@/pages/MileageReimbursement"
 import TravelReimbursement from "@/pages/TravelReimbursement"
 import FormView from "@/pages/FormView"
 import Admin from "@/pages/Admin"
+import Profile from "@/pages/Profile"
 
 export default function App() {
   return (
@@ -60,6 +61,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

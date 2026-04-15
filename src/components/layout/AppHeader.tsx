@@ -9,11 +9,18 @@ import {
   Briefcase,
   Clock,
   History,
+  LayoutDashboard,
+  UserCircle,
 } from "lucide-react"
 import { useNavigate, useLocation } from "react-router"
 import { useAuth } from "@/hooks/useAuth"
 
 const NAV_SECTIONS = [
+  {
+    label: "Navigate",
+    adminOnly: false,
+    links: [{ label: "Dashboard", path: "/", icon: LayoutDashboard }],
+  },
   {
     label: "New Request",
     adminOnly: false,
@@ -30,6 +37,11 @@ const NAV_SECTIONS = [
       { label: "Pending", path: "/?tab=pending", icon: Clock },
       { label: "History", path: "/?tab=history", icon: History },
     ],
+  },
+  {
+    label: "Account",
+    adminOnly: false,
+    links: [{ label: "Profile Settings", path: "/profile", icon: UserCircle }],
   },
   {
     label: "Admin",

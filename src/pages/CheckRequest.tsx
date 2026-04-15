@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router"
 import { Plus, Trash2, CheckCircle } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
+import NameField from "@/components/forms/NameField"
 import { useAuth } from "@/hooks/useAuth"
 import { createSubmission } from "@/lib/firestore"
 import type { CheckRequestExpense } from "@/lib/types"
@@ -13,6 +14,10 @@ function emptyExpense(): CheckRequestExpense {
 export default function CheckRequest() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+
+  const [submitterName, setSubmitterName] = useState(
+    userProfile?.fullName ?? ""
+  )
 
   // Header fields
   const [dateRequest, setDateRequest] = useState(
@@ -151,14 +156,11 @@ export default function CheckRequest() {
         {/* Request details */}
         <Section title="Request Details">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Requested By">
-              <input
-                type="text"
-                readOnly
-                value={userProfile?.fullName ?? ""}
-                className="input-neu"
-              />
-            </Field>
+            <NameField
+              defaultName={userProfile?.fullName ?? ""}
+              value={submitterName}
+              onChange={setSubmitterName}
+            />
             <Field label="Date of Request">
               <input
                 type="date"
