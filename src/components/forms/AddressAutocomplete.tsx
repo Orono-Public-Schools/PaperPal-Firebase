@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useId } from "react"
 import { useNavigate } from "react-router"
 import { Home, Building2, Plus } from "lucide-react"
 import { fetchAddressSuggestions, type PlaceSuggestion } from "@/lib/googleMaps"
@@ -128,6 +128,7 @@ export default function AddressAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  const inputId = useId()
   const IconMap = { home: Home, building: Building2 }
 
   return (
@@ -158,7 +159,7 @@ export default function AddressAutocomplete({
         required={required}
         className="input-neu w-full"
         autoComplete="off"
-        name={`addr-${Math.random().toString(36).slice(2, 8)}`}
+        name={`addr-${inputId}`}
         data-lpignore="true"
         data-1p-ignore
         data-form-type="other"
