@@ -41,7 +41,7 @@ service cloud.firestore {
       allow update: if request.auth != null
                     && (
                       (resource.data.submitterUid == request.auth.uid
-                       && resource.data.status == 'revisions_requested')
+                       && resource.data.status in ['pending', 'revisions_requested'])
                       || resource.data.supervisorEmail == request.auth.token.email
                       || isAdminOrBO()
                     );

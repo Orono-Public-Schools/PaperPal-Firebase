@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { useNavigate } from "react-router"
+import { useNavigate, useSearchParams } from "react-router"
 import {
   Plus,
   Trash2,
@@ -26,9 +26,12 @@ import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import {
   createSubmission,
+  getSubmission,
+  updateSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
 } from "@/lib/firestore"
+import type { TravelData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
@@ -66,6 +69,8 @@ function emptyOther(): TravelActualOther {
 export default function TravelReimbursement() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
 
   // Employee / trip header
@@ -160,6 +165,42 @@ export default function TravelReimbursement() {
       setQuickFills(fills)
     })
   }, [userProfile?.homeAddress, budgetYear])
+
+  // Load existing submission for resubmit
+  useEffect(() => {
+    if (!resubmitId) return
+    getSubmission(resubmitId).then((sub) => {
+      if (!sub || sub.formType !== "travel") return
+      const fd = sub.formData as TravelData
+      setSubmitterName(sub.submitterName)
+      setRouteRequestTo(sub.supervisorEmail)
+      setEmployeeId(fd.employeeId)
+      setFormDate(fd.formDate)
+      setAddress(fd.address)
+      setBudgetYear(fd.budgetYear)
+      setAccountCode(fd.accountCode)
+      setMeetingTitle(fd.meetingTitle)
+      setLocation(fd.location)
+      setDateStart(fd.dateStart)
+      setDateEnd(fd.dateEnd)
+      setTimeAwayStart(fd.timeAwayStart)
+      setTimeAwayEnd(fd.timeAwayEnd)
+      setJustification(fd.justification)
+      setAdvanceRequested(fd.advanceRequested)
+      setEstTransport(fd.estimated.transport)
+      setEstLodging(fd.estimated.lodging)
+      setEstMeals(fd.estimated.meals)
+      setEstRegistration(fd.estimated.registration)
+      setEstSubstitute(fd.estimated.substitute)
+      setEstOther(fd.estimated.other)
+      setActMiles(fd.actuals.miles)
+      setActOtherTransport(fd.actuals.otherTransport)
+      setActLodging(fd.actuals.lodging)
+      setActRegistration(fd.actuals.registration)
+      setActOthers(fd.actuals.others.length > 0 ? fd.actuals.others : [])
+      if (fd.meals.length > 0) setMeals(fd.meals)
+    })
+  }, [resubmitId])
 
   async function calcDistance() {
     if (mileageFrom.length < 5 || mileageTo.length < 5) return
@@ -261,56 +302,81 @@ export default function TravelReimbursement() {
     if (!user || !userProfile) return
     setSubmitting(true)
     try {
-      const id = await createSubmission({
-        formType: "travel",
-        status: "pending",
-        submitterUid: user.uid,
-        submitterEmail: user.email ?? "",
-        submitterName: userProfile.fullName,
-        supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
-        employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
-        formData: {
-          name: submitterName,
-          employeeId,
-          formDate,
-          address,
-          budgetYear,
-          accountCode,
-          meetingTitle,
-          location,
-          dateStart,
-          dateEnd,
-          timeAwayStart,
-          timeAwayEnd,
-          justification,
-          estimated: {
-            transport: estTransport,
-            lodging: estLodging,
-            meals: estMeals,
-            registration: estRegistration,
-            substitute: estSubstitute,
-            other: estOther,
-            total: estTotal,
-          },
-          actuals: {
-            miles: actMiles,
-            otherTransport: actOtherTransport,
-            lodging: actLodging,
-            registration: actRegistration,
-            others: actOthers,
-            mealTotal,
-            total: actTotal,
-          },
-          meals,
-          advanceRequested,
-          finalClaim,
+      const formData = {
+        name: submitterName,
+        employeeId,
+        formDate,
+        address,
+        budgetYear,
+        accountCode,
+        meetingTitle,
+        location,
+        dateStart,
+        dateEnd,
+        timeAwayStart,
+        timeAwayEnd,
+        justification,
+        estimated: {
+          transport: estTransport,
+          lodging: estLodging,
+          meals: estMeals,
+          registration: estRegistration,
+          substitute: estSubstitute,
+          other: estOther,
+          total: estTotal,
         },
-        attachments: justificationFiles,
-        revisionHistory: [],
-        summary: `Travel — ${meetingTitle || location}`,
-        amount: finalClaim,
-      })
-      setSubmissionId(id)
+        actuals: {
+          miles: actMiles,
+          otherTransport: actOtherTransport,
+          lodging: actLodging,
+          registration: actRegistration,
+          others: actOthers,
+          mealTotal,
+          total: actTotal,
+        },
+        meals,
+        advanceRequested,
+        finalClaim,
+      }
+
+      if (resubmitId) {
+        await updateSubmission(resubmitId, {
+          status: "pending",
+          submitterName: userProfile.fullName,
+          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          formData,
+          attachments: justificationFiles,
+          summary: `Travel — ${meetingTitle || location}`,
+          amount: finalClaim,
+          supervisorSignatureUrl: "",
+          finalApproverSignatureUrl: "",
+          reviewedAt: undefined,
+          approvedAt: undefined,
+          denialComments: undefined,
+          revisionComments: undefined,
+          approvalProcessingError: undefined,
+          pdfDriveId: undefined,
+          pdfDriveUrl: undefined,
+        })
+        setSubmissionId(resubmitId)
+      } else {
+        const id = await createSubmission({
+          formType: "travel",
+          status: "pending",
+          submitterUid: user.uid,
+          submitterEmail: user.email ?? "",
+          submitterName: userProfile.fullName,
+          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          formData,
+          attachments: justificationFiles,
+          revisionHistory: [],
+          summary: `Travel — ${meetingTitle || location}`,
+          amount: finalClaim,
+        })
+        setSubmissionId(id)
+      }
       setSubmitted(true)
     } finally {
       setSubmitting(false)

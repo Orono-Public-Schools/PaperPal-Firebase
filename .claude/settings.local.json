@@ -52,7 +52,10 @@
       "Bash(firebase functions:log --only onSubmissionApproved)",
       "Bash(firebase functions:log --only setupDriveStructure)",
       "Bash(firebase functions:log --only setupDriveStructure --limit 5)",
-      "Bash(firebase functions:delete onSubmissionApproved --region us-central1 --force)"
+      "Bash(firebase functions:delete onSubmissionApproved --region us-central1 --force)",
+      "Bash(gh pr create --base main --head dev-joel --title 'feat: server-side PDF emails, Drive integration, budget code workflow' --body ' *)",
+      "Bash(firebase functions:log --only onSubmissionCreated)",
+      "Bash(firebase functions:log --only onSubmissionStatusChange)"
     ]
   }
 }
