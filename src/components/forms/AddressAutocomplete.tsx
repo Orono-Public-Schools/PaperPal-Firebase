@@ -141,7 +141,9 @@ export default function AddressAutocomplete({
         placeholder={placeholder}
         required={required}
         className="input-neu w-full"
-        autoComplete="off"
+        autoComplete="new-password"
+        data-lpignore="true"
+        data-1p-ignore
       />
       {open &&
         (showQuickFills ? hasQuickFillContent : suggestions.length > 0) && (

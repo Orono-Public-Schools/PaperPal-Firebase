@@ -1,12 +1,22 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler")
 const { onCall, HttpsError } = require("firebase-functions/v2/https")
-const { onDocumentUpdated } = require("firebase-functions/v2/firestore")
+const {
+  onDocumentUpdated,
+  onDocumentCreated,
+} = require("firebase-functions/v2/firestore")
 const { initializeApp } = require("firebase-admin/app")
 const { getFirestore, FieldValue } = require("firebase-admin/firestore")
 const { google } = require("googleapis")
 const { generatePdf } = require("./helpers/pdf")
 const { uploadToDrive } = require("./helpers/drive")
 const { appendToLog } = require("./helpers/sheets")
+const {
+  sendSubmitEmails,
+  sendReviewedEmails,
+  sendApprovedEmails,
+  sendDeniedEmails,
+  sendRevisionsEmails,
+} = require("./helpers/email")
 
 initializeApp()
 const db = getFirestore()
@@ -163,9 +173,111 @@ exports.syncStaffNow = onCall({ region: "us-central1" }, async (request) => {
   return result
 })
 
-// ─── On Final Approval: PDF → Drive → Sheets ────────────────────────────────
+// ─── Setup Drive Structure ───────────────────────────────────────────────────
 
-exports.onSubmissionApproved = onDocumentUpdated(
+exports.setupDriveStructure = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in")
+    }
+    const userSnap = await db.doc(`users/${request.auth.uid}`).get()
+    const user = userSnap.data()
+    if (!user || (user.role !== "admin" && user.role !== "business_office")) {
+      throw new HttpsError("permission-denied", "Admin access required")
+    }
+
+    const { uploadToDriveSetup } = require("./helpers/drive")
+    const { setupLogSheet } = require("./helpers/sheets")
+
+    const settingsSnap = await db.doc("settings/app").get()
+    const settings = settingsSnap.data() || {}
+    const fiscalYearStartMonth = settings.fiscalYearStartMonth ?? 6
+
+    // Determine current fiscal year
+    const now = new Date()
+    const month = now.getMonth()
+    const year = now.getFullYear()
+    const fy = month >= fiscalYearStartMonth ? year + 1 : year
+    const yearLabel = `${fy} FY`
+
+    // Create folder structure
+    const { yearFolderId, monthFolders } = await uploadToDriveSetup(yearLabel)
+
+    // Create log sheet
+    const sheetId = await setupLogSheet(yearLabel, yearFolderId, db)
+
+    return {
+      yearLabel,
+      yearFolderId,
+      monthFolders,
+      sheetId,
+    }
+  }
+)
+
+// ─── Fiscal Year Rollover (July 1 at midnight Central) ──────────────────────
+
+exports.fiscalYearRollover = onSchedule(
+  {
+    schedule: "0 0 1 7 *",
+    timeZone: "America/Chicago",
+    region: "us-central1",
+  },
+  async () => {
+    const { uploadToDriveSetup } = require("./helpers/drive")
+    const { setupLogSheet } = require("./helpers/sheets")
+
+    const settingsSnap = await db.doc("settings/app").get()
+    const settings = settingsSnap.data() || {}
+    const fiscalYearStartMonth = settings.fiscalYearStartMonth ?? 6
+
+    // July 1 means we're now in the new fiscal year
+    const now = new Date()
+    const fy =
+      now.getMonth() >= fiscalYearStartMonth
+        ? now.getFullYear() + 1
+        : now.getFullYear()
+    const yearLabel = `${fy} FY`
+
+    // Create folder structure + log sheet
+    const { yearFolderId } = await uploadToDriveSetup(yearLabel)
+    const sheetId = await setupLogSheet(yearLabel, yearFolderId, db)
+
+    console.log(
+      `Fiscal year rollover: created "${yearLabel}" structure, sheet ${sheetId}`
+    )
+  }
+)
+
+// ─── On New Submission: generate PDF + send emails ──────────────────────────
+
+exports.onSubmissionCreated = onDocumentCreated(
+  {
+    document: "submissions/{submissionId}",
+    region: "us-central1",
+  },
+  async (event) => {
+    const submission = event.data.data()
+    if (submission.status !== "pending") return
+
+    try {
+      const settingsSnap = await db.doc("settings/app").get()
+      const settings = settingsSnap.data() || {}
+
+      const pdfBuffer = await generatePdf(submission)
+      await sendSubmitEmails(submission, settings, pdfBuffer)
+
+      console.log(`Submit emails sent for ${submission.id}`)
+    } catch (err) {
+      console.error(`Error on submit for ${submission.id}:`, err)
+    }
+  }
+)
+
+// ─── On Status Change: generate PDF + send emails + Drive (on final) ────────
+
+exports.onSubmissionStatusChange = onDocumentUpdated(
   {
     document: "submissions/{submissionId}",
     region: "us-central1",
@@ -174,43 +286,59 @@ exports.onSubmissionApproved = onDocumentUpdated(
     const before = event.data.before.data()
     const after = event.data.after.data()
 
-    // Only fire on transition to "approved"
-    if (before.status === "approved" || after.status !== "approved") return
-
-    // Idempotency: skip if PDF already generated
-    if (after.pdfDriveId) return
+    // Only fire on actual status transitions
+    if (before.status === after.status) return
 
     try {
       const settingsSnap = await db.doc("settings/app").get()
       const settings = settingsSnap.data() || {}
 
-      // Generate PDF
+      // Generate PDF with current signatures
       const pdfBuffer = await generatePdf(after)
 
-      // Upload to Drive
-      const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
-        pdfBuffer,
-        after,
-        settings
-      )
+      switch (after.status) {
+        case "reviewed":
+          await sendReviewedEmails(after, settings, pdfBuffer)
+          console.log(`Reviewed emails sent for ${after.id}`)
+          break
 
-      // Update submission with Drive link
-      await event.data.after.ref.update({
-        pdfDriveId: fileId,
-        pdfDriveUrl: webViewLink,
-        updatedAt: FieldValue.serverTimestamp(),
-      })
+        case "approved": {
+          // Upload to shared drive + log sheet
+          if (!after.pdfDriveId) {
+            const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
+              pdfBuffer,
+              after,
+              settings
+            )
 
-      // Append to log sheet (auto-creates sheet if needed)
-      await appendToLog(after, settings, webViewLink, yearFolderId, db)
+            await event.data.after.ref.update({
+              pdfDriveId: fileId,
+              pdfDriveUrl: webViewLink,
+              updatedAt: FieldValue.serverTimestamp(),
+            })
 
-      console.log(
-        `Processed approval for ${after.id}: PDF uploaded (${fileId})`
-      )
+            await appendToLog(after, settings, webViewLink, yearFolderId, db)
+            console.log(
+              `Approval processed for ${after.id}: PDF uploaded (${fileId})`
+            )
+          }
+
+          await sendApprovedEmails(after, settings, pdfBuffer)
+          break
+        }
+
+        case "denied":
+          await sendDeniedEmails(after, settings, pdfBuffer)
+          console.log(`Denial emails sent for ${after.id}`)
+          break
+
+        case "revisions_requested":
+          await sendRevisionsEmails(after, settings, pdfBuffer)
+          console.log(`Revision emails sent for ${after.id}`)
+          break
+      }
     } catch (err) {
-      console.error(`Error processing approval for ${after.id}:`, err)
-      // Write error to submission doc so admin can see it — do NOT throw
-      // (throwing causes retries which could create duplicate PDFs)
+      console.error(`Error processing status change for ${after.id}:`, err)
       await event.data.after.ref
         .update({
           approvalProcessingError: err.message || String(err),

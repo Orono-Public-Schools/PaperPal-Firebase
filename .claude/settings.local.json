@@ -48,7 +48,11 @@
       "Bash(node -e \"require\\('./index.js'\\); console.log\\('OK'\\)\")",
       "Bash(git merge *)",
       "Bash(git pull *)",
-      "Bash(gh pr create --base main --head dev-joel --title 'feat: PDF generation, Drive upload, email delivery, review UI' --body ' *)"
+      "Bash(gh pr create --base main --head dev-joel --title 'feat: PDF generation, Drive upload, email delivery, review UI' --body ' *)",
+      "Bash(firebase functions:log --only onSubmissionApproved)",
+      "Bash(firebase functions:log --only setupDriveStructure)",
+      "Bash(firebase functions:log --only setupDriveStructure --limit 5)",
+      "Bash(firebase functions:delete onSubmissionApproved --region us-central1 --force)"
     ]
   }
 }

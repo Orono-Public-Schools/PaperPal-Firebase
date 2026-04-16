@@ -2364,6 +2364,8 @@ function DrivePdfSettingsSection() {
   const [expanded, setExpanded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [settingUp, setSettingUp] = useState(false)
+  const [setupResult, setSetupResult] = useState<string | null>(null)
 
   useEffect(() => {
     getAppSettings().then((s) => {
@@ -2410,15 +2412,15 @@ function DrivePdfSettingsSection() {
             <Field label="Shared Drive Folder ID">
               <input
                 type="text"
-                value={settings.paperpalDriveFolderId ?? ""}
+                value={settings.paperpalDriveFolderId ?? "0ABSKbjIMiOlKUk9PVA"}
                 onChange={(e) =>
                   update("paperpalDriveFolderId", e.target.value)
                 }
-                placeholder="e.g. 1abc2def3ghi4jkl5mno6pqr"
+                placeholder="e.g. 0ABSKbjIMiOlKUk9PVA"
                 className="input-neu w-full"
               />
               <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
-                Root folder ID from the Google Drive URL
+                Shared Drive ID from the Google Drive URL
               </p>
             </Field>
             <Field label="Log Spreadsheet ID">
@@ -2430,7 +2432,8 @@ function DrivePdfSettingsSection() {
                 className="input-neu w-full"
               />
               <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
-                Sheet ID from the Google Sheets URL (update each fiscal year)
+                Auto-created on first approval. Update each fiscal year if
+                needed.
               </p>
             </Field>
           </div>
@@ -2439,6 +2442,44 @@ function DrivePdfSettingsSection() {
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
               <span>{saving ? "Saving…" : "Save"}</span>
+            </button>
+            <button
+              onClick={async () => {
+                setSettingUp(true)
+                setSetupResult(null)
+                try {
+                  const setup = httpsCallable<
+                    Record<string, never>,
+                    {
+                      yearLabel: string
+                      monthFolders: { name: string; id: string }[]
+                      sheetId: string
+                    }
+                  >(functions, "setupDriveStructure")
+                  const res = await setup({})
+                  setSetupResult(
+                    `Created FY ${res.data.yearLabel}: ${res.data.monthFolders.length} month folders + log sheet`
+                  )
+                  const fresh = await getAppSettings()
+                  if (fresh) setSettings(fresh)
+                } catch (err) {
+                  setSetupResult(
+                    `Error: ${err instanceof Error ? err.message : String(err)}`
+                  )
+                }
+                setSettingUp(false)
+              }}
+              disabled={settingUp}
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              style={{
+                background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              }}
+            >
+              <RefreshCw
+                size={14}
+                className={settingUp ? "animate-spin" : ""}
+              />
+              {settingUp ? "Setting Up…" : "Setup Drive Structure"}
             </button>
             {saved && (
               <span
@@ -2449,6 +2490,16 @@ function DrivePdfSettingsSection() {
               </span>
             )}
           </div>
+          {setupResult && (
+            <p
+              className="mt-2 text-sm"
+              style={{
+                color: setupResult.startsWith("Error") ? "#ad2122" : "#4356a9",
+              }}
+            >
+              {setupResult}
+            </p>
+          )}
         </>
       )}
     </Section>

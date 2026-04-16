@@ -26,11 +26,9 @@ import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import {
   createSubmission,
-  getSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
 } from "@/lib/firestore"
-import { sendSubmissionNotification } from "@/lib/email"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
@@ -312,9 +310,6 @@ export default function TravelReimbursement() {
         summary: `Travel — ${meetingTitle || location}`,
         amount: finalClaim,
       })
-      const settings = await getAppSettings()
-      const sub = await getSubmission(id)
-      if (sub) await sendSubmissionNotification(sub, settings)
       setSubmissionId(id)
       setSubmitted(true)
     } finally {
@@ -430,18 +425,30 @@ export default function TravelReimbursement() {
               <input
                 type="text"
                 value={accountCode}
-                required
                 placeholder="##-###-###-###-###-###"
                 onChange={(e) =>
                   setAccountCode(formatBudgetCode(e.target.value))
                 }
                 maxLength={20}
                 className="input-neu font-mono"
+                disabled={userProfile?.role === "staff"}
+                style={
+                  userProfile?.role === "staff"
+                    ? { opacity: 0.5, cursor: "not-allowed" }
+                    : undefined
+                }
               />
-              <BudgetCodeBuilder
-                value={accountCode}
-                onChange={setAccountCode}
-              />
+              {userProfile?.role !== "staff" && (
+                <BudgetCodeBuilder
+                  value={accountCode}
+                  onChange={setAccountCode}
+                />
+              )}
+              {userProfile?.role === "staff" && (
+                <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                  Assigned by your supervisor during review.
+                </p>
+              )}
             </Field>
             <Field label="Meeting / Conference Title">
               <input
