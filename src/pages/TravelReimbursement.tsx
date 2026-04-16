@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router"
 import {
   Plus,
@@ -19,8 +19,18 @@ import AddressAutocomplete, {
   type QuickFill,
 } from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import SignatureField, {
+  type SignatureFieldRef,
+} from "@/components/forms/SignatureField"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import { createSubmission, getAppSettings } from "@/lib/firestore"
+import {
+  createSubmission,
+  getSubmission,
+  getAppSettings,
+  createOrUpdateUserProfile,
+} from "@/lib/firestore"
+import { sendSubmissionNotification } from "@/lib/email"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
@@ -58,6 +68,7 @@ function emptyOther(): TravelActualOther {
 export default function TravelReimbursement() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const signatureRef = useRef<SignatureFieldRef>(null)
 
   // Employee / trip header
   const [submitterName, setSubmitterName] = useState(
@@ -259,6 +270,7 @@ export default function TravelReimbursement() {
         submitterEmail: user.email ?? "",
         submitterName: userProfile.fullName,
         supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+        employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
         formData: {
           name: submitterName,
           employeeId,
@@ -300,6 +312,9 @@ export default function TravelReimbursement() {
         summary: `Travel — ${meetingTitle || location}`,
         amount: finalClaim,
       })
+      const settings = await getAppSettings()
+      const sub = await getSubmission(id)
+      if (sub) await sendSubmissionNotification(sub, settings)
       setSubmissionId(id)
       setSubmitted(true)
     } finally {
@@ -465,12 +480,10 @@ export default function TravelReimbursement() {
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Route Request To">
-              <input
-                type="text"
+              <StaffEmailAutocomplete
                 value={routeRequestTo}
-                required
+                onChange={setRouteRequestTo}
                 placeholder="Supervisor or department admin"
-                onChange={(e) => setRouteRequestTo(e.target.value)}
                 className="input-neu"
               />
               <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
@@ -1206,6 +1219,20 @@ export default function TravelReimbursement() {
             </span>
           </div>
         </div>
+
+        <Section title="Employee Signature">
+          <SignatureField
+            ref={signatureRef}
+            savedSignatureUrl={userProfile?.savedSignatureUrl}
+            fullName={userProfile?.fullName}
+            onSaveSignature={(dataUrl) => {
+              if (user)
+                createOrUpdateUserProfile(user.uid, {
+                  savedSignatureUrl: dataUrl,
+                })
+            }}
+          />
+        </Section>
 
         {/* Actions */}
         <div className="flex justify-end gap-3">

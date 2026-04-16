@@ -47,6 +47,7 @@ async function ensureUserProfile(
     lastName,
     fullName: staff ? `${firstName} ${lastName}`.trim() : (displayName ?? ""),
     employeeId: staff?.employeeId ?? "",
+    title: staff?.title ?? "",
     building: staff?.building ?? "",
     supervisorEmail: supervisor?.email ?? "",
     photoURL: photoURL ?? "",

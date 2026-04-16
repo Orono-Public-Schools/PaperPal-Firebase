@@ -84,12 +84,41 @@ async function syncStaffFromSheet() {
   }
   await Promise.all(batches)
 
+  // Sync title + building to existing user profiles
+  const usersSnap = await db.collection("users").get()
+  const staffByEmail = Object.fromEntries(records.map((r) => [r.email, r]))
+  const profileBatches = []
+  const profileUpdates = usersSnap.docs.filter((d) => {
+    const user = d.data()
+    const staff = staffByEmail[user.email?.toLowerCase()]
+    return (
+      staff && (user.title !== staff.title || user.building !== staff.building)
+    )
+  })
+  for (let i = 0; i < profileUpdates.length; i += 500) {
+    const batch = db.batch()
+    profileUpdates.slice(i, i + 500).forEach((d) => {
+      const staff = staffByEmail[d.data().email.toLowerCase()]
+      batch.update(d.ref, {
+        title: staff.title,
+        building: staff.building,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    })
+    profileBatches.push(batch.commit())
+  }
+  await Promise.all(profileBatches)
+
   // Update last sync timestamp
   await db
     .doc("settings/app")
     .set({ lastStaffSync: FieldValue.serverTimestamp() }, { merge: true })
 
-  return { rowCount: rows.length, imported: records.length }
+  return {
+    rowCount: rows.length,
+    imported: records.length,
+    profilesUpdated: profileUpdates.length,
+  }
 }
 
 // Scheduled sync — runs on a cron schedule configured in Firestore
@@ -97,7 +126,7 @@ async function syncStaffFromSheet() {
 // and we redeploy or use Cloud Scheduler API to update
 exports.scheduledStaffSync = onSchedule(
   {
-    schedule: "every day 02:00",
+    schedule: "every day 05:00",
     timeZone: "America/Chicago",
     region: "us-central1",
   },

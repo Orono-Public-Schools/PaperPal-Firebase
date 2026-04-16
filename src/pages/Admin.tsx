@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import {
   getBuildings,
@@ -33,6 +34,7 @@ import {
   getSupervisorMappings,
   updateSupervisorMappings,
   getUniqueStaffTitles,
+  seedBuildingsFromInitials,
 } from "@/lib/firestore"
 import { httpsCallable } from "firebase/functions"
 import { functions } from "@/lib/firebase"
@@ -201,10 +203,9 @@ function GeneralSettingsSection() {
                 />
               </Field>
               <Field label="Email">
-                <input
-                  type="email"
+                <StaffEmailAutocomplete
                   value={settings.finalApproverEmail}
-                  onChange={(e) => update("finalApproverEmail", e.target.value)}
+                  onChange={(v) => update("finalApproverEmail", v)}
                   placeholder="controller@orono.k12.mn.us"
                   className="input-neu w-full"
                 />
@@ -760,6 +761,8 @@ function BuildingsSection() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [newInitials, setNewInitials] = useState("")
   const [newName, setNewName] = useState("")
   const [newAddress, setNewAddress] = useState("")
   const [newApproverEmail, setNewApproverEmail] = useState("")
@@ -776,10 +779,19 @@ function BuildingsSection() {
     })
   }, [])
 
+  async function handleSeed() {
+    setSeeding(true)
+    await seedBuildingsFromInitials()
+    const updated = await getBuildings()
+    setBuildings(updated)
+    setSeeding(false)
+  }
+
   async function handleAdd() {
     if (!newName.trim()) return
     const id = await createBuilding({
       name: newName.trim(),
+      initials: newInitials.trim().toUpperCase(),
       address: newAddress.trim(),
       approverEmail: newApproverEmail.trim(),
       approverName: newApproverName.trim(),
@@ -789,11 +801,13 @@ function BuildingsSection() {
       {
         id,
         name: newName.trim(),
+        initials: newInitials.trim().toUpperCase(),
         address: newAddress.trim(),
         approverEmail: newApproverEmail.trim(),
         approverName: newApproverName.trim(),
       } as Building,
     ])
+    setNewInitials("")
     setNewName("")
     setNewAddress("")
     setNewApproverEmail("")
@@ -858,9 +872,20 @@ function BuildingsSection() {
               >
                 <div className="min-w-0 flex-1">
                   <p
-                    className="text-sm font-semibold"
+                    className="flex items-center gap-2 text-sm font-semibold"
                     style={{ color: "#1d2a5d" }}
                   >
+                    {b.initials && (
+                      <span
+                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
+                        style={{
+                          background: "rgba(29,42,93,0.1)",
+                          color: "#1d2a5d",
+                        }}
+                      >
+                        {b.initials}
+                      </span>
+                    )}
                     {b.name}
                   </p>
                   {editingId === b.id ? (
@@ -880,14 +905,14 @@ function BuildingsSection() {
                         className="input-neu text-xs"
                         style={{ maxWidth: "180px" }}
                       />
-                      <input
-                        type="email"
-                        value={editEmail}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                        placeholder="Approver email"
-                        className="input-neu text-xs"
-                        style={{ maxWidth: "220px" }}
-                      />
+                      <div style={{ maxWidth: "220px" }}>
+                        <StaffEmailAutocomplete
+                          value={editEmail}
+                          onChange={setEditEmail}
+                          placeholder="Approver email"
+                          className="input-neu text-xs"
+                        />
+                      </div>
                       <button
                         onClick={() => saveEdit(b.id)}
                         className="cursor-pointer rounded px-3 py-1.5 text-xs font-semibold text-white"
@@ -956,6 +981,22 @@ function BuildingsSection() {
                   className="mb-1 block text-xs font-semibold tracking-wider uppercase"
                   style={{ color: "#64748b" }}
                 >
+                  Initials
+                </label>
+                <input
+                  type="text"
+                  value={newInitials}
+                  onChange={(e) => setNewInitials(e.target.value)}
+                  placeholder="e.g. MS"
+                  className="input-neu w-full"
+                  style={{ maxWidth: "100px" }}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
                   Building Name
                 </label>
                 <input
@@ -1001,10 +1042,9 @@ function BuildingsSection() {
                 >
                   Approver Email
                 </label>
-                <input
-                  type="email"
+                <StaffEmailAutocomplete
                   value={newApproverEmail}
-                  onChange={(e) => setNewApproverEmail(e.target.value)}
+                  onChange={setNewApproverEmail}
                   placeholder="approver@orono.k12.mn.us"
                   className="input-neu w-full"
                 />
@@ -1030,20 +1070,36 @@ function BuildingsSection() {
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setAdding(true)}
-              className="mt-3 flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
-              style={{ color: "#4356a9" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "transparent")
-              }
-            >
-              <Plus size={15} />
-              Add Building
-            </button>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={() => setAdding(true)}
+                className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
+                style={{ color: "#4356a9" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "rgba(67,86,169,0.06)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+              >
+                <Plus size={15} />
+                Add Building
+              </button>
+              {buildings.length === 0 && (
+                <button
+                  onClick={handleSeed}
+                  disabled={seeding}
+                  className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  }}
+                >
+                  {seeding ? "Seeding…" : "Seed Orono Buildings"}
+                </button>
+              )}
+            </div>
           )}
         </>
       )}
@@ -1262,47 +1318,84 @@ function StaffSyncSection() {
 function SupervisorMappingsSection() {
   const [mappings, setMappings] = useState<SupervisorMapping[]>([])
   const [titles, setTitles] = useState<string[]>([])
+  const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([])
+  const [buildings, setBuildings] = useState<Building[]>([])
   const [users, setUsers] = useState<UserProfile[]>([])
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showAddOverride, setShowAddOverride] = useState(false)
+  const [addTitles, setAddTitles] = useState<string[]>([])
+  const [addSupervisor, setAddSupervisor] = useState("")
 
   useEffect(() => {
     Promise.all([
       getSupervisorMappings(),
       getUniqueStaffTitles(),
       getAllUsers(),
-    ]).then(([m, t, u]) => {
+      getBuildings(),
+      getStaffRecords(),
+    ]).then(([m, t, u, b, s]) => {
       setMappings(m)
       setTitles(t)
       setUsers(u)
+      setBuildings(b)
+      setStaffRecords(s)
       setLoading(false)
     })
   }, [])
 
-  // Titles that aren't assigned to any mapping yet
-  const unmappedTitles = titles.filter(
-    (t) => !mappings.some((m) => m.titles.includes(t))
-  )
+  // Compute coverage stats
+  const titlesWithOverride = new Set(mappings.flatMap((m) => m.titles))
 
-  function handleAssignTitle(title: string, supervisorEmail: string) {
-    const supervisor = users.find((u) => u.email === supervisorEmail)
+  const overrideCount = staffRecords.filter((s) =>
+    titlesWithOverride.has(s.title)
+  ).length
+  const buildingCount = staffRecords.filter(
+    (s) =>
+      !titlesWithOverride.has(s.title) &&
+      s.building &&
+      buildings.some(
+        (b) =>
+          (b.initials === s.building || b.name === s.building) &&
+          b.approverEmail
+      )
+  ).length
+  const uncoveredCount = staffRecords.length - overrideCount - buildingCount
+
+  // Titles available for new overrides (not already in a mapping)
+  const availableTitles = titles.filter((t) => !titlesWithOverride.has(t))
+
+  const supervisorUsers = users
+    .filter(
+      (u) =>
+        u.role === "supervisor" ||
+        u.role === "admin" ||
+        u.role === "business_office"
+    )
+    .sort((a, b) =>
+      (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+    )
+
+  function handleAddOverride() {
+    if (!addSupervisor || addTitles.length === 0) return
+    const supervisor = users.find((u) => u.email === addSupervisor)
     if (!supervisor) return
 
     setMappings((prev) => {
-      const existing = prev.find((m) => m.supervisorEmail === supervisorEmail)
+      const existing = prev.find((m) => m.supervisorEmail === addSupervisor)
       if (existing) {
         return prev.map((m) =>
-          m.supervisorEmail === supervisorEmail
-            ? { ...m, titles: [...m.titles, title] }
+          m.supervisorEmail === addSupervisor
+            ? { ...m, titles: [...m.titles, ...addTitles] }
             : m
         )
       }
       return [
         ...prev,
         {
-          titles: [title],
+          titles: [...addTitles],
           supervisorEmail: supervisor.email,
           supervisorName:
             supervisor.fullName ||
@@ -1310,6 +1403,9 @@ function SupervisorMappingsSection() {
         },
       ]
     })
+    setAddTitles([])
+    setAddSupervisor("")
+    setShowAddOverride(false)
   }
 
   function handleRemoveTitle(title: string, supervisorEmail: string) {
@@ -1321,6 +1417,12 @@ function SupervisorMappingsSection() {
             : m
         )
         .filter((m) => m.titles.length > 0)
+    )
+  }
+
+  function handleRemoveMapping(supervisorEmail: string) {
+    setMappings((prev) =>
+      prev.filter((m) => m.supervisorEmail !== supervisorEmail)
     )
   }
 
@@ -1343,125 +1445,366 @@ function SupervisorMappingsSection() {
         <p className="text-sm" style={{ color: "#64748b" }}>
           Loading…
         </p>
-      ) : titles.length === 0 ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>
-          No staff titles found. Sync staff data first to see titles here.
-        </p>
       ) : (
         <>
           <p className="mb-4 text-xs" style={{ color: "#64748b" }}>
-            Assign a supervisor to each job title. When staff submit forms,
-            their title determines who approves it.
+            Staff are routed to their building's approver by default. Add title
+            overrides below for roles that report to someone other than their
+            building approver (e.g., specialists, coaches, district staff).
           </p>
 
-          {/* Current mappings */}
-          {mappings.length > 0 && (
-            <div className="mb-4 space-y-3">
-              {mappings.map((mapping) => (
-                <div
-                  key={mapping.supervisorEmail}
-                  className="rounded-lg p-3"
-                  style={{
-                    background: "#f8f9fb",
-                    border: "1px solid rgba(180,185,195,0.25)",
-                  }}
-                >
-                  <p
-                    className="mb-2 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#1d2a5d" }}
-                  >
-                    {mapping.supervisorName}
-                    <span
-                      className="ml-2 font-normal tracking-normal normal-case"
-                      style={{ color: "#94a3b8" }}
-                    >
-                      {mapping.supervisorEmail}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {mapping.titles.map((title) => (
-                      <span
-                        key={title}
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-                        style={{ background: "#e8ecf4", color: "#1d2a5d" }}
-                      >
-                        {title}
-                        <button
-                          onClick={() =>
-                            handleRemoveTitle(title, mapping.supervisorEmail)
-                          }
-                          className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
-                          style={{ color: "#94a3b8" }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Unmapped titles */}
-          {unmappedTitles.length > 0 && (
-            <div className="mb-4">
-              <p
-                className="mb-2 text-xs font-semibold tracking-wider uppercase"
+          {/* Coverage summary */}
+          <div
+            className="mb-4 flex gap-4 rounded-lg p-3"
+            style={{
+              background: "#f8f9fb",
+              border: "1px solid rgba(180,185,195,0.25)",
+            }}
+          >
+            <div className="text-center">
+              <div className="text-lg font-bold" style={{ color: "#1d2a5d" }}>
+                {buildingCount}
+              </div>
+              <div
+                className="text-[10px] font-semibold tracking-wider uppercase"
                 style={{ color: "#64748b" }}
               >
-                Unassigned Titles ({unmappedTitles.length})
-              </p>
-              <div className="space-y-2">
-                {unmappedTitles.map((title) => (
-                  <div
-                    key={title}
-                    className="flex items-center gap-3 rounded-lg p-2.5"
-                    style={{
-                      background: "#fffbeb",
-                      border: "1px solid rgba(234,179,8,0.25)",
-                    }}
-                  >
-                    <span
-                      className="flex-1 text-sm"
-                      style={{ color: "#334155" }}
-                    >
-                      {title}
-                    </span>
-                    <select
-                      defaultValue=""
-                      onChange={(e) => {
-                        if (e.target.value)
-                          handleAssignTitle(title, e.target.value)
-                        e.target.value = ""
-                      }}
-                      className="input-neu text-xs"
-                      style={{ minWidth: 180 }}
-                    >
-                      <option value="">Assign supervisor…</option>
-                      {users
-                        .filter(
-                          (u) =>
-                            u.role === "supervisor" ||
-                            u.role === "admin" ||
-                            u.role === "business_office"
-                        )
-                        .sort((a, b) =>
-                          (a.fullName || a.lastName).localeCompare(
-                            b.fullName || b.lastName
-                          )
-                        )
-                        .map((u) => (
-                          <option key={u.uid} value={u.email}>
-                            {u.fullName || `${u.firstName} ${u.lastName}`}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                ))}
+                Building Default
               </div>
             </div>
-          )}
+            <div className="text-center">
+              <div className="text-lg font-bold" style={{ color: "#4356a9" }}>
+                {overrideCount}
+              </div>
+              <div
+                className="text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Title Override
+              </div>
+            </div>
+            {uncoveredCount > 0 && (
+              <div className="text-center">
+                <div className="text-lg font-bold" style={{ color: "#b45309" }}>
+                  {uncoveredCount}
+                </div>
+                <div
+                  className="text-[10px] font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  No Supervisor
+                </div>
+              </div>
+            )}
+            <div className="text-center">
+              <div className="text-lg font-bold" style={{ color: "#64748b" }}>
+                {staffRecords.length}
+              </div>
+              <div
+                className="text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Total Staff
+              </div>
+            </div>
+          </div>
+
+          {/* Building defaults */}
+          <div className="mb-4">
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Building Defaults
+            </p>
+            <div className="space-y-1">
+              {buildings.length === 0 ? (
+                <p className="text-xs" style={{ color: "#94a3b8" }}>
+                  No buildings configured. Add buildings in the Buildings
+                  section.
+                </p>
+              ) : (
+                buildings.map((b) => {
+                  const staffInBuilding = staffRecords.filter(
+                    (s) =>
+                      (s.building === b.initials || s.building === b.name) &&
+                      !titlesWithOverride.has(s.title)
+                  ).length
+                  return (
+                    <div
+                      key={b.id}
+                      className="flex items-center justify-between rounded-lg px-3 py-2"
+                      style={{
+                        background: b.approverEmail ? "#f0fdf4" : "#fffbeb",
+                        border: `1px solid ${b.approverEmail ? "rgba(5,150,105,0.2)" : "rgba(234,179,8,0.25)"}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Building2
+                          size={13}
+                          style={{
+                            color: b.approverEmail ? "#059669" : "#b45309",
+                          }}
+                        />
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: "#1d2a5d" }}
+                        >
+                          {b.name}
+                        </span>
+                        <span className="text-xs" style={{ color: "#94a3b8" }}>
+                          ({staffInBuilding} staff)
+                        </span>
+                      </div>
+                      <span className="text-xs" style={{ color: "#64748b" }}>
+                        {b.approverEmail ? (
+                          <>{b.approverName || b.approverEmail}</>
+                        ) : (
+                          <span style={{ color: "#b45309" }}>
+                            No approver set
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Title overrides */}
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Title Overrides
+              </p>
+              <button
+                onClick={() => setShowAddOverride(!showAddOverride)}
+                className="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                style={{
+                  color: "#1d2a5d",
+                  background: showAddOverride
+                    ? "rgba(29,42,93,0.1)"
+                    : "transparent",
+                  border: "1px solid rgba(180,185,195,0.25)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "rgba(29,42,93,0.08)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = showAddOverride
+                    ? "rgba(29,42,93,0.1)"
+                    : "transparent")
+                }
+              >
+                <Plus size={12} />
+                Add Override
+              </button>
+            </div>
+
+            {/* Add override form */}
+            {showAddOverride && (
+              <div
+                className="mb-3 rounded-lg p-3"
+                style={{
+                  background: "#f8f9fb",
+                  border: "1px solid rgba(180,185,195,0.25)",
+                }}
+              >
+                <div className="mb-2">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Select Titles
+                  </p>
+                  <div
+                    className="max-h-40 overflow-y-auto rounded-lg p-2"
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid rgba(180,185,195,0.25)",
+                    }}
+                  >
+                    {availableTitles.length === 0 ? (
+                      <p
+                        className="py-2 text-center text-xs"
+                        style={{ color: "#94a3b8" }}
+                      >
+                        All titles have overrides assigned.
+                      </p>
+                    ) : (
+                      availableTitles.map((title) => {
+                        const count = staffRecords.filter(
+                          (s) => s.title === title
+                        ).length
+                        const checked = addTitles.includes(title)
+                        return (
+                          <label
+                            key={title}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setAddTitles((prev) =>
+                                  checked
+                                    ? prev.filter((t) => t !== title)
+                                    : [...prev, title]
+                                )
+                              }
+                              className="accent-[#1d2a5d]"
+                            />
+                            <span
+                              className="flex-1 text-xs"
+                              style={{ color: "#334155" }}
+                            >
+                              {title}
+                            </span>
+                            <span
+                              className="text-[10px]"
+                              style={{ color: "#94a3b8" }}
+                            >
+                              {count} staff
+                            </span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
+                  {addTitles.length > 0 && (
+                    <p className="mt-1 text-xs" style={{ color: "#1d2a5d" }}>
+                      {addTitles.length} title
+                      {addTitles.length !== 1 && "s"} selected
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Assign To
+                  </p>
+                  <select
+                    value={addSupervisor}
+                    onChange={(e) => setAddSupervisor(e.target.value)}
+                    className="input-neu w-full text-xs"
+                  >
+                    <option value="">Select supervisor…</option>
+                    {supervisorUsers.map((u) => (
+                      <option key={u.uid} value={u.email}>
+                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
+                        {u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleAddOverride}
+                  disabled={!addSupervisor || addTitles.length === 0}
+                  className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  }}
+                >
+                  <Plus size={13} />
+                  Add Override
+                </button>
+              </div>
+            )}
+
+            {/* Existing overrides */}
+            {mappings.length === 0 ? (
+              <p className="text-xs" style={{ color: "#94a3b8" }}>
+                No title overrides. All staff use their building's default
+                approver.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {mappings.map((mapping) => {
+                  const staffCount = staffRecords.filter((s) =>
+                    mapping.titles.includes(s.title)
+                  ).length
+                  return (
+                    <div
+                      key={mapping.supervisorEmail}
+                      className="rounded-lg p-3"
+                      style={{
+                        background: "#eef2ff",
+                        border: "1px solid rgba(67,86,169,0.2)",
+                      }}
+                    >
+                      <div className="mb-2 flex items-start justify-between">
+                        <div>
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: "#1d2a5d" }}
+                          >
+                            {mapping.supervisorName}
+                          </p>
+                          <p
+                            className="text-[11px]"
+                            style={{ color: "#64748b" }}
+                          >
+                            {mapping.supervisorEmail} · {staffCount} staff
+                          </p>
+                        </div>
+                        <button
+                          onClick={() =>
+                            handleRemoveMapping(mapping.supervisorEmail)
+                          }
+                          className="cursor-pointer rounded p-1 transition-colors"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.color = "#94a3b8")
+                          }
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {mapping.titles.map((title) => (
+                          <span
+                            key={title}
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                            style={{
+                              background: "rgba(29,42,93,0.1)",
+                              color: "#1d2a5d",
+                            }}
+                          >
+                            {title}
+                            <button
+                              onClick={() =>
+                                handleRemoveTitle(
+                                  title,
+                                  mapping.supervisorEmail
+                                )
+                              }
+                              className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
+                              style={{ color: "#94a3b8" }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleSave}
