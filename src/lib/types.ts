@@ -53,6 +53,8 @@ export interface AppSettings {
   finalApproverEmail: string
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
+  paperpalDriveFolderId?: string
+  paperpalLogSheetId?: string
   staffSheetId?: string
   staffSheetRange?: string // e.g. "Sheet1!A2:H"
   staffSyncEnabled?: boolean
@@ -260,6 +262,7 @@ export interface Submission {
   // PDF
   pdfDriveId?: string
   pdfDriveUrl?: string
+  approvalProcessingError?: string
 
   // Workflow
   revisionComments?: string

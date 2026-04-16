@@ -13,6 +13,7 @@ import {
   ChevronUp,
   RefreshCw,
   Link2,
+  HardDrive,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
@@ -97,6 +98,7 @@ export default function Admin() {
         <StaffSection />
         <RolesSection />
         <EmailSettingsSection />
+        <DrivePdfSettingsSection />
       </div>
     </AppLayout>
   )
@@ -2338,6 +2340,105 @@ function EmailSettingsSection() {
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
               <span>{saving ? "Saving…" : "Save Settings"}</span>
+            </button>
+            {saved && (
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
+                Saved!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Drive & PDF Settings ────────────────────────────────────────────────────
+
+function DrivePdfSettingsSection() {
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then((s) => {
+      setSettings(s)
+      setLoading(false)
+    })
+  }, [])
+
+  function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
+  }
+
+  async function handleSave() {
+    if (!settings) return
+    setSaving(true)
+    await updateAppSettings({
+      paperpalDriveFolderId: settings.paperpalDriveFolderId,
+      paperpalLogSheetId: settings.paperpalLogSheetId,
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  return (
+    <Section
+      title="Drive & PDF"
+      icon={HardDrive}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {loading || !settings ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
+      ) : (
+        <>
+          <p className="mb-4 text-xs" style={{ color: "#94a3b8" }}>
+            On final approval, PaperPal generates a PDF and uploads it to Google
+            Drive. Configure the shared drive folder and log spreadsheet below.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Shared Drive Folder ID">
+              <input
+                type="text"
+                value={settings.paperpalDriveFolderId ?? ""}
+                onChange={(e) =>
+                  update("paperpalDriveFolderId", e.target.value)
+                }
+                placeholder="e.g. 1abc2def3ghi4jkl5mno6pqr"
+                className="input-neu w-full"
+              />
+              <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
+                Root folder ID from the Google Drive URL
+              </p>
+            </Field>
+            <Field label="Log Spreadsheet ID">
+              <input
+                type="text"
+                value={settings.paperpalLogSheetId ?? ""}
+                onChange={(e) => update("paperpalLogSheetId", e.target.value)}
+                placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjg"
+                className="input-neu w-full"
+              />
+              <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
+                Sheet ID from the Google Sheets URL (update each fiscal year)
+              </p>
+            </Field>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save"}</span>
             </button>
             {saved && (
               <span

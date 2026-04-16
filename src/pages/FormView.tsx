@@ -43,20 +43,20 @@ const STATUS_CONFIG: Record<
 > = {
   pending: {
     label: "Pending Review",
-    bg: "rgba(245,158,11,0.12)",
-    color: "#b45309",
+    bg: "rgba(67,86,169,0.12)",
+    color: "#4356a9",
     icon: Clock,
   },
   reviewed: {
     label: "Awaiting Final Approval",
-    bg: "rgba(59,130,246,0.12)",
-    color: "#1d4ed8",
+    bg: "rgba(45,63,137,0.12)",
+    color: "#2d3f89",
     icon: Shield,
   },
   approved: {
     label: "Approved",
-    bg: "rgba(5,150,105,0.12)",
-    color: "#065f46",
+    bg: "rgba(29,42,93,0.12)",
+    color: "#1d2a5d",
     icon: CheckCircle,
   },
   denied: {
@@ -67,8 +67,8 @@ const STATUS_CONFIG: Record<
   },
   revisions_requested: {
     label: "Revisions Requested",
-    bg: "rgba(234,88,12,0.12)",
-    color: "#c2410c",
+    bg: "rgba(67,86,169,0.12)",
+    color: "#4356a9",
     icon: RotateCcw,
   },
 }
@@ -457,10 +457,7 @@ export default function FormView() {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setActionMode("approve")}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
-                style={{
-                  background: "linear-gradient(135deg, #059669, #10b981)",
-                }}
+                className="btn-action-approve"
               >
                 <CheckCircle size={16} />
                 Approve
@@ -468,12 +465,7 @@ export default function FormView() {
               {canSupervisorAct && (
                 <button
                   onClick={() => setActionMode("revisions")}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"
-                  style={{
-                    color: "#b45309",
-                    background: "rgba(245,158,11,0.1)",
-                    border: "1px solid rgba(245,158,11,0.3)",
-                  }}
+                  className="btn-action-revisions"
                 >
                   <RotateCcw size={16} />
                   Request Revisions
@@ -481,12 +473,7 @@ export default function FormView() {
               )}
               <button
                 onClick={() => setActionMode("deny")}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"
-                style={{
-                  color: "#ad2122",
-                  background: "rgba(173,33,34,0.08)",
-                  border: "1px solid rgba(173,33,34,0.2)",
-                }}
+                className="btn-action-deny"
               >
                 <XCircle size={16} />
                 Deny
@@ -517,10 +504,7 @@ export default function FormView() {
                       : handleApproveAsFinalApprover
                   }
                   disabled={acting}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                  style={{
-                    background: "linear-gradient(135deg, #059669, #10b981)",
-                  }}
+                  className="btn-action-approve"
                 >
                   {acting ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -559,8 +543,7 @@ export default function FormView() {
                 <button
                   onClick={handleDeny}
                   disabled={acting || !comments.trim()}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "#ad2122" }}
+                  className="btn-action-deny-solid"
                 >
                   {acting ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -602,8 +585,7 @@ export default function FormView() {
                 <button
                   onClick={handleRequestRevisions}
                   disabled={acting || !comments.trim()}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "#b45309" }}
+                  className="btn-action-revisions-solid"
                 >
                   {acting ? (
                     <Loader2 size={14} className="animate-spin" />

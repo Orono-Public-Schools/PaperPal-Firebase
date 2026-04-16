@@ -1,8 +1,12 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler")
 const { onCall, HttpsError } = require("firebase-functions/v2/https")
+const { onDocumentUpdated } = require("firebase-functions/v2/firestore")
 const { initializeApp } = require("firebase-admin/app")
 const { getFirestore, FieldValue } = require("firebase-admin/firestore")
 const { google } = require("googleapis")
+const { generatePdf } = require("./helpers/pdf")
+const { uploadToDrive } = require("./helpers/drive")
+const { appendToLog } = require("./helpers/sheets")
 
 initializeApp()
 const db = getFirestore()
@@ -158,3 +162,61 @@ exports.syncStaffNow = onCall({ region: "us-central1" }, async (request) => {
   const result = await syncStaffFromSheet()
   return result
 })
+
+// ─── On Final Approval: PDF → Drive → Sheets ────────────────────────────────
+
+exports.onSubmissionApproved = onDocumentUpdated(
+  {
+    document: "submissions/{submissionId}",
+    region: "us-central1",
+  },
+  async (event) => {
+    const before = event.data.before.data()
+    const after = event.data.after.data()
+
+    // Only fire on transition to "approved"
+    if (before.status === "approved" || after.status !== "approved") return
+
+    // Idempotency: skip if PDF already generated
+    if (after.pdfDriveId) return
+
+    try {
+      const settingsSnap = await db.doc("settings/app").get()
+      const settings = settingsSnap.data() || {}
+
+      // Generate PDF
+      const pdfBuffer = await generatePdf(after)
+
+      // Upload to Drive
+      const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
+        pdfBuffer,
+        after,
+        settings
+      )
+
+      // Update submission with Drive link
+      await event.data.after.ref.update({
+        pdfDriveId: fileId,
+        pdfDriveUrl: webViewLink,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+
+      // Append to log sheet (auto-creates sheet if needed)
+      await appendToLog(after, settings, webViewLink, yearFolderId, db)
+
+      console.log(
+        `Processed approval for ${after.id}: PDF uploaded (${fileId})`
+      )
+    } catch (err) {
+      console.error(`Error processing approval for ${after.id}:`, err)
+      // Write error to submission doc so admin can see it — do NOT throw
+      // (throwing causes retries which could create duplicate PDFs)
+      await event.data.after.ref
+        .update({
+          approvalProcessingError: err.message || String(err),
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        .catch((e) => console.error("Failed to write error to doc:", e))
+    }
+  }
+)

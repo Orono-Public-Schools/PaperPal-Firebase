@@ -77,6 +77,22 @@ export async function sendSubmissionNotification(
     `[PaperPal] ${formLabel} from ${submission.submitterName} — ${currency(submission.amount)}`,
     html
   )
+
+  // Receipt to submitter
+  const receiptHtml = emailHtml({
+    heading: `Your ${formLabel} Has Been Submitted`,
+    body: `
+      <p>Your ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been submitted and is awaiting supervisor approval.</p>
+      <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+    `,
+    link: formUrl(submission),
+  })
+
+  await sendMail(
+    submission.submitterEmail,
+    `[PaperPal] Submitted — ${formLabel} ${submission.id}`,
+    receiptHtml
+  )
 }
 
 export async function sendReviewedNotification(
