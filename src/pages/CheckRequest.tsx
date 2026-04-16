@@ -9,13 +9,7 @@ import SignatureField, {
 import DatePicker from "@/components/forms/DatePicker"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import {
-  createSubmission,
-  getSubmission,
-  getAppSettings,
-  createOrUpdateUserProfile,
-} from "@/lib/firestore"
-import { sendSubmissionNotification } from "@/lib/email"
+import { createSubmission, createOrUpdateUserProfile } from "@/lib/firestore"
 import { formatBudgetCode } from "@/lib/utils"
 import type { CheckRequestExpense } from "@/lib/types"
 
@@ -103,9 +97,6 @@ export default function CheckRequest() {
         summary: `Check Request — ${payee}`,
         amount: grandTotal,
       })
-      const settings = await getAppSettings()
-      const sub = await getSubmission(id)
-      if (sub) await sendSubmissionNotification(sub, settings)
       setSubmissionId(id)
       setSubmitted(true)
     } finally {
@@ -287,6 +278,7 @@ export default function CheckRequest() {
                 expense={expense}
                 index={i}
                 onChange={updateExpense}
+                isStaff={userProfile?.role === "staff"}
                 onRemove={
                   expenses.length > 1 ? () => removeExpense(i) : undefined
                 }
@@ -417,6 +409,7 @@ function ExpenseRow({
   index,
   onChange,
   onRemove,
+  isStaff,
 }: {
   expense: CheckRequestExpense
   index: number
@@ -426,6 +419,7 @@ function ExpenseRow({
     value: CheckRequestExpense[K]
   ) => void
   onRemove?: () => void
+  isStaff?: boolean
 }) {
   return (
     <div className="py-3 first:pt-0 last:pb-0">
@@ -434,18 +428,28 @@ function ExpenseRow({
           <input
             type="text"
             value={expense.code}
-            required
             placeholder="##-###-###-###-###-###"
             onChange={(e) =>
               onChange(index, "code", formatBudgetCode(e.target.value))
             }
             maxLength={20}
             className="input-neu font-mono"
+            disabled={isStaff}
+            style={
+              isStaff ? { opacity: 0.5, cursor: "not-allowed" } : undefined
+            }
           />
-          <BudgetCodeBuilder
-            value={expense.code}
-            onChange={(v) => onChange(index, "code", v)}
-          />
+          {!isStaff && (
+            <BudgetCodeBuilder
+              value={expense.code}
+              onChange={(v) => onChange(index, "code", v)}
+            />
+          )}
+          {isStaff && (
+            <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+              Assigned by supervisor
+            </p>
+          )}
         </Field>
         <Field label="Description">
           <input

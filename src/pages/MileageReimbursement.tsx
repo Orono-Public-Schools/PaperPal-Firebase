@@ -22,11 +22,9 @@ import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import {
   createSubmission,
-  getSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
 } from "@/lib/firestore"
-import { sendSubmissionNotification } from "@/lib/email"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
@@ -154,9 +152,6 @@ export default function MileageReimbursement() {
         summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
         amount: totalReimbursement,
       })
-      const settings = await getAppSettings()
-      const sub = await getSubmission(id)
-      if (sub) await sendSubmissionNotification(sub, settings)
       setSubmissionId(id)
       setSubmitted(true)
     } finally {
@@ -254,14 +249,26 @@ export default function MileageReimbursement() {
                   setAccountCode(formatBudgetCode(e.target.value))
                 }
                 placeholder="##-###-###-###-###-###"
-                required
                 maxLength={20}
                 className="input-neu w-full font-mono"
+                disabled={userProfile?.role === "staff"}
+                style={
+                  userProfile?.role === "staff"
+                    ? { opacity: 0.5, cursor: "not-allowed" }
+                    : undefined
+                }
               />
-              <BudgetCodeBuilder
-                value={accountCode}
-                onChange={setAccountCode}
-              />
+              {userProfile?.role !== "staff" && (
+                <BudgetCodeBuilder
+                  value={accountCode}
+                  onChange={setAccountCode}
+                />
+              )}
+              {userProfile?.role === "staff" && (
+                <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                  Assigned by your supervisor during review.
+                </p>
+              )}
             </Field>
             <Field label="Route To">
               <StaffEmailAutocomplete

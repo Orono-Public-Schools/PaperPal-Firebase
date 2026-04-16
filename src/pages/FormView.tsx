@@ -16,18 +16,14 @@ import AppLayout from "@/components/layout/AppLayout"
 import SignatureField, {
   type SignatureFieldRef,
 } from "@/components/forms/SignatureField"
+import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import { formatBudgetCode } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import {
   getSubmission,
   updateSubmission,
   getAppSettings,
 } from "@/lib/firestore"
-import {
-  sendReviewedNotification,
-  sendApprovalNotification,
-  sendDenialNotification,
-  sendRevisionNotification,
-} from "@/lib/email"
 import type { Submission, AppSettings, SubmissionStatus } from "@/lib/types"
 import { serverTimestamp } from "firebase/firestore"
 import {
@@ -100,6 +96,7 @@ export default function FormView() {
   const [comments, setComments] = useState("")
   const [acting, setActing] = useState(false)
   const [actionDone, setActionDone] = useState<string | null>(null)
+  const [budgetCode, setBudgetCode] = useState("")
 
   useEffect(() => {
     if (!id) return
@@ -164,14 +161,31 @@ export default function FormView() {
     if (!submission || !settings) return
     const sig = signatureRef.current?.getDataUrl() ?? ""
     setActing(true)
-    await updateSubmission(submission.id, {
+
+    // Build update with budget code if provided
+    const update: Record<string, unknown> = {
       status: "reviewed",
       supervisorSignatureUrl: sig,
       supervisorName: userProfile?.fullName ?? email,
       reviewedAt: serverTimestamp() as never,
-    })
+    }
+
+    if (budgetCode.trim()) {
+      const fd = { ...submission.formData }
+      if (submission.formType === "check") {
+        // Apply to all expense lines that don't have a code
+        const expenses = (fd as CheckRequestData).expenses.map((exp) => ({
+          ...exp,
+          code: exp.code || budgetCode.trim(),
+        }))
+        update["formData.expenses"] = expenses
+      } else {
+        update["formData.accountCode"] = budgetCode.trim()
+      }
+    }
+
+    await updateSubmission(submission.id, update)
     const updated = { ...submission, status: "reviewed" as SubmissionStatus }
-    await sendReviewedNotification(updated, settings)
     setSubmission(updated)
     setActionMode(null)
     setActing(false)
@@ -189,7 +203,6 @@ export default function FormView() {
       approvedAt: serverTimestamp() as never,
     })
     const updated = { ...submission, status: "approved" as SubmissionStatus }
-    await sendApprovalNotification(updated, settings)
     setSubmission(updated)
     setActionMode(null)
     setActing(false)
@@ -204,7 +217,6 @@ export default function FormView() {
       denialComments: comments.trim(),
     })
     const updated = { ...submission, status: "denied" as SubmissionStatus }
-    await sendDenialNotification(updated, settings, comments.trim())
     setSubmission(updated)
     setActionMode(null)
     setComments("")
@@ -231,7 +243,6 @@ export default function FormView() {
       ...submission,
       status: "revisions_requested" as SubmissionStatus,
     }
-    await sendRevisionNotification(updated, settings, comments.trim())
     setSubmission(updated)
     setActionMode(null)
     setComments("")
@@ -285,12 +296,12 @@ export default function FormView() {
         <div
           className="mb-4 flex items-center gap-2 rounded-lg px-4 py-3"
           style={{
-            background: "rgba(5,150,105,0.12)",
-            border: "1px solid rgba(5,150,105,0.25)",
+            background: "linear-gradient(135deg, #4356a9 0%, #5a6fbf 100%)",
+            boxShadow: "0 2px 8px rgba(67,86,169,0.3)",
           }}
         >
-          <CheckCircle size={16} style={{ color: "#059669" }} />
-          <span className="text-sm font-medium" style={{ color: "#065f46" }}>
+          <CheckCircle size={16} style={{ color: "#ffffff" }} />
+          <span className="text-sm font-medium" style={{ color: "#ffffff" }}>
             {actionDone}
           </span>
         </div>
@@ -484,6 +495,30 @@ export default function FormView() {
           {/* Approve mode — signature */}
           {actionMode === "approve" && (
             <div>
+              {canSupervisorAct && (
+                <div className="mb-4">
+                  <label
+                    className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Account / Budget Code
+                  </label>
+                  <input
+                    type="text"
+                    value={budgetCode}
+                    onChange={(e) =>
+                      setBudgetCode(formatBudgetCode(e.target.value))
+                    }
+                    placeholder="##-###-###-###-###-###"
+                    maxLength={20}
+                    className="input-neu w-full font-mono sm:w-72"
+                  />
+                  <BudgetCodeBuilder
+                    value={budgetCode}
+                    onChange={setBudgetCode}
+                  />
+                </div>
+              )}
               <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
                 Sign below to{" "}
                 {canSupervisorAct

@@ -53,6 +53,8 @@ async function findOrCreateLogSheet(yearLabel, yearFolderId, db) {
   // Check if it already exists in the year folder
   const res = await drive.files.list({
     q: `'${yearFolderId}' in parents and name = '${sheetName}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,
+    corpora: "drive",
+    driveId: "0ABSKbjIMiOlKUk9PVA",
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
     fields: "files(id, name)",
@@ -62,46 +64,45 @@ async function findOrCreateLogSheet(yearLabel, yearFolderId, db) {
     return res.data.files[0].id
   }
 
-  // Create the spreadsheet
-  const createRes = await sheets.spreadsheets.create({
+  // Create the spreadsheet directly in the shared drive folder
+  const fileRes = await drive.files.create({
     requestBody: {
-      properties: { title: sheetName },
-      sheets: [
-        {
-          properties: { title: "Sheet1" },
-          data: [
-            {
-              startRow: 0,
-              startColumn: 0,
-              rowData: [
-                {
-                  values: LOG_HEADERS.map((h) => ({
-                    userEnteredValue: { stringValue: h },
-                    userEnteredFormat: { textFormat: { bold: true } },
-                  })),
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      name: sheetName,
+      mimeType: "application/vnd.google-apps.spreadsheet",
+      parents: [yearFolderId],
+    },
+    supportsAllDrives: true,
+    fields: "id",
+  })
+
+  const sheetId = fileRes.data.id
+
+  // Add headers
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: "Sheet1!A1:H1",
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [LOG_HEADERS],
     },
   })
 
-  const sheetId = createRes.data.spreadsheetId
-
-  // Move into the year folder on the shared drive
-  const fileInfo = await drive.files.get({
-    fileId: sheetId,
-    fields: "parents",
-    supportsAllDrives: true,
-  })
-
-  await drive.files.update({
-    fileId: sheetId,
-    addParents: yearFolderId,
-    removeParents: (fileInfo.data.parents || []).join(","),
-    supportsAllDrives: true,
+  // Bold the header row
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      requests: [
+        {
+          repeatCell: {
+            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+            cell: {
+              userEnteredFormat: { textFormat: { bold: true } },
+            },
+            fields: "userEnteredFormat.textFormat.bold",
+          },
+        },
+      ],
+    },
   })
 
   // Save the sheet ID to settings so we don't recreate it
@@ -131,8 +132,8 @@ async function appendToLog(submission, settings, driveUrl, yearFolderId, db) {
     const fiscalYearStartMonth = settings.fiscalYearStartMonth ?? 6
     const month = approvedDate.getMonth()
     const year = approvedDate.getFullYear()
-    const yearLabel =
-      month >= fiscalYearStartMonth ? String(year + 1) : String(year)
+    const fy = month >= fiscalYearStartMonth ? year + 1 : year
+    const yearLabel = `${fy} FY`
 
     sheetId = await findOrCreateLogSheet(yearLabel, yearFolderId, db)
   }
@@ -163,4 +164,4 @@ async function appendToLog(submission, settings, driveUrl, yearFolderId, db) {
   })
 }
 
-module.exports = { appendToLog }
+module.exports = { appendToLog, setupLogSheet: findOrCreateLogSheet }

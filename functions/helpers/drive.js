@@ -1,6 +1,8 @@
 const { google } = require("googleapis")
 const { Readable } = require("stream")
 
+const SHARED_DRIVE_ID = "0ABSKbjIMiOlKUk9PVA"
+
 const MONTHS = [
   "January",
   "February",
@@ -26,9 +28,8 @@ function getDriveService() {
 function getFiscalYearLabel(approvedDate, fiscalYearStartMonth) {
   const month = approvedDate.getMonth()
   const year = approvedDate.getFullYear()
-  // If approved in/after the start month, it's the next calendar year's FY
-  // e.g. fiscalYearStartMonth=6 (July): July 2025 → FY "2026", June 2025 → FY "2025"
-  return month >= fiscalYearStartMonth ? String(year + 1) : String(year)
+  const fy = month >= fiscalYearStartMonth ? year + 1 : year
+  return `${fy} FY`
 }
 
 function getMonthName(date) {
@@ -38,6 +39,8 @@ function getMonthName(date) {
 async function findFolder(drive, parentId, name) {
   const res = await drive.files.list({
     q: `'${parentId}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    corpora: "drive",
+    driveId: SHARED_DRIVE_ID,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
     fields: "files(id, name)",
@@ -66,7 +69,6 @@ async function findOrCreateFolder(drive, parentId, name) {
 
 async function uploadToDrive(pdfBuffer, submission, settings) {
   const drive = getDriveService()
-  const rootFolderId = settings.paperpalDriveFolderId || "0ABSKbjIMiOlKUk9PVA"
 
   const approvedDate = submission.approvedAt?.toDate
     ? submission.approvedAt.toDate()
@@ -76,8 +78,8 @@ async function uploadToDrive(pdfBuffer, submission, settings) {
   const yearLabel = getFiscalYearLabel(approvedDate, fiscalYearStartMonth)
   const monthName = getMonthName(approvedDate)
 
-  // Find/create: root → year → month
-  const yearFolder = await findOrCreateFolder(drive, rootFolderId, yearLabel)
+  // Find/create: shared drive root → year → month
+  const yearFolder = await findOrCreateFolder(drive, SHARED_DRIVE_ID, yearLabel)
   const monthFolder = await findOrCreateFolder(drive, yearFolder.id, monthName)
 
   // Build filename: check_REQ-12345_Mellor.pdf
@@ -104,4 +106,18 @@ async function uploadToDrive(pdfBuffer, submission, settings) {
   }
 }
 
-module.exports = { uploadToDrive }
+async function uploadToDriveSetup(yearLabel) {
+  const drive = getDriveService()
+
+  const yearFolder = await findOrCreateFolder(drive, SHARED_DRIVE_ID, yearLabel)
+
+  const monthFolders = []
+  for (const month of MONTHS) {
+    const folder = await findOrCreateFolder(drive, yearFolder.id, month)
+    monthFolders.push({ name: month, id: folder.id })
+  }
+
+  return { yearFolderId: yearFolder.id, monthFolders }
+}
+
+module.exports = { uploadToDrive, uploadToDriveSetup }
