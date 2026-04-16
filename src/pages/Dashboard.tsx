@@ -58,18 +58,27 @@ const STATUS_STYLES: Record<
   SubmissionStatus,
   { label: string; bg: string; color: string }
 > = {
-  pending: { label: "Pending", bg: "rgba(245,158,11,0.12)", color: "#b45309" },
+  pending: { label: "Pending", bg: "rgba(67,86,169,0.12)", color: "#4356a9" },
   reviewed: {
     label: "Awaiting Final Approval",
-    bg: "rgba(59,130,246,0.12)",
-    color: "#1d4ed8",
+    bg: "rgba(45,63,137,0.12)",
+    color: "#2d3f89",
   },
-  approved: { label: "Approved", bg: "rgba(5,150,105,0.12)", color: "#065f46" },
+  approved: {
+    label: "Approved",
+    bg: "rgba(29,42,93,0.12)",
+    color: "#1d2a5d",
+  },
   denied: { label: "Denied", bg: "rgba(173,33,34,0.12)", color: "#ad2122" },
   revisions_requested: {
     label: "Revisions Requested",
-    bg: "rgba(234,88,12,0.12)",
-    color: "#c2410c",
+    bg: "rgba(67,86,169,0.12)",
+    color: "#4356a9",
+  },
+  cancelled: {
+    label: "Cancelled",
+    bg: "rgba(148,163,184,0.12)",
+    color: "#64748b",
   },
 }
 

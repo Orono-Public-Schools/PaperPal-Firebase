@@ -25,7 +25,7 @@ import {
   getAppSettings,
 } from "@/lib/firestore"
 import type { Submission, AppSettings, SubmissionStatus } from "@/lib/types"
-import { serverTimestamp } from "firebase/firestore"
+import { serverTimestamp, Timestamp } from "firebase/firestore"
 import {
   CheckRequestView,
   MileageView,
@@ -66,6 +66,12 @@ const STATUS_CONFIG: Record<
     bg: "rgba(67,86,169,0.12)",
     color: "#4356a9",
     icon: RotateCcw,
+  },
+  cancelled: {
+    label: "Cancelled",
+    bg: "rgba(148,163,184,0.12)",
+    color: "#64748b",
+    icon: XCircle,
   },
 }
 
@@ -227,27 +233,32 @@ export default function FormView() {
   async function handleRequestRevisions() {
     if (!submission || !settings || !comments.trim()) return
     setActing(true)
-    await updateSubmission(submission.id, {
-      status: "revisions_requested",
-      revisionComments: comments.trim(),
-      revisionHistory: [
-        ...submission.revisionHistory,
-        {
-          comments: comments.trim(),
-          requestedBy: email,
-          requestedAt: serverTimestamp() as never,
-        },
-      ],
-    })
-    const updated = {
-      ...submission,
-      status: "revisions_requested" as SubmissionStatus,
+    try {
+      await updateSubmission(submission.id, {
+        status: "revisions_requested",
+        revisionComments: comments.trim(),
+        revisionHistory: [
+          ...submission.revisionHistory,
+          {
+            comments: comments.trim(),
+            requestedBy: email,
+            requestedAt: Timestamp.now(),
+          },
+        ],
+      })
+      const updated = {
+        ...submission,
+        status: "revisions_requested" as SubmissionStatus,
+      }
+      setSubmission(updated)
+      setActionMode(null)
+      setComments("")
+      setActionDone("Revisions requested — submitter notified")
+    } catch (err) {
+      console.error("Failed to request revisions:", err)
+      alert("Failed to request revisions. Please try again.")
     }
-    setSubmission(updated)
-    setActionMode(null)
-    setComments("")
     setActing(false)
-    setActionDone("Revisions requested — submitter notified")
   }
 
   return (
@@ -645,34 +656,72 @@ export default function FormView() {
         </div>
       )}
 
-      {/* Submitter resubmit prompt */}
-      {isSubmitter && submission.status === "revisions_requested" && (
-        <div
-          className="mt-6 rounded-xl p-6 text-center"
-          style={{
-            background: "#ffffff",
-            boxShadow:
-              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
-          }}
-        >
-          <p className="mb-3 text-sm" style={{ color: "#334155" }}>
-            Your supervisor has requested changes. Edit and resubmit your form.
-          </p>
-          <button
-            onClick={() =>
-              navigate(
-                `/forms/${submission.formType}?resubmit=${submission.id}`
-              )
-            }
-            className="cursor-pointer rounded-lg px-6 py-2.5 text-sm font-semibold text-white"
+      {/* Submitter actions */}
+      {isSubmitter &&
+        (submission.status === "pending" ||
+          submission.status === "revisions_requested") &&
+        !actionDone && (
+          <div
+            className="mt-6 rounded-xl p-6"
             style={{
-              background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              background: "#ffffff",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
-            Edit &amp; Resubmit
-          </button>
-        </div>
-      )}
+            {submission.status === "revisions_requested" && (
+              <p className="mb-4 text-sm" style={{ color: "#334155" }}>
+                Your supervisor has requested changes. Edit and resubmit your
+                form.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() =>
+                  navigate(
+                    `/forms/${submission.formType}?resubmit=${submission.id}`
+                  )
+                }
+                className="btn-action-approve"
+              >
+                <RotateCcw size={14} />
+                {submission.status === "revisions_requested"
+                  ? "Edit & Resubmit"
+                  : "Edit Request"}
+              </button>
+              <button
+                onClick={async () => {
+                  if (
+                    !confirm(
+                      "Are you sure you want to cancel this request? This cannot be undone."
+                    )
+                  )
+                    return
+                  setActing(true)
+                  try {
+                    await updateSubmission(submission.id, {
+                      status: "cancelled",
+                    })
+                    setSubmission({
+                      ...submission,
+                      status: "cancelled" as SubmissionStatus,
+                    })
+                    setActionDone("Request cancelled")
+                  } catch (err) {
+                    console.error("Failed to cancel:", err)
+                    alert("Failed to cancel. Please try again.")
+                  }
+                  setActing(false)
+                }}
+                disabled={acting}
+                className="btn-action-deny"
+              >
+                <XCircle size={14} />
+                Cancel Request
+              </button>
+            </div>
+          </div>
+        )}
     </AppLayout>
   )
 }

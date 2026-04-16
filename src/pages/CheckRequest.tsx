@@ -1,5 +1,5 @@
-import { useState, useRef } from "react"
-import { useNavigate } from "react-router"
+import { useState, useRef, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router"
 import { Plus, Trash2, CheckCircle, Send, X } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
@@ -9,7 +9,13 @@ import SignatureField, {
 import DatePicker from "@/components/forms/DatePicker"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import { createSubmission, createOrUpdateUserProfile } from "@/lib/firestore"
+import {
+  createSubmission,
+  getSubmission,
+  updateSubmission,
+  createOrUpdateUserProfile,
+} from "@/lib/firestore"
+import type { CheckRequestData } from "@/lib/types"
 import { formatBudgetCode } from "@/lib/utils"
 import type { CheckRequestExpense } from "@/lib/types"
 
@@ -20,6 +26,8 @@ function emptyExpense(): CheckRequestExpense {
 export default function CheckRequest() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
 
   const [submitterName, setSubmitterName] = useState(
@@ -51,6 +59,25 @@ export default function CheckRequest() {
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
 
+  // Load existing submission for resubmit
+  useEffect(() => {
+    if (!resubmitId) return
+    getSubmission(resubmitId).then((sub) => {
+      if (!sub || sub.formType !== "check") return
+      const fd = sub.formData as CheckRequestData
+      setSubmitterName(sub.submitterName)
+      setRouteRequestTo(sub.supervisorEmail)
+      setDateRequest(fd.dateRequest)
+      setDateNeeded(fd.dateNeeded)
+      setPayee(fd.payee)
+      setStreet(fd.address?.street ?? "")
+      setCity(fd.address?.city ?? "")
+      setState(fd.address?.state ?? "")
+      setZip(fd.address?.zip ?? "")
+      setExpenses(fd.expenses.length > 0 ? fd.expenses : [emptyExpense()])
+    })
+  }, [resubmitId])
+
   const grandTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
 
   function updateExpense<K extends keyof CheckRequestExpense>(
@@ -76,28 +103,52 @@ export default function CheckRequest() {
     if (!user || !userProfile) return
     setSubmitting(true)
     try {
-      const id = await createSubmission({
-        formType: "check",
-        status: "pending",
-        submitterUid: user.uid,
-        submitterEmail: user.email ?? "",
-        submitterName: userProfile.fullName,
-        supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
-        employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
-        formData: {
-          dateRequest,
-          dateNeeded,
-          payee,
-          address: { street, city, state, zip },
-          expenses,
-          grandTotal,
-        },
-        attachments: [],
-        revisionHistory: [],
-        summary: `Check Request — ${payee}`,
-        amount: grandTotal,
-      })
-      setSubmissionId(id)
+      const formData = {
+        dateRequest,
+        dateNeeded,
+        payee,
+        address: { street, city, state, zip },
+        expenses,
+        grandTotal,
+      }
+
+      if (resubmitId) {
+        await updateSubmission(resubmitId, {
+          status: "pending",
+          submitterName: userProfile.fullName,
+          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          formData,
+          summary: `Check Request — ${payee}`,
+          amount: grandTotal,
+          supervisorSignatureUrl: "",
+          finalApproverSignatureUrl: "",
+          reviewedAt: undefined,
+          approvedAt: undefined,
+          denialComments: undefined,
+          revisionComments: undefined,
+          approvalProcessingError: undefined,
+          pdfDriveId: undefined,
+          pdfDriveUrl: undefined,
+        })
+        setSubmissionId(resubmitId)
+      } else {
+        const id = await createSubmission({
+          formType: "check",
+          status: "pending",
+          submitterUid: user.uid,
+          submitterEmail: user.email ?? "",
+          submitterName: userProfile.fullName,
+          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          formData,
+          attachments: [],
+          revisionHistory: [],
+          summary: `Check Request — ${payee}`,
+          amount: grandTotal,
+        })
+        setSubmissionId(id)
+      }
       setSubmitted(true)
     } finally {
       setSubmitting(false)

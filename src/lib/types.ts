@@ -220,6 +220,7 @@ export type SubmissionStatus =
   | "approved"
   | "denied"
   | "revisions_requested"
+  | "cancelled"
 
 export interface RevisionHistoryEntry {
   comments: string

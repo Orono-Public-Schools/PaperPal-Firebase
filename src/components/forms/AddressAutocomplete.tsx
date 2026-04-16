@@ -132,6 +132,22 @@ export default function AddressAutocomplete({
 
   return (
     <div ref={containerRef} className="relative">
+      {/* Hidden decoy inputs to absorb Chrome autofill */}
+      <input
+        type="text"
+        name="street-address"
+        autoComplete="street-address"
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          width: 0,
+          height: 0,
+          opacity: 0,
+          overflow: "hidden",
+          pointerEvents: "none",
+        }}
+      />
       <input
         type="text"
         value={value}
@@ -141,9 +157,11 @@ export default function AddressAutocomplete({
         placeholder={placeholder}
         required={required}
         className="input-neu w-full"
-        autoComplete="new-password"
+        autoComplete="off"
+        name={`addr-${Math.random().toString(36).slice(2, 8)}`}
         data-lpignore="true"
         data-1p-ignore
+        data-form-type="other"
       />
       {open &&
         (showQuickFills ? hasQuickFillContent : suggestions.length > 0) && (

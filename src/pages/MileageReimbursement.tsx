@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { useNavigate } from "react-router"
+import { useNavigate, useSearchParams } from "react-router"
 import {
   Plus,
   Trash2,
@@ -22,9 +22,12 @@ import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import {
   createSubmission,
+  getSubmission,
+  updateSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
 } from "@/lib/firestore"
+import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
@@ -45,6 +48,8 @@ function emptyTrip(): MileageTrip {
 export default function MileageReimbursement() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
 
   const [submitterName, setSubmitterName] = useState(
@@ -54,9 +59,7 @@ export default function MileageReimbursement() {
     userProfile?.supervisorEmail ?? ""
   )
   const [employeeId, setEmployeeId] = useState(userProfile?.employeeId ?? "")
-  const [accountCode, setAccountCode] = useState(
-    userProfile?.savedSignatureUrl ? "" : ""
-  )
+  const [accountCode, setAccountCode] = useState("")
   const [trips, setTrips] = useState<MileageTrip[]>([emptyTrip()])
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -87,6 +90,20 @@ export default function MileageReimbursement() {
       setQuickFills(fills)
     })
   }, [userProfile?.homeAddress])
+
+  // Load existing submission for resubmit
+  useEffect(() => {
+    if (!resubmitId) return
+    getSubmission(resubmitId).then((sub) => {
+      if (!sub || sub.formType !== "mileage") return
+      const fd = sub.formData as MileageData
+      setSubmitterName(sub.submitterName)
+      setRouteRequestTo(sub.supervisorEmail)
+      setEmployeeId(fd.employeeId)
+      setAccountCode(fd.accountCode)
+      setTrips(fd.trips.length > 0 ? fd.trips : [emptyTrip()])
+    })
+  }, [resubmitId])
 
   // Auto-calculate distance when From or To changes
   async function calcDistance(index: number, from: string, to: string) {
@@ -131,28 +148,52 @@ export default function MileageReimbursement() {
     if (!user || !userProfile) return
     setSubmitting(true)
     try {
-      const id = await createSubmission({
-        formType: "mileage",
-        status: "pending",
-        submitterUid: user.uid,
-        submitterEmail: user.email ?? "",
-        submitterName: userProfile.fullName,
-        supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
-        employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
-        formData: {
-          name: submitterName,
-          employeeId,
-          accountCode,
-          trips,
-          totalMiles,
-          totalReimbursement,
-        },
-        attachments: [],
-        revisionHistory: [],
-        summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
-        amount: totalReimbursement,
-      })
-      setSubmissionId(id)
+      const formData = {
+        name: submitterName,
+        employeeId,
+        accountCode,
+        trips,
+        totalMiles,
+        totalReimbursement,
+      }
+
+      if (resubmitId) {
+        await updateSubmission(resubmitId, {
+          status: "pending",
+          submitterName: userProfile.fullName,
+          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          formData,
+          summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
+          amount: totalReimbursement,
+          supervisorSignatureUrl: "",
+          finalApproverSignatureUrl: "",
+          reviewedAt: undefined,
+          approvedAt: undefined,
+          denialComments: undefined,
+          revisionComments: undefined,
+          approvalProcessingError: undefined,
+          pdfDriveId: undefined,
+          pdfDriveUrl: undefined,
+        })
+        setSubmissionId(resubmitId)
+      } else {
+        const id = await createSubmission({
+          formType: "mileage",
+          status: "pending",
+          submitterUid: user.uid,
+          submitterEmail: user.email ?? "",
+          submitterName: userProfile.fullName,
+          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          formData,
+          attachments: [],
+          revisionHistory: [],
+          summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
+          amount: totalReimbursement,
+        })
+        setSubmissionId(id)
+      }
       setSubmitted(true)
     } finally {
       setSubmitting(false)

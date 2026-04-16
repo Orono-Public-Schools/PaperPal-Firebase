@@ -154,16 +154,27 @@ function drawTableHeaders(doc, headers, colWidths, startX) {
 
 function drawTableRow(doc, cells, colWidths, startX, bold) {
   const y = doc.y
+  const font = bold ? "Helvetica-Bold" : "Helvetica"
   doc
-    .font(bold ? "Helvetica-Bold" : "Helvetica")
+    .font(font)
     .fontSize(8)
     .fillColor(bold ? NAVY : TEXT_COLOR)
+
+  // Measure the tallest cell
+  let maxH = 12
+  for (let i = 0; i < cells.length; i++) {
+    const h = doc.heightOfString(String(cells[i] ?? ""), {
+      width: colWidths[i] - 4,
+    })
+    if (h > maxH) maxH = h
+  }
+
   let x = startX
   for (let i = 0; i < cells.length; i++) {
-    doc.text(String(cells[i] ?? ""), x, y, { width: colWidths[i] })
+    doc.text(String(cells[i] ?? ""), x, y, { width: colWidths[i] - 4 })
     x += colWidths[i]
   }
-  doc.y = y + 14
+  doc.y = y + maxH + 4
   doc
     .moveTo(startX, doc.y - 2)
     .lineTo(startX + colWidths.reduce((a, b) => a + b, 0), doc.y - 2)
@@ -341,7 +352,7 @@ function renderMileage(doc, data) {
   doc.y = y
   drawSectionHeading(doc, "Trips")
 
-  const colWidths = [65, 110, 110, 110, 55]
+  const colWidths = [50, 130, 130, 90, 50]
   drawTableHeaders(
     doc,
     ["Date", "From", "To", "Purpose", "Miles"],
