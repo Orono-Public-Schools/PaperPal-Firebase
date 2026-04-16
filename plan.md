@@ -2,117 +2,79 @@
 
 ## Up Next
 
-- Google Drive integration + PDF generation
-  - Shared Drive structure: Business Office → Fiscal Year → Month folders
-  - Google Sheet log per fiscal year (one row per approved submission)
-  - PDF generation on final approval (completed form with all signatures)
-  - Upload PDF to correct month folder in shared drive
-  - Append row to fiscal year log sheet
-  - Cloud Function triggered on final approval
-  - Service account needs access to shared drive
-  - Store pdfDriveId + pdfDriveUrl on submission (fields already exist)
+- Supervisor redirect
+  - Supervisor can reassign a submission to a different supervisor/user
+  - Dropdown to pick new supervisor (staff email autocomplete)
+  - Updates supervisorEmail on the submission, resets to pending
+  - Notification email sent to the new supervisor
+  - Original supervisor gets a confirmation that it was reassigned
 
-- Firebase Trigger Email extension
-  - Configure for `mail` collection (docs are being written, need extension to send)
-  - Sender: paperpal@orono.k12.mn.us
-  - Test email delivery end-to-end
+- Approval history / activity timeline
+  - Timeline component in FormView showing all workflow events
+  - Events: submitted, supervisor approved, final approved, denied, revisions requested, resubmitted, cancelled, redirected
+  - Each entry: who, what action, when, comments (if any)
+  - Store as an array on the submission (activityLog or expand revisionHistory)
+  - Displayed between form data and approval actions in FormView
 
-- Resubmission flow
-  - Submitter can edit and resubmit when status = revisions_requested
-  - Pre-fill form from existing submission data
-  - Update existing submission instead of creating new one
-
-- Polish / testing
-  - Test full flow: submit → supervisor approve → final approve → PDF + Drive
-  - Firestore composite indexes (may auto-prompt on first query)
-  - Firestore security rules for new fields
+- Print & export
+  - "Print" button on FormView — opens browser print dialog with clean print-friendly layout
+  - "Download PDF" button on FormView — downloads the server-generated PDF
+  - For approved submissions: download the final PDF (with all signatures) from Drive
+  - For in-progress submissions: generate a PDF on-demand via callable Cloud Function
+  - Print CSS: hide nav/header/actions, show only form data + signatures
 
 ## Done
 
+- Resubmission flow
+  - All 3 forms support ?resubmit=ID to load and edit existing submission
+  - Updates existing submission, resets status to pending
+  - Works from both pending (edit) and revisions_requested (edit & resubmit)
+- Cancel request
+  - Submitter can cancel pending or revisions_requested submissions
+  - Confirmation dialog, sets status to cancelled
+  - Firestore rules updated to allow submitter edits on pending status
+- Server-side email with PDF attachments
+  - All notifications moved to Cloud Functions (onSubmissionCreated + onSubmissionStatusChange)
+  - PDF generated at each status change, attached to every email
+  - Submitter gets: receipt, supervisor approved, final approved
+  - Supervisor gets: new request, approval confirmation, final approved
+  - Final approver gets: awaiting approval notification
+- Google Drive integration + PDF generation
+  - Shared Drive structure: Paperless Forms → FY folders → month folders
+  - "2026 FY" naming convention for fiscal year folders
+  - Auto-create folders + log sheet on first approval or via admin button
+  - Setup Drive Structure admin button creates all 12 months + log sheet
+  - Fiscal year rollover scheduled function (July 1)
+  - PDF uploaded to correct month folder on final approval
+  - Row appended to fiscal year log sheet
+  - pdfDriveId + pdfDriveUrl stored on submission
+- Firebase Trigger Email extension
+  - Configured for mail collection, sender paperpal@orono.k12.mn.us
+  - Gmail SMTP with app password
+- Budget code workflow
+  - Greyed out for staff users on all 3 forms
+  - Supervisor assigns budget code during approval review
+  - BudgetCodeBuilder available in supervisor approval section
+- UI polish
+  - Review buttons: Orono brand colors + hover effects (CSS classes)
+  - Status badges: Orono palette across FormView + Dashboard
+  - Success banner: lighter blue gradient with white text
+  - Email template: PaperPal logo, branded header, footer bar
+  - Chrome autofill suppression on address fields
+  - Dynamic PDF table rows for long addresses
+  - PR template for GitHub
+  - CI actions bumped to v6
 - Staff integration (OneSync → Google Sheet → Cloud Function → Firestore)
-  - Google Sheets API sync via Cloud Function (service account auth)
-  - Full replace sync (wipe + rewrite staff collection)
-  - Nightly auto-sync at 5am Central (configurable, Cloud Scheduler)
-  - Manual "Sync Now" in admin (callable Cloud Function)
-  - Staff Directory: read-only view with search + building/title filters
-  - Sync updates user profiles with title + building
-  - Title + building fields on user profile (read-only, synced from OneSync)
 - Supervisor mappings (hybrid building + title approach)
-  - Building defaults: each building has an approver (covers most staff)
-  - Title overrides: specific titles route to specific supervisors
-  - Coverage summary (building default / title override / unassigned counts)
-  - Add Override UI: checkbox title picker + supervisor dropdown
-  - Resolution: title override > building default > manual
-  - Buildings: initials field matching OneSync, seed from Orono mapping
 - Approval workflow (FormView)
-  - Read-only form view for all 3 form types (Check, Mileage, Travel)
-  - Supervisor: Approve (with signature) / Deny / Request Revisions
-  - Final Approver: Approve (with signature) / Deny
-  - Status badges, denial/revision comments display
-  - Submitter: "Edit & Resubmit" prompt on revisions_requested
-- Email notifications
-  - On submit → supervisor (with link to FormView)
-  - On supervisor approve → final approver
-  - On final approve → submitter
-  - On deny → submitter (with reason)
-  - On revisions → submitter (with requested changes)
-  - Branded HTML email template (PaperPal header, deep links)
-- Signature system
-  - SignatureField component (draw / type / saved modes)
-  - Employee signature on all 3 forms
-  - Supervisor + final approver signatures on approval
-  - "Save as my signature" from any form → updates profile
-  - Saved signature auto-selected as default
+- Email notifications (branded HTML template)
+- Signature system (draw / type / saved)
 - Staff email autocomplete
-  - Dropdown suggestions from staff directory as you type (2+ chars)
-  - Used on: Route To (all forms), supervisor email (profile), approver email (buildings, settings)
-  - Cached after first load
-- Dashboard
-  - Clickable submission rows → navigate to FormView
-  - Approvals tab for supervisors and final approvers
-  - Shows submitter name on approval items
+- Dashboard (clickable rows, approvals tab)
 - Users & Roles
-  - Add users from staff directory with role assignment
-  - Search users, change roles
-- UI improvements
-  - Profile dropdown (settings + sign out) replacing standalone sign out
-  - Logo size + gap adjustment in header
-  - Title + Building (read-only) on profile page
-- Google Maps integration (Places API New + Routes API)
-  - Address autocomplete on mileage From/To fields (REST API)
-  - Auto-calculate driving distance with MapPin button
-  - Quick-fill dropdown: Home (from profile) + School (from admin settings)
-  - "Add home address" link → Profile page with auto-focus
-  - Home address field on Profile page
-  - School address configurable in Admin > General Settings
-- Budget Code Builder
-  - Full-screen step-by-step modal (Fund → Org → Proj → Fin → Course → Obj)
-  - All Orono district codes imported (167 total across 6 segments)
-  - Admin panel: collapsible categories, inline edit, per-category add, Quick Import
-  - Auto-format on manual typing (##-###-###-###-###-###)
-  - Pre-seeded UFARS Object codes as defaults
-- Travel Reimbursement form overhaul
-  - Transportation by Car section with mileage calc (From/To + distance)
-  - Meal Expenses table (date picker per row, per-row totals, receipt upload)
-  - Justification for Release with file upload (PDF/IMG/DOC) + drag-and-drop
-  - Pre-Approved Estimated Expenses section
-  - Route Request To field (supervisor selector)
-  - Away From Job dates (DatePicker, not time inputs)
-  - Budget year auto-fills from fiscal year setting
-- Custom DatePicker component (circular days, OPS red selected, today ring)
-- Three-step approval flow data model: pending → reviewed → approved
-- Final approver (controller) configurable in Admin > General Settings
-- Fiscal year start month configurable in Admin (defaults July)
-- Button redesign: btn-submit (Send fly), btn-save (red solid), btn-cancel (transparent)
-- Full Name simplified to plain editable input (removed NameField component)
-- Dark theme redesign (dark navy bg, white cards, OPS brand colors)
-- Animated submit buttons (OPS red, Send icon fly animation)
-- Dashboard cards with expand-on-hover, color accent bars
-- Inter font, clean white inputs with borders
-- Mileage rate $0.72/mile
-- Admin panel (buildings, staff import, user roles, email settings, general settings)
-- Firestore security rules for new collections
-- Role system (staff, supervisor, business_office, admin)
-- Auto-populate user profile from staff record on first sign-in
-- Profile page with signature canvas, home address
-- Hamburger sidebar navigation
+- Google Maps integration (Places API + Routes API)
+- Budget Code Builder (6-segment UFARS codes)
+- Travel Reimbursement form
+- Custom DatePicker component
+- Three-step approval flow (pending → reviewed → approved)
+- Admin panel (buildings, staff, roles, settings, budget segments)
