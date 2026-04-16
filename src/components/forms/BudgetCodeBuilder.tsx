@@ -8,7 +8,11 @@ interface Props {
   onChange: (value: string) => void
 }
 
-const SEGMENT_ORDER: { type: BudgetSegmentType; label: string; size: number }[] = [
+const SEGMENT_ORDER: {
+  type: BudgetSegmentType
+  label: string
+  size: number
+}[] = [
   { type: "fund", label: "Fund", size: 2 },
   { type: "org", label: "Org", size: 3 },
   { type: "proj", label: "Proj", size: 3 },
@@ -23,10 +27,18 @@ function padCode(code: string, size: number) {
 
 export default function BudgetCodeBuilder({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
-  const [segments, setSegments] = useState<Record<BudgetSegmentType, BudgetSegment[]> | null>(null)
+  const [segments, setSegments] = useState<Record<
+    BudgetSegmentType,
+    BudgetSegment[]
+  > | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [picks, setPicks] = useState<Record<BudgetSegmentType, string>>({
-    fund: "", org: "", proj: "", fin: "", course: "", obj: "",
+    fund: "",
+    org: "",
+    proj: "",
+    fin: "",
+    course: "",
+    obj: "",
   })
   const [search, setSearch] = useState("")
   const searchRef = useRef<HTMLInputElement>(null)
@@ -41,11 +53,17 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
       const parts = value.split("-")
       if (parts.length === 6) {
         setPicks({
-          fund: parts[0], org: parts[1], proj: parts[2],
-          fin: parts[3], course: parts[4], obj: parts[5],
+          fund: parts[0],
+          org: parts[1],
+          proj: parts[2],
+          fin: parts[3],
+          course: parts[4],
+          obj: parts[5],
         })
         // Find first empty or go to first
-        const firstEmpty = SEGMENT_ORDER.findIndex((s) => !parts[SEGMENT_ORDER.indexOf(s)])
+        const firstEmpty = SEGMENT_ORDER.findIndex(
+          (s) => !parts[SEGMENT_ORDER.indexOf(s)]
+        )
         setActiveIndex(firstEmpty >= 0 ? firstEmpty : 0)
       } else {
         resetPicks()
@@ -145,14 +163,19 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
             {/* Header */}
             <div
               className="flex items-start justify-between p-5"
-              style={{ background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)" }}
+              style={{
+                background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              }}
             >
               <div>
                 <h3 className="flex items-center gap-2 text-lg font-bold text-white">
                   <Grid3X3 size={20} />
                   Budget Code Builder
                 </h3>
-                <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: "rgba(255,255,255,0.6)" }}
+                >
                   Construct your code step-by-step by selecting segments below.
                 </p>
               </div>
@@ -165,7 +188,10 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
             </div>
 
             {/* Segment boxes */}
-            <div className="border-b px-5 py-4" style={{ background: "#f8f9fb", borderColor: "#e2e5ea" }}>
+            <div
+              className="border-b px-5 py-4"
+              style={{ background: "#f8f9fb", borderColor: "#e2e5ea" }}
+            >
               <div className="flex flex-wrap items-center justify-center gap-1.5">
                 {SEGMENT_ORDER.map((seg, i) => {
                   const isActive = i === activeIndex
@@ -173,11 +199,16 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
                   return (
                     <div key={seg.type} className="flex items-center gap-1.5">
                       {i > 0 && (
-                        <span className="text-lg font-light" style={{ color: "#d1d5db" }}>-</span>
+                        <span
+                          className="text-lg font-light"
+                          style={{ color: "#d1d5db" }}
+                        >
+                          -
+                        </span>
                       )}
                       <div className="flex flex-col items-center gap-0.5">
                         <label
-                          className="text-[9px] font-bold uppercase tracking-wider"
+                          className="text-[9px] font-bold tracking-wider uppercase"
                           style={{ color: isActive ? "#1d2a5d" : "#94a3b8" }}
                         >
                           {seg.label}
@@ -189,13 +220,23 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
                           style={{
                             width: seg.size === 2 ? "44px" : "52px",
                             height: "40px",
-                            border: isActive ? "2px solid #1d2a5d" : "2px solid #e2e5ea",
-                            background: isActive ? "#eff6ff" : hasPick ? "#ffffff" : "#ffffff",
+                            border: isActive
+                              ? "2px solid #1d2a5d"
+                              : "2px solid #e2e5ea",
+                            background: isActive
+                              ? "#eff6ff"
+                              : hasPick
+                                ? "#ffffff"
+                                : "#ffffff",
                             color: hasPick ? "#1d2a5d" : "#94a3b8",
-                            boxShadow: isActive ? "0 0 0 3px rgba(29,42,93,0.1)" : "none",
+                            boxShadow: isActive
+                              ? "0 0 0 3px rgba(29,42,93,0.1)"
+                              : "none",
                           }}
                         >
-                          {picks[seg.type] ? padCode(picks[seg.type], seg.size) : "0".repeat(seg.size)}
+                          {picks[seg.type]
+                            ? padCode(picks[seg.type], seg.size)
+                            : "0".repeat(seg.size)}
                         </button>
                       </div>
                     </div>
@@ -211,11 +252,14 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
             </div>
 
             {/* Search */}
-            <div className="border-b px-5 py-3" style={{ borderColor: "#e2e5ea" }}>
+            <div
+              className="border-b px-5 py-3"
+              style={{ borderColor: "#e2e5ea" }}
+            >
               <div className="relative">
                 <Search
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  className="absolute top-1/2 left-3 -translate-y-1/2"
                   style={{ color: "#94a3b8" }}
                 />
                 <input
@@ -231,12 +275,20 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
             </div>
 
             {/* Options list */}
-            <div className="flex-1 overflow-y-auto p-3" style={{ minHeight: "250px" }}>
+            <div
+              className="flex-1 overflow-y-auto p-3"
+              style={{ minHeight: "250px" }}
+            >
               {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12" style={{ color: "#94a3b8" }}>
+                <div
+                  className="flex flex-col items-center justify-center py-12"
+                  style={{ color: "#94a3b8" }}
+                >
                   <Search size={32} className="mb-2 opacity-20" />
                   <p className="text-sm">
-                    {search ? `No matching codes for "${search}"` : `No ${activeSeg.label} codes configured`}
+                    {search
+                      ? `No matching codes for "${search}"`
+                      : `No ${activeSeg.label} codes configured`}
                   </p>
                 </div>
               ) : (
@@ -250,20 +302,26 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
                         onClick={() => selectCode(item.code)}
                         className="flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-left transition-all"
                         style={{
-                          border: isSelected ? "2px solid #1d2a5d" : "2px solid transparent",
+                          border: isSelected
+                            ? "2px solid #1d2a5d"
+                            : "2px solid transparent",
                           background: isSelected ? "#eff6ff" : "transparent",
                         }}
                         onMouseEnter={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = "#f8f9fb"
+                          if (!isSelected)
+                            e.currentTarget.style.background = "#f8f9fb"
                         }}
                         onMouseLeave={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = "transparent"
+                          if (!isSelected)
+                            e.currentTarget.style.background = "transparent"
                         }}
                       >
                         <div className="min-w-0">
                           <p
                             className="text-sm font-semibold"
-                            style={{ color: isSelected ? "#1d2a5d" : "#334155" }}
+                            style={{
+                              color: isSelected ? "#1d2a5d" : "#334155",
+                            }}
                           >
                             {item.title || "Untitled"}
                           </p>
@@ -275,9 +333,15 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
                           </span>
                         </div>
                         {isSelected ? (
-                          <Check size={18} style={{ color: "#1d2a5d", flexShrink: 0 }} />
+                          <Check
+                            size={18}
+                            style={{ color: "#1d2a5d", flexShrink: 0 }}
+                          />
                         ) : (
-                          <ChevronRight size={16} style={{ color: "#d1d5db", flexShrink: 0 }} />
+                          <ChevronRight
+                            size={16}
+                            style={{ color: "#d1d5db", flexShrink: 0 }}
+                          />
                         )}
                       </button>
                     )
@@ -291,7 +355,7 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
               className="flex items-center justify-between border-t px-5 py-4"
               style={{ background: "#f8f9fb", borderColor: "#e2e5ea" }}
             >
-              <div className="text-xs font-mono" style={{ color: "#94a3b8" }}>
+              <div className="font-mono text-xs" style={{ color: "#94a3b8" }}>
                 {preview}
               </div>
               <div className="flex gap-2">
@@ -300,8 +364,12 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
                   onClick={clear}
                   className="cursor-pointer rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
                   style={{ color: "#64748b", border: "1px solid #e2e5ea" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f2f5")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#f0f2f5")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
                 >
                   Clear
                 </button>
@@ -311,8 +379,12 @@ export default function BudgetCodeBuilder({ value, onChange }: Props) {
                   disabled={!allPicked}
                   className="cursor-pointer rounded-lg px-6 py-2 text-xs font-bold text-white transition-all disabled:cursor-default disabled:opacity-50"
                   style={{ background: "#1d2a5d" }}
-                  onMouseEnter={(e) => { if (allPicked) e.currentTarget.style.background = "#2d3f89" }}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#1d2a5d")}
+                  onMouseEnter={(e) => {
+                    if (allPicked) e.currentTarget.style.background = "#2d3f89"
+                  }}
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "#1d2a5d")
+                  }
                 >
                   Apply Budget Code
                 </button>

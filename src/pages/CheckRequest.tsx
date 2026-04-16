@@ -1,11 +1,21 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useNavigate } from "react-router"
 import { Plus, Trash2, CheckCircle, Send, X } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import SignatureField, {
+  type SignatureFieldRef,
+} from "@/components/forms/SignatureField"
 import DatePicker from "@/components/forms/DatePicker"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import { createSubmission } from "@/lib/firestore"
+import {
+  createSubmission,
+  getSubmission,
+  getAppSettings,
+  createOrUpdateUserProfile,
+} from "@/lib/firestore"
+import { sendSubmissionNotification } from "@/lib/email"
 import { formatBudgetCode } from "@/lib/utils"
 import type { CheckRequestExpense } from "@/lib/types"
 
@@ -16,9 +26,13 @@ function emptyExpense(): CheckRequestExpense {
 export default function CheckRequest() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const signatureRef = useRef<SignatureFieldRef>(null)
 
   const [submitterName, setSubmitterName] = useState(
     userProfile?.fullName ?? ""
+  )
+  const [routeRequestTo, setRouteRequestTo] = useState(
+    userProfile?.supervisorEmail ?? ""
   )
 
   // Header fields
@@ -74,7 +88,8 @@ export default function CheckRequest() {
         submitterUid: user.uid,
         submitterEmail: user.email ?? "",
         submitterName: userProfile.fullName,
-        supervisorEmail: userProfile.supervisorEmail ?? "",
+        supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+        employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
         formData: {
           dateRequest,
           dateNeeded,
@@ -88,6 +103,9 @@ export default function CheckRequest() {
         summary: `Check Request — ${payee}`,
         amount: grandTotal,
       })
+      const settings = await getAppSettings()
+      const sub = await getSubmission(id)
+      if (sub) await sendSubmissionNotification(sub, settings)
       setSubmissionId(id)
       setSubmitted(true)
     } finally {
@@ -102,7 +120,8 @@ export default function CheckRequest() {
           className="mx-auto max-w-lg rounded-xl p-10 text-center"
           style={{
             background: "#ffffff",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <CheckCircle
@@ -179,6 +198,19 @@ export default function CheckRequest() {
                 onChange={setDateNeeded}
                 required
               />
+            </Field>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Route To">
+              <StaffEmailAutocomplete
+                value={routeRequestTo}
+                onChange={setRouteRequestTo}
+                placeholder="Supervisor email"
+                className="input-neu"
+              />
+              <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                Your form will be sent to this person for approval.
+              </p>
             </Field>
           </div>
         </Section>
@@ -296,6 +328,20 @@ export default function CheckRequest() {
           </div>
         </div>
 
+        <Section title="Employee Signature">
+          <SignatureField
+            ref={signatureRef}
+            savedSignatureUrl={userProfile?.savedSignatureUrl}
+            fullName={userProfile?.fullName}
+            onSaveSignature={(dataUrl) => {
+              if (user)
+                createOrUpdateUserProfile(user.uid, {
+                  savedSignatureUrl: dataUrl,
+                })
+            }}
+          />
+        </Section>
+
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <button
@@ -390,7 +436,9 @@ function ExpenseRow({
             value={expense.code}
             required
             placeholder="##-###-###-###-###-###"
-            onChange={(e) => onChange(index, "code", formatBudgetCode(e.target.value))}
+            onChange={(e) =>
+              onChange(index, "code", formatBudgetCode(e.target.value))
+            }
             maxLength={20}
             className="input-neu font-mono"
           />

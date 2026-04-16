@@ -5,6 +5,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import { createOrUpdateUserProfile } from "@/lib/firestore"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 
 type SigTab = "draw" | "type"
 
@@ -17,18 +18,20 @@ export default function Profile() {
   const [firstName, setFirstName] = useState(userProfile?.firstName ?? "")
   const [lastName, setLastName] = useState(userProfile?.lastName ?? "")
   const [employeeId, setEmployeeId] = useState(userProfile?.employeeId ?? "")
-  const [building, setBuilding] = useState(userProfile?.building ?? "")
+  const title = userProfile?.title ?? ""
+  const building = userProfile?.building ?? ""
   const [supervisorEmail, setSupervisorEmail] = useState(
     userProfile?.supervisorEmail ?? ""
   )
-  const [homeAddress, setHomeAddress] = useState(
-    userProfile?.homeAddress ?? ""
-  )
+  const [homeAddress, setHomeAddress] = useState(userProfile?.homeAddress ?? "")
 
   // Auto-focus home address field when navigated from mileage form
   useEffect(() => {
     if (searchParams.get("focus") === "homeAddress" && homeAddressRef.current) {
-      homeAddressRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+      homeAddressRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
       const input = homeAddressRef.current.querySelector("input")
       if (input) setTimeout(() => input.focus(), 400)
     }
@@ -146,6 +149,7 @@ export default function Profile() {
         lastName,
         fullName: `${firstName} ${lastName}`.trim(),
         employeeId,
+        title,
         building,
         supervisorEmail,
         homeAddress,
@@ -201,21 +205,30 @@ export default function Profile() {
                 className="input-neu"
               />
             </Field>
-            <Field label="Building / School">
+            <Field label="Title">
+              <input
+                type="text"
+                value={title}
+                placeholder="e.g. OMS-OEA"
+                readOnly
+                className="input-neu"
+                style={{ color: "#64748b" }}
+              />
+            </Field>
+            <Field label="Building">
               <input
                 type="text"
                 value={building}
-                placeholder="e.g. Orono Middle School"
-                onChange={(e) => setBuilding(e.target.value)}
+                placeholder="e.g. MS"
+                readOnly
                 className="input-neu"
+                style={{ color: "#64748b" }}
               />
             </Field>
             <Field label="Supervisor Email">
-              <input
-                type="email"
+              <StaffEmailAutocomplete
                 value={supervisorEmail}
-                placeholder="supervisor@orono.k12.mn.us"
-                onChange={(e) => setSupervisorEmail(e.target.value)}
+                onChange={setSupervisorEmail}
                 className="input-neu"
               />
             </Field>

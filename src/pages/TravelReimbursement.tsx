@@ -1,12 +1,36 @@
-import { useState, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router"
-import { Plus, Trash2, CheckCircle, Send, X, Loader2, MapPin, Upload, FileText, Image, File } from "lucide-react"
+import {
+  Plus,
+  Trash2,
+  CheckCircle,
+  Send,
+  X,
+  Loader2,
+  MapPin,
+  Upload,
+  FileText,
+  Image,
+  File,
+} from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import DatePicker from "@/components/forms/DatePicker"
-import AddressAutocomplete, { type QuickFill } from "@/components/forms/AddressAutocomplete"
+import AddressAutocomplete, {
+  type QuickFill,
+} from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import SignatureField, {
+  type SignatureFieldRef,
+} from "@/components/forms/SignatureField"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import { createSubmission, getAppSettings } from "@/lib/firestore"
+import {
+  createSubmission,
+  getSubmission,
+  getAppSettings,
+  createOrUpdateUserProfile,
+} from "@/lib/firestore"
+import { sendSubmissionNotification } from "@/lib/email"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
@@ -44,6 +68,7 @@ function emptyOther(): TravelActualOther {
 export default function TravelReimbursement() {
   const { user, userProfile } = useAuth()
   const navigate = useNavigate()
+  const signatureRef = useRef<SignatureFieldRef>(null)
 
   // Employee / trip header
   const [submitterName, setSubmitterName] = useState(
@@ -109,7 +134,11 @@ export default function TravelReimbursement() {
   useEffect(() => {
     const fills: QuickFill[] = []
     if (userProfile?.homeAddress) {
-      fills.push({ label: "Home", address: userProfile.homeAddress, icon: "home" })
+      fills.push({
+        label: "Home",
+        address: userProfile.homeAddress,
+        icon: "home",
+      })
     }
     getAppSettings().then((settings) => {
       // Auto-fill budget year from fiscal year setting
@@ -132,7 +161,7 @@ export default function TravelReimbursement() {
       }
       setQuickFills(fills)
     })
-  }, [userProfile?.homeAddress])
+  }, [userProfile?.homeAddress, budgetYear])
 
   async function calcDistance() {
     if (mileageFrom.length < 5 || mileageTo.length < 5) return
@@ -241,6 +270,7 @@ export default function TravelReimbursement() {
         submitterEmail: user.email ?? "",
         submitterName: userProfile.fullName,
         supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+        employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
         formData: {
           name: submitterName,
           employeeId,
@@ -282,6 +312,9 @@ export default function TravelReimbursement() {
         summary: `Travel — ${meetingTitle || location}`,
         amount: finalClaim,
       })
+      const settings = await getAppSettings()
+      const sub = await getSubmission(id)
+      if (sub) await sendSubmissionNotification(sub, settings)
       setSubmissionId(id)
       setSubmitted(true)
     } finally {
@@ -296,7 +329,8 @@ export default function TravelReimbursement() {
           className="mx-auto max-w-lg rounded-xl p-10 text-center"
           style={{
             background: "#ffffff",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <CheckCircle
@@ -342,7 +376,8 @@ export default function TravelReimbursement() {
           Travel Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Request reimbursement for travel with pre-approved and actual expenses.
+          Request reimbursement for travel with pre-approved and actual
+          expenses.
         </p>
       </div>
 
@@ -369,11 +404,7 @@ export default function TravelReimbursement() {
               />
             </Field>
             <Field label="Form Date">
-              <DatePicker
-                value={formDate}
-                onChange={setFormDate}
-                required
-              />
+              <DatePicker value={formDate} onChange={setFormDate} required />
             </Field>
             <Field label="Home Address">
               <input
@@ -401,11 +432,16 @@ export default function TravelReimbursement() {
                 value={accountCode}
                 required
                 placeholder="##-###-###-###-###-###"
-                onChange={(e) => setAccountCode(formatBudgetCode(e.target.value))}
+                onChange={(e) =>
+                  setAccountCode(formatBudgetCode(e.target.value))
+                }
                 maxLength={20}
                 className="input-neu font-mono"
               />
-              <BudgetCodeBuilder value={accountCode} onChange={setAccountCode} />
+              <BudgetCodeBuilder
+                value={accountCode}
+                onChange={setAccountCode}
+              />
             </Field>
             <Field label="Meeting / Conference Title">
               <input
@@ -430,40 +466,24 @@ export default function TravelReimbursement() {
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Date — Start">
-              <DatePicker
-                value={dateStart}
-                onChange={setDateStart}
-                required
-              />
+              <DatePicker value={dateStart} onChange={setDateStart} required />
             </Field>
             <Field label="Date — End">
-              <DatePicker
-                value={dateEnd}
-                onChange={setDateEnd}
-                required
-              />
+              <DatePicker value={dateEnd} onChange={setDateEnd} required />
             </Field>
             <Field label="Away From Job — Start">
-              <DatePicker
-                value={timeAwayStart}
-                onChange={setTimeAwayStart}
-              />
+              <DatePicker value={timeAwayStart} onChange={setTimeAwayStart} />
             </Field>
             <Field label="Away From Job — End">
-              <DatePicker
-                value={timeAwayEnd}
-                onChange={setTimeAwayEnd}
-              />
+              <DatePicker value={timeAwayEnd} onChange={setTimeAwayEnd} />
             </Field>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Route Request To">
-              <input
-                type="text"
+              <StaffEmailAutocomplete
                 value={routeRequestTo}
-                required
+                onChange={setRouteRequestTo}
                 placeholder="Supervisor or department admin"
-                onChange={(e) => setRouteRequestTo(e.target.value)}
                 className="input-neu"
               />
               <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
@@ -493,7 +513,10 @@ export default function TravelReimbursement() {
               >
                 Attachments
               </p>
-              <span className="text-[11px] font-medium" style={{ color: "#94a3b8" }}>
+              <span
+                className="text-[11px] font-medium"
+                style={{ color: "#94a3b8" }}
+              >
                 Supported: PDF, IMG, DOC
               </span>
             </div>
@@ -526,7 +549,10 @@ export default function TravelReimbursement() {
             >
               <Upload size={24} style={{ color: "#4356a9" }} />
               <p className="text-sm">
-                <span className="font-semibold underline" style={{ color: "#4356a9" }}>
+                <span
+                  className="font-semibold underline"
+                  style={{ color: "#4356a9" }}
+                >
                   Click to upload
                 </span>{" "}
                 or drag and drop
@@ -540,7 +566,10 @@ export default function TravelReimbursement() {
               />
             </label>
             {uploading && (
-              <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: "#4356a9" }}>
+              <div
+                className="mt-2 flex items-center gap-2 text-sm"
+                style={{ color: "#4356a9" }}
+              >
                 <Loader2 size={14} className="animate-spin" />
                 Uploading…
               </div>
@@ -555,9 +584,15 @@ export default function TravelReimbursement() {
                     <div
                       key={i}
                       className="flex items-center gap-3 rounded-lg px-3 py-2"
-                      style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
+                      style={{
+                        background: "#f8f9fb",
+                        border: "1px solid #e2e5ea",
+                      }}
                     >
-                      <Icon size={16} style={{ color: "#4356a9", flexShrink: 0 }} />
+                      <Icon
+                        size={16}
+                        style={{ color: "#4356a9", flexShrink: 0 }}
+                      />
                       <a
                         href={f.url}
                         target="_blank"
@@ -567,18 +602,27 @@ export default function TravelReimbursement() {
                       >
                         {f.name}
                       </a>
-                      <span className="text-[11px]" style={{ color: "#94a3b8" }}>
+                      <span
+                        className="text-[11px]"
+                        style={{ color: "#94a3b8" }}
+                      >
                         {(f.size / 1024).toFixed(0)} KB
                       </span>
                       <button
                         type="button"
                         onClick={() =>
-                          setJustificationFiles((prev) => prev.filter((_, j) => j !== i))
+                          setJustificationFiles((prev) =>
+                            prev.filter((_, j) => j !== i)
+                          )
                         }
                         className="cursor-pointer rounded p-1 transition-colors"
                         style={{ color: "#94a3b8" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.color = "#ad2122")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.color = "#94a3b8")
+                        }
                       >
                         <Trash2 size={14} />
                       </button>
@@ -680,12 +724,18 @@ export default function TravelReimbursement() {
                     min={0}
                     step="0.1"
                     placeholder="0.0"
-                    onChange={(e) => setActMiles(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setActMiles(parseFloat(e.target.value) || 0)
+                    }
                     className="input-neu w-full"
                   />
                   <button
                     type="button"
-                    disabled={mileageFrom.length < 5 || mileageTo.length < 5 || calculatingMiles}
+                    disabled={
+                      mileageFrom.length < 5 ||
+                      mileageTo.length < 5 ||
+                      calculatingMiles
+                    }
                     onClick={calcDistance}
                     className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
                     style={{ color: calculatingMiles ? "#4356a9" : "#64748b" }}
@@ -702,7 +752,11 @@ export default function TravelReimbursement() {
               <Field label="Mileage Cost">
                 <div
                   className="input-neu flex items-center"
-                  style={{ background: "#f0f2f5", color: "#1d2a5d", fontWeight: 600 }}
+                  style={{
+                    background: "#f0f2f5",
+                    color: "#1d2a5d",
+                    fontWeight: 600,
+                  }}
                 >
                   ${(actMiles * MILEAGE_RATE).toFixed(2)}
                 </div>
@@ -823,215 +877,303 @@ export default function TravelReimbursement() {
 
         {/* Meals per day */}
         <Section title="Meal Expenses">
-            <div
-              className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2"
-              style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+          <div
+            className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2"
+            style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+          >
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "#ad2122" }}
             >
-              <span className="text-xs font-semibold" style={{ color: "#ad2122" }}>
-                *Attach Original Receipts
-              </span>
-            </div>
-            <div className="overflow-visible">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #e2e5ea" }}>
-                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Date</th>
-                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Breakfast</th>
-                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Lunch</th>
-                    <th className="pb-2 pr-3 text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Dinner</th>
-                    <th className="pb-2 text-right text-xs font-semibold uppercase" style={{ color: "#64748b" }}>Total</th>
-                    <th className="pb-2" style={{ width: "32px" }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {meals.map((meal, i) => {
-                    const rowTotal = (meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0)
-                    return (
-                      <tr key={meal.date} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                        <td className="py-2 pr-3" style={{ minWidth: "140px" }}>
-                          <DatePicker
-                            value={meal.date}
-                            onChange={(v) => updateMeal(i, "date", v)}
+              *Attach Original Receipts
+            </span>
+          </div>
+          <div className="overflow-visible">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr style={{ borderBottom: "2px solid #e2e5ea" }}>
+                  <th
+                    className="pr-3 pb-2 text-xs font-semibold uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Date
+                  </th>
+                  <th
+                    className="pr-3 pb-2 text-xs font-semibold uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Breakfast
+                  </th>
+                  <th
+                    className="pr-3 pb-2 text-xs font-semibold uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Lunch
+                  </th>
+                  <th
+                    className="pr-3 pb-2 text-xs font-semibold uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Dinner
+                  </th>
+                  <th
+                    className="pb-2 text-right text-xs font-semibold uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Total
+                  </th>
+                  <th className="pb-2" style={{ width: "32px" }} />
+                </tr>
+              </thead>
+              <tbody>
+                {meals.map((meal, i) => {
+                  const rowTotal =
+                    (meal.breakfast || 0) +
+                    (meal.lunch || 0) +
+                    (meal.dinner || 0)
+                  return (
+                    <tr
+                      key={meal.date}
+                      style={{ borderBottom: "1px solid #f0f2f5" }}
+                    >
+                      <td className="py-2 pr-3" style={{ minWidth: "140px" }}>
+                        <DatePicker
+                          value={meal.date}
+                          onChange={(v) => updateMeal(i, "date", v)}
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="flex items-center gap-1">
+                          <span style={{ color: "#94a3b8" }}>$</span>
+                          <input
+                            type="number"
+                            value={meal.breakfast || ""}
+                            min={0}
+                            step="0.01"
+                            placeholder="0.00"
+                            onChange={(e) =>
+                              updateMeal(
+                                i,
+                                "breakfast",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="input-neu"
+                            style={{ maxWidth: "80px" }}
                           />
-                        </td>
-                        <td className="py-2 pr-3">
-                          <div className="flex items-center gap-1">
-                            <span style={{ color: "#94a3b8" }}>$</span>
-                            <input
-                              type="number"
-                              value={meal.breakfast || ""}
-                              min={0}
-                              step="0.01"
-                              placeholder="0.00"
-                              onChange={(e) => updateMeal(i, "breakfast", parseFloat(e.target.value) || 0)}
-                              className="input-neu"
-                              style={{ maxWidth: "80px" }}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <div className="flex items-center gap-1">
-                            <span style={{ color: "#94a3b8" }}>$</span>
-                            <input
-                              type="number"
-                              value={meal.lunch || ""}
-                              min={0}
-                              step="0.01"
-                              placeholder="0.00"
-                              onChange={(e) => updateMeal(i, "lunch", parseFloat(e.target.value) || 0)}
-                              className="input-neu"
-                              style={{ maxWidth: "80px" }}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <div className="flex items-center gap-1">
-                            <span style={{ color: "#94a3b8" }}>$</span>
-                            <input
-                              type="number"
-                              value={meal.dinner || ""}
-                              min={0}
-                              step="0.01"
-                              placeholder="0.00"
-                              onChange={(e) => updateMeal(i, "dinner", parseFloat(e.target.value) || 0)}
-                              className="input-neu"
-                              style={{ maxWidth: "80px" }}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-2 text-right">
-                          <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-                            ${rowTotal.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="py-2">
-                          <button
-                            type="button"
-                            onClick={() => setMeals((prev) => prev.filter((_, j) => j !== i))}
-                            className="cursor-pointer rounded p-1 transition-colors"
-                            style={{ color: "#94a3b8" }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMeals((prev) => [...prev, emptyMeal(todayStr())])}
-              className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
-              style={{ color: "#4356a9" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            >
-              <Plus size={15} />
-              Add Meal Row
-            </button>
-            <TotalRow label="Meal Total" value={mealTotal} />
-
-            {/* Receipt upload */}
-            <div className="mt-4">
-              <p
-                className="mb-2 text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Meal Receipts
-              </p>
-              <label
-                className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-4 transition-colors"
-                style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#4356a9"
-                  e.currentTarget.style.background = "rgba(67,86,169,0.03)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "#d1d5db"
-                  e.currentTarget.style.background = "transparent"
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.currentTarget.style.borderColor = "#4356a9"
-                  e.currentTarget.style.background = "rgba(67,86,169,0.06)"
-                }}
-                onDragLeave={(e) => {
-                  e.currentTarget.style.borderColor = "#d1d5db"
-                  e.currentTarget.style.background = "transparent"
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.currentTarget.style.borderColor = "#d1d5db"
-                  e.currentTarget.style.background = "transparent"
-                  handleReceiptUpload(e.dataTransfer.files)
-                }}
-              >
-                <Upload size={20} style={{ color: "#4356a9" }} />
-                <p className="text-xs">
-                  <span className="font-semibold underline" style={{ color: "#4356a9" }}>
-                    Upload receipts
-                  </span>{" "}
-                  or drag and drop
-                </p>
-                <input
-                  type="file"
-                  multiple
-                  accept=".pdf,.png,.jpg,.jpeg,.gif"
-                  className="hidden"
-                  onChange={(e) => handleReceiptUpload(e.target.files)}
-                />
-              </label>
-              {uploadingReceipts && (
-                <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: "#4356a9" }}>
-                  <Loader2 size={14} className="animate-spin" />
-                  Uploading…
-                </div>
-              )}
-              {mealReceipts.length > 0 && (
-                <div className="mt-2 space-y-1.5">
-                  {mealReceipts.map((f, i) => {
-                    const isImg = f.mimeType.startsWith("image/")
-                    const Icon = isImg ? Image : FileText
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 rounded-lg px-3 py-1.5"
-                        style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
-                      >
-                        <Icon size={14} style={{ color: "#4356a9", flexShrink: 0 }} />
-                        <a
-                          href={f.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="min-w-0 flex-1 truncate text-xs font-medium underline"
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="flex items-center gap-1">
+                          <span style={{ color: "#94a3b8" }}>$</span>
+                          <input
+                            type="number"
+                            value={meal.lunch || ""}
+                            min={0}
+                            step="0.01"
+                            placeholder="0.00"
+                            onChange={(e) =>
+                              updateMeal(
+                                i,
+                                "lunch",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="input-neu"
+                            style={{ maxWidth: "80px" }}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="flex items-center gap-1">
+                          <span style={{ color: "#94a3b8" }}>$</span>
+                          <input
+                            type="number"
+                            value={meal.dinner || ""}
+                            min={0}
+                            step="0.01"
+                            placeholder="0.00"
+                            onChange={(e) =>
+                              updateMeal(
+                                i,
+                                "dinner",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="input-neu"
+                            style={{ maxWidth: "80px" }}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2 text-right">
+                        <span
+                          className="font-semibold"
                           style={{ color: "#1d2a5d" }}
                         >
-                          {f.name}
-                        </a>
-                        <span className="text-[10px]" style={{ color: "#94a3b8" }}>
-                          {(f.size / 1024).toFixed(0)} KB
+                          ${rowTotal.toFixed(2)}
                         </span>
+                      </td>
+                      <td className="py-2">
                         <button
                           type="button"
-                          onClick={() => setMealReceipts((prev) => prev.filter((_, j) => j !== i))}
-                          className="cursor-pointer rounded p-0.5 transition-colors"
+                          onClick={() =>
+                            setMeals((prev) => prev.filter((_, j) => j !== i))
+                          }
+                          className="cursor-pointer rounded p-1 transition-colors"
                           style={{ color: "#94a3b8" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.color = "#94a3b8")
+                          }
                         >
                           <Trash2 size={13} />
                         </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </Section>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMeals((prev) => [...prev, emptyMeal(todayStr())])}
+            className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
+            style={{ color: "#4356a9" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            <Plus size={15} />
+            Add Meal Row
+          </button>
+          <TotalRow label="Meal Total" value={mealTotal} />
+
+          {/* Receipt upload */}
+          <div className="mt-4">
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Meal Receipts
+            </p>
+            <label
+              className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-4 transition-colors"
+              style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#4356a9"
+                e.currentTarget.style.background = "rgba(67,86,169,0.03)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = "#4356a9"
+                e.currentTarget.style.background = "rgba(67,86,169,0.06)"
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+                handleReceiptUpload(e.dataTransfer.files)
+              }}
+            >
+              <Upload size={20} style={{ color: "#4356a9" }} />
+              <p className="text-xs">
+                <span
+                  className="font-semibold underline"
+                  style={{ color: "#4356a9" }}
+                >
+                  Upload receipts
+                </span>{" "}
+                or drag and drop
+              </p>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.gif"
+                className="hidden"
+                onChange={(e) => handleReceiptUpload(e.target.files)}
+              />
+            </label>
+            {uploadingReceipts && (
+              <div
+                className="mt-2 flex items-center gap-2 text-sm"
+                style={{ color: "#4356a9" }}
+              >
+                <Loader2 size={14} className="animate-spin" />
+                Uploading…
+              </div>
+            )}
+            {mealReceipts.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {mealReceipts.map((f, i) => {
+                  const isImg = f.mimeType.startsWith("image/")
+                  const Icon = isImg ? Image : FileText
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg px-3 py-1.5"
+                      style={{
+                        background: "#f8f9fb",
+                        border: "1px solid #e2e5ea",
+                      }}
+                    >
+                      <Icon
+                        size={14}
+                        style={{ color: "#4356a9", flexShrink: 0 }}
+                      />
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 flex-1 truncate text-xs font-medium underline"
+                        style={{ color: "#1d2a5d" }}
+                      >
+                        {f.name}
+                      </a>
+                      <span
+                        className="text-[10px]"
+                        style={{ color: "#94a3b8" }}
+                      >
+                        {(f.size / 1024).toFixed(0)} KB
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMealReceipts((prev) =>
+                            prev.filter((_, j) => j !== i)
+                          )
+                        }
+                        className="cursor-pointer rounded p-0.5 transition-colors"
+                        style={{ color: "#94a3b8" }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.color = "#ad2122")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.color = "#94a3b8")
+                        }
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </Section>
 
         {/* Summary */}
         <div
@@ -1077,6 +1219,20 @@ export default function TravelReimbursement() {
             </span>
           </div>
         </div>
+
+        <Section title="Employee Signature">
+          <SignatureField
+            ref={signatureRef}
+            savedSignatureUrl={userProfile?.savedSignatureUrl}
+            fullName={userProfile?.fullName}
+            onSaveSignature={(dataUrl) => {
+              if (user)
+                createOrUpdateUserProfile(user.uid, {
+                  savedSignatureUrl: dataUrl,
+                })
+            }}
+          />
+        </Section>
 
         {/* Actions */}
         <div className="flex justify-end gap-3">

@@ -5,6 +5,7 @@
 PaperPal is an internal web app for **Orono Public Schools** staff to submit and track expense forms through a supervisor approval workflow. Built by Joel Mellor.
 
 **Live forms:**
+
 - Check Request (`/forms/check`)
 - Mileage Reimbursement (`/forms/mileage`) — $0.72/mile rate
 - Travel Reimbursement (`/forms/travel`)
@@ -15,41 +16,62 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 
 ## Tech Stack
 
-| Layer | Tool |
-|---|---|
-| Frontend | React 18 + TypeScript + Vite |
-| Routing | React Router v7 (`useNavigate`, `useLocation`, `useSearchParams`) |
-| Styling | Tailwind CSS v4 (no config file — uses CSS `@import "tailwindcss"`) |
-| Backend | Firebase: Auth, Firestore, Hosting |
-| Auth | Google SSO — restricted to `@orono.k12.mn.us` domain |
-| Icons | Lucide React |
+| Layer    | Tool                                                                |
+| -------- | ------------------------------------------------------------------- |
+| Frontend | React 18 + TypeScript + Vite                                        |
+| Routing  | React Router v7 (`useNavigate`, `useLocation`, `useSearchParams`)   |
+| Styling  | Tailwind CSS v4 (no config file — uses CSS `@import "tailwindcss"`) |
+| Backend  | Firebase: Auth, Firestore, Hosting                                  |
+| Auth     | Google SSO — restricted to `@orono.k12.mn.us` domain                |
+| Icons    | Lucide React                                                        |
 
 ---
 
-## Design System (Neumorphic)
+## Design System
 
 **Never deviate from these values without being asked.**
 
+### Orono Brand Palette
+
 ```
-Background:        #f0f2f5
-Card surface:      linear-gradient(145deg, #fafbfd, #edeef1)
-Card shadow:       4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)
-OPS navy:          #1d2a5d
+OPS navy (dark):   #1d2a5d
+OPS blue:          #2d3f89
+OPS light blue:    #4356a9
+OPS lighter:       #eaecf5
+OPS red:           #ad2122
 Navy gradient:     linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)
-Accent green:      #059669
-Accent blue:       #1e3a8a
+```
+
+### Layout Colors
+
+```
+Page background:   Dark navy gradient (set in AppLayout)
+Card surface:      #ffffff
+Card shadow:       0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)
 Muted text:        #64748b
 Body text:         #334155
 Border muted:      rgba(180,185,195,0.25)
 Input background:  #f4f5f7
+Inset background:  #f8f9fb (summary bars, signature blocks)
 ```
 
+### Components
+
 **Input fields** use the `.input-neu` utility class (defined in `src/index.css`):
+
 - Inset shadow, no border, `border-radius: 10px`, background `#f4f5f7`
 
-**Cards / Sections** use the `Section` local component pattern (each page defines its own inline — do not extract to a shared component unless asked).
+**Cards / Sections** use the `Section` local component pattern (each page defines its own inline — do not extract to a shared component unless asked). White background + subtle drop shadow.
 
-**Submit buttons** always use the OPS navy gradient with `text-white`.
+**Submit buttons** use OPS red (`#ad2122`) with `text-white`. Classes: `btn-submit` (send fly animation), `btn-save` (icon slide).
+
+**Primary action buttons** (approve, navigate) use the navy gradient with `text-white` and `boxShadow: 0 2px 8px rgba(29,42,93,0.25)`.
+
+**Secondary action buttons** (revisions, alternate actions) use OPS light blue outline style: `color: #4356a9`, `background: rgba(67,86,169,0.1)`, `border: 1px solid rgba(67,86,169,0.3)`.
+
+**Destructive buttons** (deny, delete) use OPS red: `color: #ad2122`, `background: rgba(173,33,34,0.08)`, `border: 1px solid rgba(173,33,34,0.2)`. Solid red for confirm actions.
+
+**Status badges** use Orono colors: pending/revisions = light blue (`#4356a9`), reviewed = blue (`#2d3f89`), approved = navy (`#1d2a5d`), denied = red (`#ad2122`).
 
 **Section headings** inside cards: `text-sm font-semibold tracking-widest uppercase` in `#1d2a5d`.
 
@@ -106,13 +128,17 @@ src/
 ## Key Patterns
 
 ### Auth
+
 `useAuth()` returns `{ user: FirebaseUser | null, userProfile: UserProfile | null, signOut }`. All protected pages gate on both being non-null before submitting.
 
 ### Firestore submissions
+
 `createSubmission(data)` in `firestore.ts` generates a `REQ-XXXXX` id and writes to the `submissions` collection. Returns the id string.
 
 ### Form pages structure
+
 Each form page:
+
 1. Reads `userProfile` to pre-fill name, employeeId
 2. Full Name is a plain editable input (pre-filled from profile)
 3. Account Code field has `BudgetCodeBuilder` link below it + auto-format on typing
@@ -123,17 +149,20 @@ Each form page:
 8. On submit: calls `createSubmission`, shows a confirmation screen (replaces the form)
 
 ### Button classes
+
 - `btn-submit` — OPS red, Send icon fly animation on hover. Used for form submissions.
 - `btn-save` — OPS red solid, icon slides right on hover, dims on hover. Used for save actions.
 - `btn-cancel` — Transparent with border, grey fill on hover, X icon. Used for cancel actions.
 
 ### Google Maps integration
+
 - `AddressAutocomplete` — uses Places API (New) REST endpoint for suggestions
 - `calculateDrivingDistance` — uses Routes API REST endpoint
 - Quick-fill dropdown shows Home (from `userProfile.homeAddress`) and School (from `AppSettings.schoolAddress`)
 - API key stored in `VITE_GOOGLE_MAPS_API_KEY` env var
 
 ### Budget Code Builder
+
 - Full-screen modal, 6-segment step-by-step flow (Fund → Org → Proj → Fin → Course → Obj)
 - Format: `##-###-###-###-###-###`
 - Segments stored in Firestore `settings/budgetSegments` doc
@@ -141,27 +170,30 @@ Each form page:
 - Admin panel manages segments (collapsible categories, inline edit, add, delete, Quick Import)
 
 ### Dashboard tabs
+
 Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()` sets initial tab state.
 
 ### Navigation
+
 `AppHeader` has a hamburger that opens a right-side sidebar with sections: Navigate, New Request, My Submissions, Account, Admin (admin-only). Profile icon/name is clickable → `/profile`.
 
 ### Roles
+
 `UserProfile.role`: `"staff"` | `"admin"` | `"business_office"`. Admin UI shown when `role === "admin" || role === "business_office"`.
 
 ---
 
 ## Firestore Collections
 
-| Collection / Document | Purpose |
-|---|---|
-| `users/{uid}` | UserProfile documents |
-| `submissions/{REQ-XXXXX}` | All form submissions |
-| `buildings/{id}` | Building/org with name, address, approver |
-| `staff/{email}` | Imported staff records |
-| `settings/app` | AppSettings (email, school address, final approver, fiscal year) |
-| `settings/budgetSegments` | Budget code segments (fund, org, proj, fin, course, obj arrays) |
-| `mail/{id}` | Firebase Extension trigger docs for outbound email |
+| Collection / Document     | Purpose                                                          |
+| ------------------------- | ---------------------------------------------------------------- |
+| `users/{uid}`             | UserProfile documents                                            |
+| `submissions/{REQ-XXXXX}` | All form submissions                                             |
+| `buildings/{id}`          | Building/org with name, address, approver                        |
+| `staff/{email}`           | Imported staff records                                           |
+| `settings/app`            | AppSettings (email, school address, final approver, fiscal year) |
+| `settings/budgetSegments` | Budget code segments (fund, org, proj, fin, course, obj arrays)  |
+| `mail/{id}`               | Firebase Extension trigger docs for outbound email               |
 
 ---
 

@@ -13,7 +13,16 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import type { Submission, UserProfile, Building, StaffRecord, AppSettings, BudgetSegmentType, BudgetSegment, SupervisorMapping } from "./types"
+import type {
+  Submission,
+  UserProfile,
+  Building,
+  StaffRecord,
+  AppSettings,
+  BudgetSegmentType,
+  BudgetSegment,
+  SupervisorMapping,
+} from "./types"
 
 // ─── ID Generator ─────────────────────────────────────────────────────────────
 
@@ -155,6 +164,35 @@ export async function getBuildingByName(
   return snap.empty ? null : (snap.docs[0].data() as Building)
 }
 
+const DEFAULT_BUILDINGS: { initials: string; name: string }[] = [
+  { initials: "MS", name: "Orono Middle School" },
+  { initials: "SE", name: "Orono Schumann Elementary" },
+  { initials: "HS", name: "Orono High School" },
+  { initials: "IS", name: "Orono Intermediate School" },
+  { initials: "CE", name: "Community Ed" },
+  { initials: "DO", name: "District Office" },
+  { initials: "DC", name: "Discovery Center" },
+  { initials: "AC", name: "Orono Activities Center" },
+  { initials: "SUB", name: "Substitutes" },
+]
+
+export async function seedBuildingsFromInitials(): Promise<number> {
+  const existing = await getBuildings()
+  const existingInitials = new Set(existing.map((b) => b.initials))
+  let created = 0
+  for (const bld of DEFAULT_BUILDINGS) {
+    if (existingInitials.has(bld.initials)) continue
+    await createBuilding({
+      name: bld.name,
+      initials: bld.initials,
+      approverEmail: "",
+      approverName: "",
+    })
+    created++
+  }
+  return created
+}
+
 // ─── Staff Records ───────────────────────────────────────────────────────────
 
 export async function getStaffRecords(): Promise<StaffRecord[]> {
@@ -224,20 +262,32 @@ export async function updateAppSettings(
 
 // ─── Budget Segments ────────────────────────────────────────────────────────
 
-export async function getBudgetSegments(): Promise<Record<BudgetSegmentType, BudgetSegment[]>> {
+export async function getBudgetSegments(): Promise<
+  Record<BudgetSegmentType, BudgetSegment[]>
+> {
   const ref = doc(db, "settings", "budgetSegments")
   const snap = await getDoc(ref)
   const defaults: Record<BudgetSegmentType, BudgetSegment[]> = {
-    fund: [], org: [], proj: [], fin: [], course: [], obj: [],
+    fund: [],
+    org: [],
+    proj: [],
+    fin: [],
+    course: [],
+    obj: [],
   }
   if (snap.exists()) {
-    const data = { ...defaults, ...snap.data() as Record<BudgetSegmentType, BudgetSegment[]> }
+    const data = {
+      ...defaults,
+      ...(snap.data() as Record<BudgetSegmentType, BudgetSegment[]>),
+    }
     // Seed defaults if any category is empty
     const hasEmpty = Object.values(data).some((arr) => arr.length === 0)
     if (hasEmpty) {
       import("./defaultBudgetSegments").then(({ DEFAULT_SEGMENTS }) => {
         const merged = { ...data }
-        for (const key of Object.keys(DEFAULT_SEGMENTS) as BudgetSegmentType[]) {
+        for (const key of Object.keys(
+          DEFAULT_SEGMENTS
+        ) as BudgetSegmentType[]) {
           if (merged[key].length === 0) merged[key] = DEFAULT_SEGMENTS[key]
         }
         updateBudgetSegments(merged)
@@ -264,7 +314,9 @@ export async function updateBudgetSegments(
 export async function getSupervisorMappings(): Promise<SupervisorMapping[]> {
   const ref = doc(db, "settings", "supervisorMappings")
   const snap = await getDoc(ref)
-  return snap.exists() ? (snap.data().mappings as SupervisorMapping[]) ?? [] : []
+  return snap.exists()
+    ? ((snap.data().mappings as SupervisorMapping[]) ?? [])
+    : []
 }
 
 export async function updateSupervisorMappings(
@@ -295,8 +347,11 @@ export async function resolveSupervisor(
   // 3. Fallback: building approver
   if (staff.building) {
     const buildings = await getBuildings()
-    const building = buildings.find((b) => b.name === staff.building)
-    if (building) return { email: building.approverEmail, name: building.approverName }
+    const building = buildings.find(
+      (b) => b.initials === staff.building || b.name === staff.building
+    )
+    if (building)
+      return { email: building.approverEmail, name: building.approverName }
   }
 
   return null
@@ -304,7 +359,9 @@ export async function resolveSupervisor(
 
 // ─── Staff Sync Metadata ────────────────────────────────────────────────────
 
-export async function getStaffRecord(email: string): Promise<StaffRecord | null> {
+export async function getStaffRecord(
+  email: string
+): Promise<StaffRecord | null> {
   const ref = doc(db, "staff", email.toLowerCase())
   const snap = await getDoc(ref)
   return snap.exists() ? (snap.data() as StaffRecord) : null

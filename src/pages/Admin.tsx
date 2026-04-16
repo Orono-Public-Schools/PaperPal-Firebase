@@ -13,9 +13,11 @@ import {
   ChevronUp,
   RefreshCw,
   Link2,
+  HardDrive,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import {
   getBuildings,
@@ -33,6 +35,7 @@ import {
   getSupervisorMappings,
   updateSupervisorMappings,
   getUniqueStaffTitles,
+  seedBuildingsFromInitials,
 } from "@/lib/firestore"
 import { httpsCallable } from "firebase/functions"
 import { functions } from "@/lib/firebase"
@@ -95,6 +98,7 @@ export default function Admin() {
         <StaffSection />
         <RolesSection />
         <EmailSettingsSection />
+        <DrivePdfSettingsSection />
       </div>
     </AppLayout>
   )
@@ -187,8 +191,8 @@ function GeneralSettingsSection() {
               Final Approver
             </p>
             <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
-              After a supervisor approves, the submission goes to this person for
-              final sign-off before it reaches the business office.
+              After a supervisor approves, the submission goes to this person
+              for final sign-off before it reaches the business office.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Name">
@@ -201,10 +205,9 @@ function GeneralSettingsSection() {
                 />
               </Field>
               <Field label="Email">
-                <input
-                  type="email"
+                <StaffEmailAutocomplete
                   value={settings.finalApproverEmail}
-                  onChange={(e) => update("finalApproverEmail", e.target.value)}
+                  onChange={(v) => update("finalApproverEmail", v)}
                   placeholder="controller@orono.k12.mn.us"
                   className="input-neu w-full"
                 />
@@ -229,14 +232,28 @@ function GeneralSettingsSection() {
               <Field label="Fiscal Year Starts">
                 <select
                   value={settings.fiscalYearStartMonth}
-                  onChange={(e) => update("fiscalYearStartMonth", parseInt(e.target.value))}
+                  onChange={(e) =>
+                    update("fiscalYearStartMonth", parseInt(e.target.value))
+                  }
                   className="input-neu w-full cursor-pointer"
                 >
                   {[
-                    "January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December",
+                    "January",
+                    "February",
+                    "March",
+                    "April",
+                    "May",
+                    "June",
+                    "July",
+                    "August",
+                    "September",
+                    "October",
+                    "November",
+                    "December",
                   ].map((m, i) => (
-                    <option key={i} value={i}>{m}</option>
+                    <option key={i} value={i}>
+                      {m}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -275,8 +292,15 @@ const SEGMENT_LABELS: Record<BudgetSegmentType, string> = {
 }
 
 function BudgetSegmentsSection() {
-  const [segments, setSegments] = useState<Record<BudgetSegmentType, BudgetSegment[]>>({
-    fund: [], org: [], proj: [], fin: [], course: [], obj: [],
+  const [segments, setSegments] = useState<
+    Record<BudgetSegmentType, BudgetSegment[]>
+  >({
+    fund: [],
+    org: [],
+    proj: [],
+    fin: [],
+    course: [],
+    obj: [],
   })
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
@@ -284,7 +308,9 @@ function BudgetSegmentsSection() {
   const [saved, setSaved] = useState(false)
   const [pasteData, setPasteData] = useState("")
   const [pasteTarget, setPasteTarget] = useState<BudgetSegmentType>("fund")
-  const [openCategory, setOpenCategory] = useState<BudgetSegmentType | null>(null)
+  const [openCategory, setOpenCategory] = useState<BudgetSegmentType | null>(
+    null
+  )
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editCode, setEditCode] = useState("")
   const [editTitle, setEditTitle] = useState("")
@@ -303,8 +329,9 @@ function BudgetSegmentsSection() {
     if (!code.trim()) return
     setSegments((prev) => ({
       ...prev,
-      [type]: [...prev[type], { code: code.trim(), title: title.trim() }]
-        .sort((a, b) => a.code.localeCompare(b.code)),
+      [type]: [...prev[type], { code: code.trim(), title: title.trim() }].sort(
+        (a, b) => a.code.localeCompare(b.code)
+      ),
     }))
   }
 
@@ -342,7 +369,10 @@ function BudgetSegmentsSection() {
   }
 
   function handlePasteImport() {
-    const lines = pasteData.trim().split("\n").filter((l) => l.trim())
+    const lines = pasteData
+      .trim()
+      .split("\n")
+      .filter((l) => l.trim())
     for (const line of lines) {
       const parts = line.split("\t").map((s) => s.trim())
       if (parts[0]) {
@@ -360,7 +390,10 @@ function BudgetSegmentsSection() {
     setSaving(false)
   }
 
-  const totalCount = Object.values(segments).reduce((sum, arr) => sum + arr.length, 0)
+  const totalCount = Object.values(segments).reduce(
+    (sum, arr) => sum + arr.length,
+    0
+  )
 
   return (
     <Section
@@ -370,12 +403,15 @@ function BudgetSegmentsSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : (
         <>
           <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
-            {totalCount} segment{totalCount !== 1 && "s"} across {Object.values(segments).filter((a) => a.length > 0).length} categories.
-            These populate the Budget Code Builder on forms.
+            {totalCount} segment{totalCount !== 1 && "s"} across{" "}
+            {Object.values(segments).filter((a) => a.length > 0).length}{" "}
+            categories. These populate the Budget Code Builder on forms.
           </p>
 
           {/* Paste import */}
@@ -383,34 +419,51 @@ function BudgetSegmentsSection() {
             className="mb-4 rounded-xl p-3"
             style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
           >
-            <p className="mb-2 text-xs font-semibold" style={{ color: "#1d2a5d" }}>
+            <p
+              className="mb-2 text-xs font-semibold"
+              style={{ color: "#1d2a5d" }}
+            >
               Quick Import
             </p>
             <div className="mb-2 flex gap-2">
               <select
                 value={pasteTarget}
-                onChange={(e) => setPasteTarget(e.target.value as BudgetSegmentType)}
+                onChange={(e) =>
+                  setPasteTarget(e.target.value as BudgetSegmentType)
+                }
                 className="input-neu cursor-pointer text-xs"
                 style={{ maxWidth: "150px" }}
               >
-                {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((t) => (
-                  <option key={t} value={t}>{SEGMENT_LABELS[t]}</option>
-                ))}
+                {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map(
+                  (t) => (
+                    <option key={t} value={t}>
+                      {SEGMENT_LABELS[t]}
+                    </option>
+                  )
+                )}
               </select>
             </div>
             <textarea
               value={pasteData}
               onChange={(e) => setPasteData(e.target.value)}
-              placeholder={"Paste tab-separated: Code \\t Title\n01\tGeneral Fund\n02\tSpecial Revenue"}
+              placeholder={
+                "Paste tab-separated: Code \\t Title\n01\tGeneral Fund\n02\tSpecial Revenue"
+              }
               rows={3}
               className="input-neu mb-2 w-full"
-              style={{ resize: "vertical", fontFamily: "monospace", fontSize: "0.7rem" }}
+              style={{
+                resize: "vertical",
+                fontFamily: "monospace",
+                fontSize: "0.7rem",
+              }}
             />
             <button
               onClick={handlePasteImport}
               disabled={!pasteData.trim()}
               className="flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)" }}
+              style={{
+                background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              }}
             >
               <Plus size={12} />
               Import to {SEGMENT_LABELS[pasteTarget]}
@@ -419,193 +472,268 @@ function BudgetSegmentsSection() {
 
           {/* Segment categories (collapsible) */}
           <div className="space-y-2">
-            {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map((type) => {
-              const items = segments[type]
-              const isOpen = openCategory === type
+            {(Object.keys(SEGMENT_LABELS) as BudgetSegmentType[]).map(
+              (type) => {
+                const items = segments[type]
+                const isOpen = openCategory === type
 
-              return (
-                <div
-                  key={type}
-                  className="rounded-lg"
-                  style={{ border: "1px solid #e2e5ea" }}
-                >
-                  {/* Category header */}
-                  <button
-                    onClick={() => setOpenCategory(isOpen ? null : type)}
-                    className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5"
-                    style={{ background: isOpen ? "#f8f9fb" : "transparent" }}
+                return (
+                  <div
+                    key={type}
+                    className="rounded-lg"
+                    style={{ border: "1px solid #e2e5ea" }}
                   >
-                    <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: "#1d2a5d" }}>
-                      {SEGMENT_LABELS[type]}
-                    </span>
-                    <div className="flex items-center gap-2">
+                    {/* Category header */}
+                    <button
+                      onClick={() => setOpenCategory(isOpen ? null : type)}
+                      className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5"
+                      style={{ background: isOpen ? "#f8f9fb" : "transparent" }}
+                    >
                       <span
-                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        style={{ background: "#eaecf5", color: "#4356a9" }}
+                        className="text-xs font-semibold tracking-wider uppercase"
+                        style={{ color: "#1d2a5d" }}
                       >
-                        {items.length}
+                        {SEGMENT_LABELS[type]}
                       </span>
-                      {isOpen ? (
-                        <ChevronUp size={14} style={{ color: "#64748b" }} />
-                      ) : (
-                        <ChevronDown size={14} style={{ color: "#64748b" }} />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Expanded content */}
-                  {isOpen && (
-                    <div className="border-t px-3 pb-3" style={{ borderColor: "#e2e5ea" }}>
-                      {items.length > 0 && (
-                        <div className="max-h-60 overflow-y-auto">
-                          <table className="w-full text-left text-xs">
-                            <thead>
-                              <tr style={{ borderBottom: "1px solid #e2e5ea" }}>
-                                <th className="py-2 pr-2 font-semibold" style={{ color: "#94a3b8", width: "80px" }}>Code</th>
-                                <th className="py-2 pr-2 font-semibold" style={{ color: "#94a3b8" }}>Title</th>
-                                <th className="py-2" style={{ width: "60px" }} />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {items.map((s, i) => {
-                                const isEditing = editingKey === `${type}-${i}`
-                                return (
-                                  <tr key={i} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                                    {isEditing ? (
-                                      <>
-                                        <td className="py-1.5 pr-2">
-                                          <input
-                                            type="text"
-                                            value={editCode}
-                                            onChange={(e) => setEditCode(e.target.value)}
-                                            className="input-neu font-mono text-xs"
-                                            style={{ width: "70px" }}
-                                          />
-                                        </td>
-                                        <td className="py-1.5 pr-2">
-                                          <input
-                                            type="text"
-                                            value={editTitle}
-                                            onChange={(e) => setEditTitle(e.target.value)}
-                                            className="input-neu w-full text-xs"
-                                          />
-                                        </td>
-                                        <td className="py-1.5">
-                                          <div className="flex gap-1">
-                                            <button
-                                              onClick={() => saveEdit(type, i)}
-                                              className="cursor-pointer rounded px-2 py-1 text-[10px] font-semibold text-white"
-                                              style={{ background: "#1d2a5d" }}
-                                            >
-                                              Save
-                                            </button>
-                                            <button
-                                              onClick={() => setEditingKey(null)}
-                                              className="cursor-pointer text-[10px] font-medium"
-                                              style={{ color: "#64748b" }}
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <td className="py-1.5 pr-2 font-mono font-semibold" style={{ color: "#1d2a5d" }}>
-                                          {s.code}
-                                        </td>
-                                        <td className="py-1.5 pr-2" style={{ color: "#64748b" }}>
-                                          {s.title}
-                                        </td>
-                                        <td className="py-1.5">
-                                          <div className="flex gap-1">
-                                            <button
-                                              onClick={() => startEdit(type, i)}
-                                              className="cursor-pointer rounded p-0.5 text-[10px] font-medium transition-colors"
-                                              style={{ color: "#4356a9" }}
-                                            >
-                                              Edit
-                                            </button>
-                                            <button
-                                              onClick={() => removeSegment(type, i)}
-                                              className="cursor-pointer rounded p-0.5 transition-colors"
-                                              style={{ color: "#94a3b8" }}
-                                              onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                                              onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
-                                            >
-                                              <Trash2 size={12} />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </>
-                                    )}
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {/* Add new segment */}
-                      {addingTo === type ? (
-                        <div className="mt-2 flex items-end gap-2">
-                          <div>
-                            <label className="mb-0.5 block text-[10px] font-semibold uppercase" style={{ color: "#94a3b8" }}>Code</label>
-                            <input
-                              type="text"
-                              value={newCode}
-                              onChange={(e) => setNewCode(e.target.value)}
-                              placeholder="000"
-                              className="input-neu font-mono text-xs"
-                              style={{ width: "70px" }}
-                              autoFocus
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label className="mb-0.5 block text-[10px] font-semibold uppercase" style={{ color: "#94a3b8" }}>Title</label>
-                            <input
-                              type="text"
-                              value={newTitle}
-                              onChange={(e) => setNewTitle(e.target.value)}
-                              placeholder="Description"
-                              className="input-neu w-full text-xs"
-                              onKeyDown={(e) => e.key === "Enter" && handleAddSubmit(type)}
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleAddSubmit(type)}
-                            disabled={!newCode.trim()}
-                            className="cursor-pointer rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                            style={{ background: "#1d2a5d" }}
-                          >
-                            Add
-                          </button>
-                          <button
-                            onClick={() => { setAddingTo(null); setNewCode(""); setNewTitle("") }}
-                            className="cursor-pointer px-2 py-2 text-xs font-medium"
-                            style={{ color: "#64748b" }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setAddingTo(type)}
-                          className="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors"
-                          style={{ color: "#4356a9" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "#1d2a5d")}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = "#4356a9")}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ background: "#eaecf5", color: "#4356a9" }}
                         >
-                          <Plus size={12} />
-                          Add {SEGMENT_LABELS[type]} Code
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                          {items.length}
+                        </span>
+                        {isOpen ? (
+                          <ChevronUp size={14} style={{ color: "#64748b" }} />
+                        ) : (
+                          <ChevronDown size={14} style={{ color: "#64748b" }} />
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Expanded content */}
+                    {isOpen && (
+                      <div
+                        className="border-t px-3 pb-3"
+                        style={{ borderColor: "#e2e5ea" }}
+                      >
+                        {items.length > 0 && (
+                          <div className="max-h-60 overflow-y-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr
+                                  style={{ borderBottom: "1px solid #e2e5ea" }}
+                                >
+                                  <th
+                                    className="py-2 pr-2 font-semibold"
+                                    style={{ color: "#94a3b8", width: "80px" }}
+                                  >
+                                    Code
+                                  </th>
+                                  <th
+                                    className="py-2 pr-2 font-semibold"
+                                    style={{ color: "#94a3b8" }}
+                                  >
+                                    Title
+                                  </th>
+                                  <th
+                                    className="py-2"
+                                    style={{ width: "60px" }}
+                                  />
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {items.map((s, i) => {
+                                  const isEditing =
+                                    editingKey === `${type}-${i}`
+                                  return (
+                                    <tr
+                                      key={i}
+                                      style={{
+                                        borderBottom: "1px solid #f0f2f5",
+                                      }}
+                                    >
+                                      {isEditing ? (
+                                        <>
+                                          <td className="py-1.5 pr-2">
+                                            <input
+                                              type="text"
+                                              value={editCode}
+                                              onChange={(e) =>
+                                                setEditCode(e.target.value)
+                                              }
+                                              className="input-neu font-mono text-xs"
+                                              style={{ width: "70px" }}
+                                            />
+                                          </td>
+                                          <td className="py-1.5 pr-2">
+                                            <input
+                                              type="text"
+                                              value={editTitle}
+                                              onChange={(e) =>
+                                                setEditTitle(e.target.value)
+                                              }
+                                              className="input-neu w-full text-xs"
+                                            />
+                                          </td>
+                                          <td className="py-1.5">
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() =>
+                                                  saveEdit(type, i)
+                                                }
+                                                className="cursor-pointer rounded px-2 py-1 text-[10px] font-semibold text-white"
+                                                style={{
+                                                  background: "#1d2a5d",
+                                                }}
+                                              >
+                                                Save
+                                              </button>
+                                              <button
+                                                onClick={() =>
+                                                  setEditingKey(null)
+                                                }
+                                                className="cursor-pointer text-[10px] font-medium"
+                                                style={{ color: "#64748b" }}
+                                              >
+                                                Cancel
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <td
+                                            className="py-1.5 pr-2 font-mono font-semibold"
+                                            style={{ color: "#1d2a5d" }}
+                                          >
+                                            {s.code}
+                                          </td>
+                                          <td
+                                            className="py-1.5 pr-2"
+                                            style={{ color: "#64748b" }}
+                                          >
+                                            {s.title}
+                                          </td>
+                                          <td className="py-1.5">
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() =>
+                                                  startEdit(type, i)
+                                                }
+                                                className="cursor-pointer rounded p-0.5 text-[10px] font-medium transition-colors"
+                                                style={{ color: "#4356a9" }}
+                                              >
+                                                Edit
+                                              </button>
+                                              <button
+                                                onClick={() =>
+                                                  removeSegment(type, i)
+                                                }
+                                                className="cursor-pointer rounded p-0.5 transition-colors"
+                                                style={{ color: "#94a3b8" }}
+                                                onMouseEnter={(e) =>
+                                                  (e.currentTarget.style.color =
+                                                    "#ad2122")
+                                                }
+                                                onMouseLeave={(e) =>
+                                                  (e.currentTarget.style.color =
+                                                    "#94a3b8")
+                                                }
+                                              >
+                                                <Trash2 size={12} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </>
+                                      )}
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Add new segment */}
+                        {addingTo === type ? (
+                          <div className="mt-2 flex items-end gap-2">
+                            <div>
+                              <label
+                                className="mb-0.5 block text-[10px] font-semibold uppercase"
+                                style={{ color: "#94a3b8" }}
+                              >
+                                Code
+                              </label>
+                              <input
+                                type="text"
+                                value={newCode}
+                                onChange={(e) => setNewCode(e.target.value)}
+                                placeholder="000"
+                                className="input-neu font-mono text-xs"
+                                style={{ width: "70px" }}
+                                autoFocus
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label
+                                className="mb-0.5 block text-[10px] font-semibold uppercase"
+                                style={{ color: "#94a3b8" }}
+                              >
+                                Title
+                              </label>
+                              <input
+                                type="text"
+                                value={newTitle}
+                                onChange={(e) => setNewTitle(e.target.value)}
+                                placeholder="Description"
+                                className="input-neu w-full text-xs"
+                                onKeyDown={(e) =>
+                                  e.key === "Enter" && handleAddSubmit(type)
+                                }
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleAddSubmit(type)}
+                              disabled={!newCode.trim()}
+                              className="cursor-pointer rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                              style={{ background: "#1d2a5d" }}
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => {
+                                setAddingTo(null)
+                                setNewCode("")
+                                setNewTitle("")
+                              }}
+                              className="cursor-pointer px-2 py-2 text-xs font-medium"
+                              style={{ color: "#64748b" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setAddingTo(type)}
+                            className="mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors"
+                            style={{ color: "#4356a9" }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.color = "#1d2a5d")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.color = "#4356a9")
+                            }
+                          >
+                            <Plus size={12} />
+                            Add {SEGMENT_LABELS[type]} Code
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+            )}
           </div>
 
           <div className="mt-4 flex items-center gap-3">
@@ -614,7 +742,10 @@ function BudgetSegmentsSection() {
               <span>{saving ? "Saving…" : "Save Segments"}</span>
             </button>
             {saved && (
-              <span className="text-sm font-medium" style={{ color: "#4356a9" }}>
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
                 Saved!
               </span>
             )}
@@ -632,6 +763,8 @@ function BuildingsSection() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [newInitials, setNewInitials] = useState("")
   const [newName, setNewName] = useState("")
   const [newAddress, setNewAddress] = useState("")
   const [newApproverEmail, setNewApproverEmail] = useState("")
@@ -648,10 +781,19 @@ function BuildingsSection() {
     })
   }, [])
 
+  async function handleSeed() {
+    setSeeding(true)
+    await seedBuildingsFromInitials()
+    const updated = await getBuildings()
+    setBuildings(updated)
+    setSeeding(false)
+  }
+
   async function handleAdd() {
     if (!newName.trim()) return
     const id = await createBuilding({
       name: newName.trim(),
+      initials: newInitials.trim().toUpperCase(),
       address: newAddress.trim(),
       approverEmail: newApproverEmail.trim(),
       approverName: newApproverName.trim(),
@@ -661,11 +803,13 @@ function BuildingsSection() {
       {
         id,
         name: newName.trim(),
+        initials: newInitials.trim().toUpperCase(),
         address: newAddress.trim(),
         approverEmail: newApproverEmail.trim(),
         approverName: newApproverName.trim(),
       } as Building,
     ])
+    setNewInitials("")
     setNewName("")
     setNewAddress("")
     setNewApproverEmail("")
@@ -694,7 +838,12 @@ function BuildingsSection() {
     setBuildings((prev) =>
       prev.map((b) =>
         b.id === id
-          ? { ...b, address: editAddress.trim(), approverEmail: editEmail.trim(), approverName: editName.trim() }
+          ? {
+              ...b,
+              address: editAddress.trim(),
+              approverEmail: editEmail.trim(),
+              approverName: editName.trim(),
+            }
           : b
       )
     )
@@ -725,9 +874,20 @@ function BuildingsSection() {
               >
                 <div className="min-w-0 flex-1">
                   <p
-                    className="text-sm font-semibold"
+                    className="flex items-center gap-2 text-sm font-semibold"
                     style={{ color: "#1d2a5d" }}
                   >
+                    {b.initials && (
+                      <span
+                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
+                        style={{
+                          background: "rgba(29,42,93,0.1)",
+                          color: "#1d2a5d",
+                        }}
+                      >
+                        {b.initials}
+                      </span>
+                    )}
                     {b.name}
                   </p>
                   {editingId === b.id ? (
@@ -747,14 +907,14 @@ function BuildingsSection() {
                         className="input-neu text-xs"
                         style={{ maxWidth: "180px" }}
                       />
-                      <input
-                        type="email"
-                        value={editEmail}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                        placeholder="Approver email"
-                        className="input-neu text-xs"
-                        style={{ maxWidth: "220px" }}
-                      />
+                      <div style={{ maxWidth: "220px" }}>
+                        <StaffEmailAutocomplete
+                          value={editEmail}
+                          onChange={setEditEmail}
+                          placeholder="Approver email"
+                          className="input-neu text-xs"
+                        />
+                      </div>
                       <button
                         onClick={() => saveEdit(b.id)}
                         className="cursor-pointer rounded px-3 py-1.5 text-xs font-semibold text-white"
@@ -823,6 +983,22 @@ function BuildingsSection() {
                   className="mb-1 block text-xs font-semibold tracking-wider uppercase"
                   style={{ color: "#64748b" }}
                 >
+                  Initials
+                </label>
+                <input
+                  type="text"
+                  value={newInitials}
+                  onChange={(e) => setNewInitials(e.target.value)}
+                  placeholder="e.g. MS"
+                  className="input-neu w-full"
+                  style={{ maxWidth: "100px" }}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
                   Building Name
                 </label>
                 <input
@@ -868,10 +1044,9 @@ function BuildingsSection() {
                 >
                   Approver Email
                 </label>
-                <input
-                  type="email"
+                <StaffEmailAutocomplete
                   value={newApproverEmail}
-                  onChange={(e) => setNewApproverEmail(e.target.value)}
+                  onChange={setNewApproverEmail}
                   placeholder="approver@orono.k12.mn.us"
                   className="input-neu w-full"
                 />
@@ -897,21 +1072,36 @@ function BuildingsSection() {
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setAdding(true)}
-              className="mt-3 flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
-              style={{ color: "#4356a9" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor =
-                  "rgba(67,86,169,0.06)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "transparent")
-              }
-            >
-              <Plus size={15} />
-              Add Building
-            </button>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={() => setAdding(true)}
+                className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
+                style={{ color: "#4356a9" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "rgba(67,86,169,0.06)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+              >
+                <Plus size={15} />
+                Add Building
+              </button>
+              {buildings.length === 0 && (
+                <button
+                  onClick={handleSeed}
+                  disabled={seeding}
+                  className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  }}
+                >
+                  {seeding ? "Seeding…" : "Seed Orono Buildings"}
+                </button>
+              )}
+            </div>
           )}
         </>
       )}
@@ -959,21 +1149,34 @@ function StaffSyncSection() {
     setSyncResult(null)
     try {
       // Save config first so the Cloud Function has it
-      await updateAppSettings({ staffSheetId: sheetId, staffSheetRange: sheetRange })
-      const syncStaffNow = httpsCallable<unknown, { rowCount: number; imported: number }>(functions, "syncStaffNow")
+      await updateAppSettings({
+        staffSheetId: sheetId,
+        staffSheetRange: sheetRange,
+      })
+      const syncStaffNow = httpsCallable<
+        unknown,
+        { rowCount: number; imported: number }
+      >(functions, "syncStaffNow")
       const result = await syncStaffNow()
-      setSyncResult(`Synced ${result.data.imported} staff records from ${result.data.rowCount} rows.`)
+      setSyncResult(
+        `Synced ${result.data.imported} staff records from ${result.data.rowCount} rows.`
+      )
       // Refresh settings to get updated lastStaffSync
       const updated = await getAppSettings()
       setSettings(updated)
     } catch (err) {
-      setSyncResult(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`)
+      setSyncResult(
+        `Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`
+      )
     }
     setSyncing(false)
   }
 
   const lastSync = settings?.lastStaffSync
-    ? new Date((settings.lastStaffSync as unknown as { seconds: number }).seconds * 1000).toLocaleString()
+    ? new Date(
+        (settings.lastStaffSync as unknown as { seconds: number }).seconds *
+          1000
+      ).toLocaleString()
     : null
 
   const formatHour = (h: number) => {
@@ -990,9 +1193,12 @@ function StaffSyncSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-        Connect a Google Sheet (from OneSync) to sync staff data. Share the sheet
-        with <span style={{ fontFamily: "monospace", color: "#1d2a5d" }}>firebase-adminsdk-fbsvc@paperpal-orono.iam.gserviceaccount.com</span> as
-        a Viewer.
+        Connect a Google Sheet (from OneSync) to sync staff data. Share the
+        sheet with{" "}
+        <span style={{ fontFamily: "monospace", color: "#1d2a5d" }}>
+          firebase-adminsdk-fbsvc@paperpal-orono.iam.gserviceaccount.com
+        </span>{" "}
+        as a Viewer.
       </p>
 
       <div className="space-y-3">
@@ -1022,7 +1228,10 @@ function StaffSyncSection() {
         {/* Nightly sync schedule */}
         <div
           className="rounded-lg p-3"
-          style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+          style={{
+            background: "#f8f9fb",
+            border: "1px solid rgba(180,185,195,0.25)",
+          }}
         >
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -1038,7 +1247,9 @@ function StaffSyncSection() {
 
           {syncEnabled && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs" style={{ color: "#64748b" }}>Sync at</span>
+              <span className="text-xs" style={{ color: "#64748b" }}>
+                Sync at
+              </span>
               <select
                 value={syncHour}
                 onChange={(e) => setSyncHour(Number(e.target.value))}
@@ -1046,10 +1257,14 @@ function StaffSyncSection() {
                 style={{ width: 120 }}
               >
                 {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>{formatHour(i)}</option>
+                  <option key={i} value={i}>
+                    {formatHour(i)}
+                  </option>
                 ))}
               </select>
-              <span className="text-xs" style={{ color: "#64748b" }}>Central Time</span>
+              <span className="text-xs" style={{ color: "#64748b" }}>
+                Central Time
+              </span>
             </div>
           )}
         </div>
@@ -1080,7 +1295,11 @@ function StaffSyncSection() {
         {syncResult && (
           <p
             className="text-xs font-medium"
-            style={{ color: syncResult.startsWith("Sync failed") ? "#dc2626" : "#059669" }}
+            style={{
+              color: syncResult.startsWith("Sync failed")
+                ? "#dc2626"
+                : "#059669",
+            }}
           >
             {syncResult}
           </p>
@@ -1101,50 +1320,94 @@ function StaffSyncSection() {
 function SupervisorMappingsSection() {
   const [mappings, setMappings] = useState<SupervisorMapping[]>([])
   const [titles, setTitles] = useState<string[]>([])
+  const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([])
+  const [buildings, setBuildings] = useState<Building[]>([])
   const [users, setUsers] = useState<UserProfile[]>([])
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showAddOverride, setShowAddOverride] = useState(false)
+  const [addTitles, setAddTitles] = useState<string[]>([])
+  const [addSupervisor, setAddSupervisor] = useState("")
 
   useEffect(() => {
-    Promise.all([getSupervisorMappings(), getUniqueStaffTitles(), getAllUsers()]).then(
-      ([m, t, u]) => {
-        setMappings(m)
-        setTitles(t)
-        setUsers(u)
-        setLoading(false)
-      }
-    )
+    Promise.all([
+      getSupervisorMappings(),
+      getUniqueStaffTitles(),
+      getAllUsers(),
+      getBuildings(),
+      getStaffRecords(),
+    ]).then(([m, t, u, b, s]) => {
+      setMappings(m)
+      setTitles(t)
+      setUsers(u)
+      setBuildings(b)
+      setStaffRecords(s)
+      setLoading(false)
+    })
   }, [])
 
-  // Titles that aren't assigned to any mapping yet
-  const unmappedTitles = titles.filter(
-    (t) => !mappings.some((m) => m.titles.includes(t))
-  )
+  // Compute coverage stats
+  const titlesWithOverride = new Set(mappings.flatMap((m) => m.titles))
 
-  function handleAssignTitle(title: string, supervisorEmail: string) {
-    const supervisor = users.find((u) => u.email === supervisorEmail)
+  const overrideCount = staffRecords.filter((s) =>
+    titlesWithOverride.has(s.title)
+  ).length
+  const buildingCount = staffRecords.filter(
+    (s) =>
+      !titlesWithOverride.has(s.title) &&
+      s.building &&
+      buildings.some(
+        (b) =>
+          (b.initials === s.building || b.name === s.building) &&
+          b.approverEmail
+      )
+  ).length
+  const uncoveredCount = staffRecords.length - overrideCount - buildingCount
+
+  // Titles available for new overrides (not already in a mapping)
+  const availableTitles = titles.filter((t) => !titlesWithOverride.has(t))
+
+  const supervisorUsers = users
+    .filter(
+      (u) =>
+        u.role === "supervisor" ||
+        u.role === "admin" ||
+        u.role === "business_office"
+    )
+    .sort((a, b) =>
+      (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+    )
+
+  function handleAddOverride() {
+    if (!addSupervisor || addTitles.length === 0) return
+    const supervisor = users.find((u) => u.email === addSupervisor)
     if (!supervisor) return
 
     setMappings((prev) => {
-      const existing = prev.find((m) => m.supervisorEmail === supervisorEmail)
+      const existing = prev.find((m) => m.supervisorEmail === addSupervisor)
       if (existing) {
         return prev.map((m) =>
-          m.supervisorEmail === supervisorEmail
-            ? { ...m, titles: [...m.titles, title] }
+          m.supervisorEmail === addSupervisor
+            ? { ...m, titles: [...m.titles, ...addTitles] }
             : m
         )
       }
       return [
         ...prev,
         {
-          titles: [title],
+          titles: [...addTitles],
           supervisorEmail: supervisor.email,
-          supervisorName: supervisor.fullName || `${supervisor.firstName} ${supervisor.lastName}`,
+          supervisorName:
+            supervisor.fullName ||
+            `${supervisor.firstName} ${supervisor.lastName}`,
         },
       ]
     })
+    setAddTitles([])
+    setAddSupervisor("")
+    setShowAddOverride(false)
   }
 
   function handleRemoveTitle(title: string, supervisorEmail: string) {
@@ -1156,6 +1419,12 @@ function SupervisorMappingsSection() {
             : m
         )
         .filter((m) => m.titles.length > 0)
+    )
+  }
+
+  function handleRemoveMapping(supervisorEmail: string) {
+    setMappings((prev) =>
+      prev.filter((m) => m.supervisorEmail !== supervisorEmail)
     )
   }
 
@@ -1175,102 +1444,369 @@ function SupervisorMappingsSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
-      ) : titles.length === 0 ? (
         <p className="text-sm" style={{ color: "#64748b" }}>
-          No staff titles found. Sync staff data first to see titles here.
+          Loading…
         </p>
       ) : (
         <>
           <p className="mb-4 text-xs" style={{ color: "#64748b" }}>
-            Assign a supervisor to each job title. When staff submit forms, their
-            title determines who approves it.
+            Staff are routed to their building's approver by default. Add title
+            overrides below for roles that report to someone other than their
+            building approver (e.g., specialists, coaches, district staff).
           </p>
 
-          {/* Current mappings */}
-          {mappings.length > 0 && (
-            <div className="mb-4 space-y-3">
-              {mappings.map((mapping) => (
-                <div
-                  key={mapping.supervisorEmail}
-                  className="rounded-lg p-3"
-                  style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
-                >
-                  <p
-                    className="mb-2 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#1d2a5d" }}
-                  >
-                    {mapping.supervisorName}
-                    <span className="ml-2 font-normal normal-case tracking-normal" style={{ color: "#94a3b8" }}>
-                      {mapping.supervisorEmail}
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {mapping.titles.map((title) => (
-                      <span
-                        key={title}
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-                        style={{ background: "#e8ecf4", color: "#1d2a5d" }}
-                      >
-                        {title}
-                        <button
-                          onClick={() => handleRemoveTitle(title, mapping.supervisorEmail)}
-                          className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
-                          style={{ color: "#94a3b8" }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Unmapped titles */}
-          {unmappedTitles.length > 0 && (
-            <div className="mb-4">
-              <p
-                className="mb-2 text-xs font-semibold tracking-wider uppercase"
+          {/* Coverage summary */}
+          <div
+            className="mb-4 flex gap-4 rounded-lg p-3"
+            style={{
+              background: "#f8f9fb",
+              border: "1px solid rgba(180,185,195,0.25)",
+            }}
+          >
+            <div className="text-center">
+              <div className="text-lg font-bold" style={{ color: "#1d2a5d" }}>
+                {buildingCount}
+              </div>
+              <div
+                className="text-[10px] font-semibold tracking-wider uppercase"
                 style={{ color: "#64748b" }}
               >
-                Unassigned Titles ({unmappedTitles.length})
-              </p>
-              <div className="space-y-2">
-                {unmappedTitles.map((title) => (
-                  <div
-                    key={title}
-                    className="flex items-center gap-3 rounded-lg p-2.5"
-                    style={{ background: "#fffbeb", border: "1px solid rgba(234,179,8,0.25)" }}
-                  >
-                    <span className="flex-1 text-sm" style={{ color: "#334155" }}>
-                      {title}
-                    </span>
-                    <select
-                      defaultValue=""
-                      onChange={(e) => {
-                        if (e.target.value) handleAssignTitle(title, e.target.value)
-                        e.target.value = ""
-                      }}
-                      className="input-neu text-xs"
-                      style={{ minWidth: 180 }}
-                    >
-                      <option value="">Assign supervisor…</option>
-                      {users
-                        .filter((u) => u.role === "supervisor" || u.role === "admin" || u.role === "business_office")
-                        .sort((a, b) => (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName))
-                        .map((u) => (
-                          <option key={u.uid} value={u.email}>
-                            {u.fullName || `${u.firstName} ${u.lastName}`}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                ))}
+                Building Default
               </div>
             </div>
-          )}
+            <div className="text-center">
+              <div className="text-lg font-bold" style={{ color: "#4356a9" }}>
+                {overrideCount}
+              </div>
+              <div
+                className="text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Title Override
+              </div>
+            </div>
+            {uncoveredCount > 0 && (
+              <div className="text-center">
+                <div className="text-lg font-bold" style={{ color: "#b45309" }}>
+                  {uncoveredCount}
+                </div>
+                <div
+                  className="text-[10px] font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  No Supervisor
+                </div>
+              </div>
+            )}
+            <div className="text-center">
+              <div className="text-lg font-bold" style={{ color: "#64748b" }}>
+                {staffRecords.length}
+              </div>
+              <div
+                className="text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Total Staff
+              </div>
+            </div>
+          </div>
+
+          {/* Building defaults */}
+          <div className="mb-4">
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Building Defaults
+            </p>
+            <div className="space-y-1">
+              {buildings.length === 0 ? (
+                <p className="text-xs" style={{ color: "#94a3b8" }}>
+                  No buildings configured. Add buildings in the Buildings
+                  section.
+                </p>
+              ) : (
+                buildings.map((b) => {
+                  const staffInBuilding = staffRecords.filter(
+                    (s) =>
+                      (s.building === b.initials || s.building === b.name) &&
+                      !titlesWithOverride.has(s.title)
+                  ).length
+                  return (
+                    <div
+                      key={b.id}
+                      className="flex items-center justify-between rounded-lg px-3 py-2"
+                      style={{
+                        background: b.approverEmail ? "#f0fdf4" : "#fffbeb",
+                        border: `1px solid ${b.approverEmail ? "rgba(5,150,105,0.2)" : "rgba(234,179,8,0.25)"}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Building2
+                          size={13}
+                          style={{
+                            color: b.approverEmail ? "#059669" : "#b45309",
+                          }}
+                        />
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: "#1d2a5d" }}
+                        >
+                          {b.name}
+                        </span>
+                        <span className="text-xs" style={{ color: "#94a3b8" }}>
+                          ({staffInBuilding} staff)
+                        </span>
+                      </div>
+                      <span className="text-xs" style={{ color: "#64748b" }}>
+                        {b.approverEmail ? (
+                          <>{b.approverName || b.approverEmail}</>
+                        ) : (
+                          <span style={{ color: "#b45309" }}>
+                            No approver set
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Title overrides */}
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Title Overrides
+              </p>
+              <button
+                onClick={() => setShowAddOverride(!showAddOverride)}
+                className="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                style={{
+                  color: "#1d2a5d",
+                  background: showAddOverride
+                    ? "rgba(29,42,93,0.1)"
+                    : "transparent",
+                  border: "1px solid rgba(180,185,195,0.25)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "rgba(29,42,93,0.08)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = showAddOverride
+                    ? "rgba(29,42,93,0.1)"
+                    : "transparent")
+                }
+              >
+                <Plus size={12} />
+                Add Override
+              </button>
+            </div>
+
+            {/* Add override form */}
+            {showAddOverride && (
+              <div
+                className="mb-3 rounded-lg p-3"
+                style={{
+                  background: "#f8f9fb",
+                  border: "1px solid rgba(180,185,195,0.25)",
+                }}
+              >
+                <div className="mb-2">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Select Titles
+                  </p>
+                  <div
+                    className="max-h-40 overflow-y-auto rounded-lg p-2"
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid rgba(180,185,195,0.25)",
+                    }}
+                  >
+                    {availableTitles.length === 0 ? (
+                      <p
+                        className="py-2 text-center text-xs"
+                        style={{ color: "#94a3b8" }}
+                      >
+                        All titles have overrides assigned.
+                      </p>
+                    ) : (
+                      availableTitles.map((title) => {
+                        const count = staffRecords.filter(
+                          (s) => s.title === title
+                        ).length
+                        const checked = addTitles.includes(title)
+                        return (
+                          <label
+                            key={title}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setAddTitles((prev) =>
+                                  checked
+                                    ? prev.filter((t) => t !== title)
+                                    : [...prev, title]
+                                )
+                              }
+                              className="accent-[#1d2a5d]"
+                            />
+                            <span
+                              className="flex-1 text-xs"
+                              style={{ color: "#334155" }}
+                            >
+                              {title}
+                            </span>
+                            <span
+                              className="text-[10px]"
+                              style={{ color: "#94a3b8" }}
+                            >
+                              {count} staff
+                            </span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
+                  {addTitles.length > 0 && (
+                    <p className="mt-1 text-xs" style={{ color: "#1d2a5d" }}>
+                      {addTitles.length} title
+                      {addTitles.length !== 1 && "s"} selected
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Assign To
+                  </p>
+                  <select
+                    value={addSupervisor}
+                    onChange={(e) => setAddSupervisor(e.target.value)}
+                    className="input-neu w-full text-xs"
+                  >
+                    <option value="">Select supervisor…</option>
+                    {supervisorUsers.map((u) => (
+                      <option key={u.uid} value={u.email}>
+                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
+                        {u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleAddOverride}
+                  disabled={!addSupervisor || addTitles.length === 0}
+                  className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  }}
+                >
+                  <Plus size={13} />
+                  Add Override
+                </button>
+              </div>
+            )}
+
+            {/* Existing overrides */}
+            {mappings.length === 0 ? (
+              <p className="text-xs" style={{ color: "#94a3b8" }}>
+                No title overrides. All staff use their building's default
+                approver.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {mappings.map((mapping) => {
+                  const staffCount = staffRecords.filter((s) =>
+                    mapping.titles.includes(s.title)
+                  ).length
+                  return (
+                    <div
+                      key={mapping.supervisorEmail}
+                      className="rounded-lg p-3"
+                      style={{
+                        background: "#eef2ff",
+                        border: "1px solid rgba(67,86,169,0.2)",
+                      }}
+                    >
+                      <div className="mb-2 flex items-start justify-between">
+                        <div>
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: "#1d2a5d" }}
+                          >
+                            {mapping.supervisorName}
+                          </p>
+                          <p
+                            className="text-[11px]"
+                            style={{ color: "#64748b" }}
+                          >
+                            {mapping.supervisorEmail} · {staffCount} staff
+                          </p>
+                        </div>
+                        <button
+                          onClick={() =>
+                            handleRemoveMapping(mapping.supervisorEmail)
+                          }
+                          className="cursor-pointer rounded p-1 transition-colors"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.color = "#94a3b8")
+                          }
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {mapping.titles.map((title) => (
+                          <span
+                            key={title}
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                            style={{
+                              background: "rgba(29,42,93,0.1)",
+                              color: "#1d2a5d",
+                            }}
+                          >
+                            {title}
+                            <button
+                              onClick={() =>
+                                handleRemoveTitle(
+                                  title,
+                                  mapping.supervisorEmail
+                                )
+                              }
+                              className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
+                              style={{ color: "#94a3b8" }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleSave}
@@ -1303,8 +1839,12 @@ function StaffSection() {
     })
   }, [])
 
-  const buildings = [...new Set(records.map((r) => r.building).filter(Boolean))].sort()
-  const titles = [...new Set(records.map((r) => r.title).filter(Boolean))].sort()
+  const buildings = [
+    ...new Set(records.map((r) => r.building).filter(Boolean)),
+  ].sort()
+  const titles = [
+    ...new Set(records.map((r) => r.title).filter(Boolean)),
+  ].sort()
 
   const filtered = records.filter((r) => {
     const q = search.toLowerCase()
@@ -1326,7 +1866,9 @@ function StaffSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : records.length === 0 ? (
         <p className="text-sm" style={{ color: "#64748b" }}>
           No staff records yet. Use Staff Sync to pull data from OneSync.
@@ -1334,7 +1876,8 @@ function StaffSection() {
       ) : (
         <>
           <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-            {records.length} staff record{records.length !== 1 && "s"} synced from OneSync.
+            {records.length} staff record{records.length !== 1 && "s"} synced
+            from OneSync.
           </p>
 
           {/* Search + Filters */}
@@ -1355,7 +1898,9 @@ function StaffSection() {
             >
               <option value="">All Buildings</option>
               {buildings.map((b) => (
-                <option key={b} value={b}>{b}</option>
+                <option key={b} value={b}>
+                  {b}
+                </option>
               ))}
             </select>
             <select
@@ -1366,13 +1911,18 @@ function StaffSection() {
             >
               <option value="">All Titles</option>
               {titles.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>
+                  {t}
+                </option>
               ))}
             </select>
           </div>
 
           {filtered.length === 0 ? (
-            <p className="py-4 text-center text-xs" style={{ color: "#94a3b8" }}>
+            <p
+              className="py-4 text-center text-xs"
+              style={{ color: "#94a3b8" }}
+            >
               No records match your search.
             </p>
           ) : (
@@ -1467,14 +2017,18 @@ function RolesSection() {
   async function handleAddUser() {
     if (!addEmail) return
     setAdding(true)
-    const staff = staffRecords.find((s) => s.email.toLowerCase() === addEmail.toLowerCase())
+    const staff = staffRecords.find(
+      (s) => s.email.toLowerCase() === addEmail.toLowerCase()
+    )
     const uid = `pre-${addEmail.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
     const profile: Partial<UserProfile> = {
       uid,
       email: addEmail.toLowerCase(),
       firstName: staff?.firstName ?? "",
       lastName: staff?.lastName ?? "",
-      fullName: staff ? `${staff.firstName} ${staff.lastName}`.trim() : addEmail,
+      fullName: staff
+        ? `${staff.firstName} ${staff.lastName}`.trim()
+        : addEmail,
       employeeId: staff?.employeeId ?? "",
       building: staff?.building ?? "",
       role: addRole,
@@ -1506,7 +2060,9 @@ function RolesSection() {
       onToggle={() => setExpanded(!expanded)}
     >
       {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>Loading…</p>
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1530,7 +2086,9 @@ function RolesSection() {
                 (e.currentTarget.style.backgroundColor = "rgba(29,42,93,0.08)")
               }
               onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = showAdd ? "rgba(29,42,93,0.1)" : "transparent")
+                (e.currentTarget.style.backgroundColor = showAdd
+                  ? "rgba(29,42,93,0.1)"
+                  : "transparent")
               }
             >
               <Plus size={13} />
@@ -1542,7 +2100,10 @@ function RolesSection() {
           {showAdd && (
             <div
               className="mb-4 rounded-lg p-3"
-              style={{ background: "#f8f9fb", border: "1px solid rgba(180,185,195,0.25)" }}
+              style={{
+                background: "#f8f9fb",
+                border: "1px solid rgba(180,185,195,0.25)",
+              }}
             >
               <p
                 className="mb-2 text-xs font-semibold tracking-wider uppercase"
@@ -1559,7 +2120,11 @@ function RolesSection() {
                   >
                     <option value="">Select staff member…</option>
                     {availableStaff
-                      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+                      .sort((a, b) =>
+                        `${a.lastName} ${a.firstName}`.localeCompare(
+                          `${b.lastName} ${b.firstName}`
+                        )
+                      )
                       .map((s) => (
                         <option key={s.email} value={s.email}>
                           {s.firstName} {s.lastName} — {s.email}
@@ -1575,7 +2140,9 @@ function RolesSection() {
                     style={{ minWidth: 130 }}
                   >
                     {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1584,7 +2151,8 @@ function RolesSection() {
                   disabled={adding || !addEmail}
                   className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                   style={{
-                    background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
                   }}
                 >
                   <Plus size={13} />
@@ -1626,7 +2194,9 @@ function RolesSection() {
                     }}
                   >
                     <td className="py-2" style={{ color: "#1d2a5d" }}>
-                      {u.fullName || `${u.firstName} ${u.lastName}`.trim() || u.email}
+                      {u.fullName ||
+                        `${u.firstName} ${u.lastName}`.trim() ||
+                        u.email}
                     </td>
                     <td className="py-2" style={{ color: "#64748b" }}>
                       {u.email}
@@ -1770,6 +2340,105 @@ function EmailSettingsSection() {
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
               <span>{saving ? "Saving…" : "Save Settings"}</span>
+            </button>
+            {saved && (
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
+                Saved!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Drive & PDF Settings ────────────────────────────────────────────────────
+
+function DrivePdfSettingsSection() {
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then((s) => {
+      setSettings(s)
+      setLoading(false)
+    })
+  }, [])
+
+  function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
+  }
+
+  async function handleSave() {
+    if (!settings) return
+    setSaving(true)
+    await updateAppSettings({
+      paperpalDriveFolderId: settings.paperpalDriveFolderId,
+      paperpalLogSheetId: settings.paperpalLogSheetId,
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  return (
+    <Section
+      title="Drive & PDF"
+      icon={HardDrive}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {loading || !settings ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
+      ) : (
+        <>
+          <p className="mb-4 text-xs" style={{ color: "#94a3b8" }}>
+            On final approval, PaperPal generates a PDF and uploads it to Google
+            Drive. Configure the shared drive folder and log spreadsheet below.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Shared Drive Folder ID">
+              <input
+                type="text"
+                value={settings.paperpalDriveFolderId ?? ""}
+                onChange={(e) =>
+                  update("paperpalDriveFolderId", e.target.value)
+                }
+                placeholder="e.g. 1abc2def3ghi4jkl5mno6pqr"
+                className="input-neu w-full"
+              />
+              <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
+                Root folder ID from the Google Drive URL
+              </p>
+            </Field>
+            <Field label="Log Spreadsheet ID">
+              <input
+                type="text"
+                value={settings.paperpalLogSheetId ?? ""}
+                onChange={(e) => update("paperpalLogSheetId", e.target.value)}
+                placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjg"
+                className="input-neu w-full"
+              />
+              <p className="mt-1 text-xs" style={{ color: "#94a3b8" }}>
+                Sheet ID from the Google Sheets URL (update each fiscal year)
+              </p>
+            </Field>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save"}</span>
             </button>
             {saved && (
               <span

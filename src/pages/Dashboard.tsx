@@ -1,9 +1,22 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router"
-import { FileText, Car, Briefcase, Clock, History, Plus } from "lucide-react"
+import {
+  FileText,
+  Car,
+  Briefcase,
+  Clock,
+  History,
+  Plus,
+  ClipboardCheck,
+} from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAuth } from "@/hooks/useAuth"
-import { getUserSubmissions } from "@/lib/firestore"
+import {
+  getUserSubmissions,
+  getPendingApprovals,
+  getReviewedSubmissions,
+  getAppSettings,
+} from "@/lib/firestore"
 import type { Submission, SubmissionStatus } from "@/lib/types"
 
 const FORM_TYPES = [
@@ -38,6 +51,7 @@ const TABS = [
   { id: "new", label: "New Request", icon: Plus },
   { id: "pending", label: "Pending", icon: Clock },
   { id: "history", label: "History", icon: History },
+  { id: "approvals", label: "Approvals", icon: ClipboardCheck },
 ]
 
 const STATUS_STYLES: Record<
@@ -70,24 +84,66 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
+  const validTabs = ["pending", "history", "approvals"]
   const [activeTab, setActiveTab] = useState(
-    tabParam === "pending" || tabParam === "history" ? tabParam : "new"
+    validTabs.includes(tabParam ?? "") ? tabParam! : "new"
   )
 
-  const [submissions, setSubmissions] = useState<Submission[]>([])
-  const [loadingSubmissions, setLoadingSubmissions] = useState(false)
+  // User's own submissions
+  const [submissionData, setSubmissionData] = useState<{
+    uid: string
+    data: Submission[]
+  } | null>(null)
 
   useEffect(() => {
     if (!user || (activeTab !== "pending" && activeTab !== "history")) return
-    setLoadingSubmissions(true)
+    let cancelled = false
     getUserSubmissions(user.uid)
-      .then(setSubmissions)
+      .then((data) => {
+        if (!cancelled) setSubmissionData({ uid: user.uid, data })
+      })
       .catch(console.error)
-      .finally(() => setLoadingSubmissions(false))
+    return () => {
+      cancelled = true
+    }
   }, [user, activeTab])
+
+  const submissions =
+    submissionData && submissionData.uid === user?.uid
+      ? submissionData.data
+      : []
+  const loadingSubmissions =
+    (activeTab === "pending" || activeTab === "history") &&
+    submissionData?.uid !== user?.uid
 
   const pendingSubmissions = submissions.filter((s) => s.status === "pending")
   const historySubmissions = submissions.filter((s) => s.status !== "pending")
+
+  // Approvals — submissions assigned to this user for review
+  const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
+
+  useEffect(() => {
+    if (activeTab !== "approvals" || !userProfile?.email) return
+    let cancelled = false
+    const email = userProfile.email.toLowerCase()
+    Promise.all([
+      getPendingApprovals(email),
+      getAppSettings().then((s) =>
+        s.finalApproverEmail?.toLowerCase() === email
+          ? getReviewedSubmissions()
+          : []
+      ),
+    ])
+      .then(([pending, reviewed]) => {
+        if (!cancelled) setApprovalData([...pending, ...reviewed])
+      })
+      .catch(console.error)
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, userProfile?.email])
+
+  const loadingApprovals = activeTab === "approvals" && approvalData === null
 
   return (
     <AppLayout>
@@ -120,7 +176,8 @@ export default function Dashboard() {
               style={
                 active
                   ? {
-                      background: "linear-gradient(135deg, #ad2122 0%, #c9393a 100%)",
+                      background:
+                        "linear-gradient(135deg, #ad2122 0%, #c9393a 100%)",
                       color: "white",
                       boxShadow: "0 2px 10px rgba(173,33,34,0.35)",
                     }
@@ -128,14 +185,18 @@ export default function Dashboard() {
               }
               onMouseEnter={(e) => {
                 if (!active) {
-                  ;(e.currentTarget as HTMLButtonElement).style.color = "#ffffff"
-                  ;(e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"
+                  ;(e.currentTarget as HTMLButtonElement).style.color =
+                    "#ffffff"
+                  ;(e.currentTarget as HTMLButtonElement).style.background =
+                    "rgba(255,255,255,0.08)"
                 }
               }}
               onMouseLeave={(e) => {
                 if (!active) {
-                  ;(e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)"
-                  ;(e.currentTarget as HTMLButtonElement).style.background = "transparent"
+                  ;(e.currentTarget as HTMLButtonElement).style.color =
+                    "rgba(255,255,255,0.5)"
+                  ;(e.currentTarget as HTMLButtonElement).style.background =
+                    "transparent"
                 }
               }}
             >
@@ -162,17 +223,21 @@ export default function Dashboard() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.maxHeight = "340px"
-                  e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.25)"
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 32px rgba(0,0,0,0.25)"
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.maxHeight = "180px"
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)"
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 16px rgba(0,0,0,0.15)"
                 }}
               >
                 {/* Color accent bar */}
                 <div
                   className="h-1 w-full"
-                  style={{ background: `linear-gradient(90deg, ${pill.from}, ${pill.to})` }}
+                  style={{
+                    background: `linear-gradient(90deg, ${pill.from}, ${pill.to})`,
+                  }}
                 />
 
                 {/* Icon */}
@@ -236,6 +301,18 @@ export default function Dashboard() {
           emptySubtitle="Your completed requests will show up here."
         />
       )}
+
+      {/* Tab: Approvals */}
+      {activeTab === "approvals" && (
+        <SubmissionList
+          submissions={approvalData ?? []}
+          loading={loadingApprovals}
+          emptyIcon={ClipboardCheck}
+          emptyTitle="No pending approvals"
+          emptySubtitle="Submissions assigned to you for review will appear here."
+          showSubmitter
+        />
+      )}
     </AppLayout>
   )
 }
@@ -248,13 +325,16 @@ function SubmissionList({
   emptyIcon: EmptyIcon,
   emptyTitle,
   emptySubtitle,
+  showSubmitter,
 }: {
   submissions: Submission[]
   loading: boolean
   emptyIcon: React.ElementType
   emptyTitle: string
   emptySubtitle: string
+  showSubmitter?: boolean
 }) {
+  const navigate = useNavigate()
   if (loading) {
     return (
       <div className="space-y-3">
@@ -308,10 +388,12 @@ function SubmissionList({
         return (
           <div
             key={s.id}
-            className="flex items-center justify-between rounded-xl px-5 py-4"
+            onClick={() => navigate(`/forms/${s.formType}/${s.id}`)}
+            className="flex cursor-pointer items-center justify-between rounded-xl px-5 py-4 transition-shadow hover:shadow-lg"
             style={{
               background: "#ffffff",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
             <div className="min-w-0">
@@ -322,6 +404,7 @@ function SubmissionList({
                 {s.summary}
               </p>
               <p className="mt-0.5 text-xs" style={{ color: "#94a3b8" }}>
+                {showSubmitter && <>{s.submitterName} · </>}
                 {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
               </p>
             </div>

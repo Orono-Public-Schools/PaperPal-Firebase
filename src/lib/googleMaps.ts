@@ -34,11 +34,15 @@ export async function fetchAddressSuggestions(
 
     const data = await res.json()
     return (data.suggestions ?? [])
-      .map((s: { placePrediction?: { placeId: string; text: { text: string } } }) => {
-        const p = s.placePrediction
-        if (!p) return null
-        return { placeId: p.placeId, text: p.text.text }
-      })
+      .map(
+        (s: {
+          placePrediction?: { placeId: string; text: { text: string } }
+        }) => {
+          const p = s.placePrediction
+          if (!p) return null
+          return { placeId: p.placeId, text: p.text.text }
+        }
+      )
       .filter((s: PlaceSuggestion | null): s is PlaceSuggestion => s !== null)
   } catch {
     return []
