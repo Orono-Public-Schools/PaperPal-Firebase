@@ -30,7 +30,10 @@ function getAccountCode(submission) {
   const data = submission.formData
   switch (submission.formType) {
     case "check":
-      return (data.expenses || []).map((e) => e.code).filter(Boolean).join(", ")
+      return (data.expenses || [])
+        .map((e) => e.code)
+        .filter(Boolean)
+        .join(", ")
     case "mileage":
       return data.accountCode || ""
     case "travel":
@@ -108,7 +111,9 @@ async function findOrCreateLogSheet(yearLabel, yearFolderId, db) {
       .set({ paperpalLogSheetId: sheetId }, { merge: true })
   }
 
-  console.log(`Created log sheet "${sheetName}" (${sheetId}) in folder ${yearFolderId}`)
+  console.log(
+    `Created log sheet "${sheetName}" (${sheetId}) in folder ${yearFolderId}`
+  )
   return sheetId
 }
 
@@ -126,7 +131,8 @@ async function appendToLog(submission, settings, driveUrl, yearFolderId, db) {
     const fiscalYearStartMonth = settings.fiscalYearStartMonth ?? 6
     const month = approvedDate.getMonth()
     const year = approvedDate.getFullYear()
-    const yearLabel = month >= fiscalYearStartMonth ? String(year + 1) : String(year)
+    const yearLabel =
+      month >= fiscalYearStartMonth ? String(year + 1) : String(year)
 
     sheetId = await findOrCreateLogSheet(yearLabel, yearFolderId, db)
   }
