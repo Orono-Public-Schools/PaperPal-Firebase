@@ -16,6 +16,11 @@
   - Store as an array on the submission (activityLog or expand revisionHistory)
   - Displayed between form data and approval actions in FormView
 
+- Bug fix: resubmit broken
+  - updateDoc() fails with "Unsupported field value: undefined" for reviewedAt
+  - Cause: resubmit sets reviewedAt/approvedAt/etc to undefined, but Firestore rejects undefined
+  - Fix: use deleteField() from firebase/firestore instead of undefined to clear fields
+
 - Print & export
   - "Print" button on FormView — opens browser print dialog with clean print-friendly layout
   - "Download PDF" button on FormView — downloads the server-generated PDF
