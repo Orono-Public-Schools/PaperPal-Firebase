@@ -9,6 +9,7 @@ export type UserRole = "staff" | "supervisor" | "business_office" | "admin"
 export interface Building {
   id: string
   name: string
+  initials: string
   address?: string
   approverEmail: string
   approverName: string
@@ -52,6 +53,8 @@ export interface AppSettings {
   finalApproverEmail: string
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
+  paperpalDriveFolderId?: string
+  paperpalLogSheetId?: string
   staffSheetId?: string
   staffSheetRange?: string // e.g. "Sheet1!A2:H"
   staffSyncEnabled?: boolean
@@ -68,6 +71,7 @@ export interface UserProfile {
   lastName: string
   fullName: string
   employeeId?: string
+  title?: string
   building?: string
   buildingOverride?: string
   supervisorEmail?: string
@@ -241,14 +245,16 @@ export interface Submission {
   submitterEmail: string
   submitterName: string
   supervisorEmail: string
-  approverEmail?: string
+  supervisorName?: string
+  finalApproverEmail?: string
 
   // Form data (type-specific)
   formData: CheckRequestData | MileageData | TravelData
 
   // Signatures
   employeeSignatureUrl?: string
-  approverSignatureUrl?: string
+  supervisorSignatureUrl?: string
+  finalApproverSignatureUrl?: string
 
   // Attachments
   attachments: Attachment[]
@@ -256,6 +262,7 @@ export interface Submission {
   // PDF
   pdfDriveId?: string
   pdfDriveUrl?: string
+  approvalProcessingError?: string
 
   // Workflow
   revisionComments?: string
@@ -269,6 +276,7 @@ export interface Submission {
   // Timestamps
   createdAt: Timestamp
   updatedAt: Timestamp
+  reviewedAt?: Timestamp
   approvedAt?: Timestamp
 }
 

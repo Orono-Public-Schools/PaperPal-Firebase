@@ -27,31 +27,51 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 
 ---
 
-## Design System (Neumorphic)
+## Design System
 
 **Never deviate from these values without being asked.**
 
+### Orono Brand Palette
+
 ```
-Background:        #f0f2f5
-Card surface:      linear-gradient(145deg, #fafbfd, #edeef1)
-Card shadow:       4px 4px 10px rgba(180,185,195,0.35), -4px -4px 10px rgba(255,255,255,0.75)
-OPS navy:          #1d2a5d
+OPS navy (dark):   #1d2a5d
+OPS blue:          #2d3f89
+OPS light blue:    #4356a9
+OPS lighter:       #eaecf5
+OPS red:           #ad2122
 Navy gradient:     linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)
-Accent green:      #059669
-Accent blue:       #1e3a8a
+```
+
+### Layout Colors
+
+```
+Page background:   Dark navy gradient (set in AppLayout)
+Card surface:      #ffffff
+Card shadow:       0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)
 Muted text:        #64748b
 Body text:         #334155
 Border muted:      rgba(180,185,195,0.25)
 Input background:  #f4f5f7
+Inset background:  #f8f9fb (summary bars, signature blocks)
 ```
+
+### Components
 
 **Input fields** use the `.input-neu` utility class (defined in `src/index.css`):
 
 - Inset shadow, no border, `border-radius: 10px`, background `#f4f5f7`
 
-**Cards / Sections** use the `Section` local component pattern (each page defines its own inline — do not extract to a shared component unless asked).
+**Cards / Sections** use the `Section` local component pattern (each page defines its own inline — do not extract to a shared component unless asked). White background + subtle drop shadow.
 
-**Submit buttons** always use the OPS navy gradient with `text-white`.
+**Submit buttons** use OPS red (`#ad2122`) with `text-white`. Classes: `btn-submit` (send fly animation), `btn-save` (icon slide).
+
+**Primary action buttons** (approve, navigate) use the navy gradient with `text-white` and `boxShadow: 0 2px 8px rgba(29,42,93,0.25)`.
+
+**Secondary action buttons** (revisions, alternate actions) use OPS light blue outline style: `color: #4356a9`, `background: rgba(67,86,169,0.1)`, `border: 1px solid rgba(67,86,169,0.3)`.
+
+**Destructive buttons** (deny, delete) use OPS red: `color: #ad2122`, `background: rgba(173,33,34,0.08)`, `border: 1px solid rgba(173,33,34,0.2)`. Solid red for confirm actions.
+
+**Status badges** use Orono colors: pending/revisions = light blue (`#4356a9`), reviewed = blue (`#2d3f89`), approved = navy (`#1d2a5d`), denied = red (`#ad2122`).
 
 **Section headings** inside cards: `text-sm font-semibold tracking-widest uppercase` in `#1d2a5d`.
 

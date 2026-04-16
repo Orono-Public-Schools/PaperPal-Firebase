@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   LogOut,
   Menu,
@@ -11,6 +11,7 @@ import {
   History,
   LayoutDashboard,
   UserCircle,
+  Settings,
 } from "lucide-react"
 import { useNavigate, useLocation } from "react-router"
 import { useAuth } from "@/hooks/useAuth"
@@ -55,6 +56,21 @@ export default function AppHeader() {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(e.target as Node)
+      ) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   const isAdmin =
     userProfile?.role === "admin" || userProfile?.role === "business_office"
@@ -89,12 +105,13 @@ export default function AppHeader() {
         {/* Left: branding */}
         <button
           onClick={() => navigate("/")}
-          className="flex cursor-pointer items-center gap-2"
+          className="flex cursor-pointer items-center"
+          style={{ gap: "2px" }}
         >
           <img
             src="/orono-paperpal.png"
             alt="PaperPal"
-            className="h-10 w-10 object-contain"
+            className="h-12 w-12 object-contain"
           />
           <div className="text-xl font-bold tracking-tight text-white">
             PaperPal
@@ -112,40 +129,69 @@ export default function AppHeader() {
           </button>
 
           {userProfile && (
-            <button
-              onClick={() => navigate("/profile")}
-              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 transition-colors hover:bg-white/10"
-            >
-              {userProfile.photoURL ? (
-                <img
-                  src={userProfile.photoURL}
-                  alt={userProfile.fullName}
-                  className="h-7 w-7 rounded-full object-cover"
-                  style={{ border: "2px solid rgba(255,255,255,0.2)" }}
-                />
-              ) : (
+            <div ref={profileRef} className="relative">
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 transition-colors hover:bg-white/10"
+              >
+                {userProfile.photoURL ? (
+                  <img
+                    src={userProfile.photoURL}
+                    alt={userProfile.fullName}
+                    className="h-7 w-7 rounded-full object-cover"
+                    style={{ border: "2px solid rgba(255,255,255,0.2)" }}
+                  />
+                ) : (
+                  <div
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                    style={{ background: "rgba(255,255,255,0.15)" }}
+                  >
+                    {userProfile.firstName?.[0]}
+                    {userProfile.lastName?.[0]}
+                  </div>
+                )}
+                <span className="text-sm text-white/90">
+                  {userProfile.firstName}
+                </span>
+              </button>
+
+              {profileOpen && (
                 <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-                  style={{ background: "rgba(255,255,255,0.15)" }}
+                  className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-lg py-1"
+                  style={{
+                    background: "#ffffff",
+                    boxShadow:
+                      "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
+                    border: "1px solid #e2e5ea",
+                  }}
                 >
-                  {userProfile.firstName?.[0]}
-                  {userProfile.lastName?.[0]}
+                  <button
+                    onClick={() => {
+                      navigate("/profile")
+                      setProfileOpen(false)
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                    style={{ color: "#334155" }}
+                  >
+                    <Settings size={15} style={{ color: "#64748b" }} />
+                    Profile Settings
+                  </button>
+                  <div style={{ borderTop: "1px solid #e2e5ea" }} />
+                  <button
+                    onClick={() => {
+                      signOut()
+                      setProfileOpen(false)
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                    style={{ color: "#ad2122" }}
+                  >
+                    <LogOut size={15} />
+                    Sign Out
+                  </button>
                 </div>
               )}
-              <span className="text-sm text-white/90">
-                {userProfile.firstName}
-              </span>
-            </button>
+            </div>
           )}
-
-          <button
-            onClick={signOut}
-            className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            title="Sign out"
-          >
-            <LogOut size={14} />
-            Sign out
-          </button>
         </div>
       </header>
 

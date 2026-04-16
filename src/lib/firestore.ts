@@ -164,6 +164,35 @@ export async function getBuildingByName(
   return snap.empty ? null : (snap.docs[0].data() as Building)
 }
 
+const DEFAULT_BUILDINGS: { initials: string; name: string }[] = [
+  { initials: "MS", name: "Orono Middle School" },
+  { initials: "SE", name: "Orono Schumann Elementary" },
+  { initials: "HS", name: "Orono High School" },
+  { initials: "IS", name: "Orono Intermediate School" },
+  { initials: "CE", name: "Community Ed" },
+  { initials: "DO", name: "District Office" },
+  { initials: "DC", name: "Discovery Center" },
+  { initials: "AC", name: "Orono Activities Center" },
+  { initials: "SUB", name: "Substitutes" },
+]
+
+export async function seedBuildingsFromInitials(): Promise<number> {
+  const existing = await getBuildings()
+  const existingInitials = new Set(existing.map((b) => b.initials))
+  let created = 0
+  for (const bld of DEFAULT_BUILDINGS) {
+    if (existingInitials.has(bld.initials)) continue
+    await createBuilding({
+      name: bld.name,
+      initials: bld.initials,
+      approverEmail: "",
+      approverName: "",
+    })
+    created++
+  }
+  return created
+}
+
 // ─── Staff Records ───────────────────────────────────────────────────────────
 
 export async function getStaffRecords(): Promise<StaffRecord[]> {
@@ -318,7 +347,9 @@ export async function resolveSupervisor(
   // 3. Fallback: building approver
   if (staff.building) {
     const buildings = await getBuildings()
-    const building = buildings.find((b) => b.name === staff.building)
+    const building = buildings.find(
+      (b) => b.initials === staff.building || b.name === staff.building
+    )
     if (building)
       return { email: building.approverEmail, name: building.approverName }
   }

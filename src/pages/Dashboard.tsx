@@ -1,9 +1,22 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router"
-import { FileText, Car, Briefcase, Clock, History, Plus } from "lucide-react"
+import {
+  FileText,
+  Car,
+  Briefcase,
+  Clock,
+  History,
+  Plus,
+  ClipboardCheck,
+} from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAuth } from "@/hooks/useAuth"
-import { getUserSubmissions } from "@/lib/firestore"
+import {
+  getUserSubmissions,
+  getPendingApprovals,
+  getReviewedSubmissions,
+  getAppSettings,
+} from "@/lib/firestore"
 import type { Submission, SubmissionStatus } from "@/lib/types"
 
 const FORM_TYPES = [
@@ -38,6 +51,7 @@ const TABS = [
   { id: "new", label: "New Request", icon: Plus },
   { id: "pending", label: "Pending", icon: Clock },
   { id: "history", label: "History", icon: History },
+  { id: "approvals", label: "Approvals", icon: ClipboardCheck },
 ]
 
 const STATUS_STYLES: Record<
@@ -70,10 +84,12 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
+  const validTabs = ["pending", "history", "approvals"]
   const [activeTab, setActiveTab] = useState(
-    tabParam === "pending" || tabParam === "history" ? tabParam : "new"
+    validTabs.includes(tabParam ?? "") ? tabParam! : "new"
   )
 
+  // User's own submissions
   const [submissionData, setSubmissionData] = useState<{
     uid: string
     data: Submission[]
@@ -102,6 +118,32 @@ export default function Dashboard() {
 
   const pendingSubmissions = submissions.filter((s) => s.status === "pending")
   const historySubmissions = submissions.filter((s) => s.status !== "pending")
+
+  // Approvals — submissions assigned to this user for review
+  const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
+
+  useEffect(() => {
+    if (activeTab !== "approvals" || !userProfile?.email) return
+    let cancelled = false
+    const email = userProfile.email.toLowerCase()
+    Promise.all([
+      getPendingApprovals(email),
+      getAppSettings().then((s) =>
+        s.finalApproverEmail?.toLowerCase() === email
+          ? getReviewedSubmissions()
+          : []
+      ),
+    ])
+      .then(([pending, reviewed]) => {
+        if (!cancelled) setApprovalData([...pending, ...reviewed])
+      })
+      .catch(console.error)
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, userProfile?.email])
+
+  const loadingApprovals = activeTab === "approvals" && approvalData === null
 
   return (
     <AppLayout>
@@ -259,6 +301,18 @@ export default function Dashboard() {
           emptySubtitle="Your completed requests will show up here."
         />
       )}
+
+      {/* Tab: Approvals */}
+      {activeTab === "approvals" && (
+        <SubmissionList
+          submissions={approvalData ?? []}
+          loading={loadingApprovals}
+          emptyIcon={ClipboardCheck}
+          emptyTitle="No pending approvals"
+          emptySubtitle="Submissions assigned to you for review will appear here."
+          showSubmitter
+        />
+      )}
     </AppLayout>
   )
 }
@@ -271,13 +325,16 @@ function SubmissionList({
   emptyIcon: EmptyIcon,
   emptyTitle,
   emptySubtitle,
+  showSubmitter,
 }: {
   submissions: Submission[]
   loading: boolean
   emptyIcon: React.ElementType
   emptyTitle: string
   emptySubtitle: string
+  showSubmitter?: boolean
 }) {
+  const navigate = useNavigate()
   if (loading) {
     return (
       <div className="space-y-3">
@@ -331,7 +388,8 @@ function SubmissionList({
         return (
           <div
             key={s.id}
-            className="flex items-center justify-between rounded-xl px-5 py-4"
+            onClick={() => navigate(`/forms/${s.formType}/${s.id}`)}
+            className="flex cursor-pointer items-center justify-between rounded-xl px-5 py-4 transition-shadow hover:shadow-lg"
             style={{
               background: "#ffffff",
               boxShadow:
@@ -346,6 +404,7 @@ function SubmissionList({
                 {s.summary}
               </p>
               <p className="mt-0.5 text-xs" style={{ color: "#94a3b8" }}>
+                {showSubmitter && <>{s.submitterName} · </>}
                 {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
               </p>
             </div>

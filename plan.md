@@ -2,27 +2,82 @@
 
 ## Up Next
 
-- Staff rostering / user integration
-  - How do staff get into the system? Options: Google Sheets sync, CSV upload, or manual admin entry
-  - Auto-create UserProfile on first Google SSO sign-in from staff record match
-  - Building → supervisor/approver mapping (auto-resolve from building assignment)
-  - Bulk import: fields — first name, last name, email, employee ID, building
-  - Building selector with override on forms (instead of free-text)
+- Google Drive integration + PDF generation
+  - Shared Drive structure: Business Office → Fiscal Year → Month folders
+  - Google Sheet log per fiscal year (one row per approved submission)
+  - PDF generation on final approval (completed form with all signatures)
+  - Upload PDF to correct month folder in shared drive
+  - Append row to fiscal year log sheet
+  - Cloud Function triggered on final approval
+  - Service account needs access to shared drive
+  - Store pdfDriveId + pdfDriveUrl on submission (fields already exist)
 
-- FormView page (read-only view + approval actions)
-  - Supervisor approve/deny/request revisions workflow
-  - Final approver (controller) second approval step
-  - Signature capture on approval
-  - PDF generation on final approval
+- Firebase Trigger Email extension
+  - Configure for `mail` collection (docs are being written, need extension to send)
+  - Sender: paperpal@orono.k12.mn.us
+  - Test email delivery end-to-end
 
-- Email notifications
-  - On submit → notify supervisor
-  - On supervisor approve → notify final approver
-  - On final approve → notify submitter + business office
-  - On deny/revisions → notify submitter
+- Resubmission flow
+  - Submitter can edit and resubmit when status = revisions_requested
+  - Pre-fill form from existing submission data
+  - Update existing submission instead of creating new one
+
+- Polish / testing
+  - Test full flow: submit → supervisor approve → final approve → PDF + Drive
+  - Firestore composite indexes (may auto-prompt on first query)
+  - Firestore security rules for new fields
 
 ## Done
 
+- Staff integration (OneSync → Google Sheet → Cloud Function → Firestore)
+  - Google Sheets API sync via Cloud Function (service account auth)
+  - Full replace sync (wipe + rewrite staff collection)
+  - Nightly auto-sync at 5am Central (configurable, Cloud Scheduler)
+  - Manual "Sync Now" in admin (callable Cloud Function)
+  - Staff Directory: read-only view with search + building/title filters
+  - Sync updates user profiles with title + building
+  - Title + building fields on user profile (read-only, synced from OneSync)
+- Supervisor mappings (hybrid building + title approach)
+  - Building defaults: each building has an approver (covers most staff)
+  - Title overrides: specific titles route to specific supervisors
+  - Coverage summary (building default / title override / unassigned counts)
+  - Add Override UI: checkbox title picker + supervisor dropdown
+  - Resolution: title override > building default > manual
+  - Buildings: initials field matching OneSync, seed from Orono mapping
+- Approval workflow (FormView)
+  - Read-only form view for all 3 form types (Check, Mileage, Travel)
+  - Supervisor: Approve (with signature) / Deny / Request Revisions
+  - Final Approver: Approve (with signature) / Deny
+  - Status badges, denial/revision comments display
+  - Submitter: "Edit & Resubmit" prompt on revisions_requested
+- Email notifications
+  - On submit → supervisor (with link to FormView)
+  - On supervisor approve → final approver
+  - On final approve → submitter
+  - On deny → submitter (with reason)
+  - On revisions → submitter (with requested changes)
+  - Branded HTML email template (PaperPal header, deep links)
+- Signature system
+  - SignatureField component (draw / type / saved modes)
+  - Employee signature on all 3 forms
+  - Supervisor + final approver signatures on approval
+  - "Save as my signature" from any form → updates profile
+  - Saved signature auto-selected as default
+- Staff email autocomplete
+  - Dropdown suggestions from staff directory as you type (2+ chars)
+  - Used on: Route To (all forms), supervisor email (profile), approver email (buildings, settings)
+  - Cached after first load
+- Dashboard
+  - Clickable submission rows → navigate to FormView
+  - Approvals tab for supervisors and final approvers
+  - Shows submitter name on approval items
+- Users & Roles
+  - Add users from staff directory with role assignment
+  - Search users, change roles
+- UI improvements
+  - Profile dropdown (settings + sign out) replacing standalone sign out
+  - Logo size + gap adjustment in header
+  - Title + Building (read-only) on profile page
 - Google Maps integration (Places API New + Routes API)
   - Address autocomplete on mileage From/To fields (REST API)
   - Auto-calculate driving distance with MapPin button
