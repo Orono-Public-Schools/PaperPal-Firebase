@@ -72,19 +72,16 @@ function drawHeader(doc, submission) {
   doc.fontSize(10).text("PaperPal", 50, 42)
 
   // Right side: submission ID
-  doc
-    .fontSize(10)
-    .text(submission.id, 50, 28, { align: "right", width: doc.page.width - 100 })
+  doc.fontSize(10).text(submission.id, 50, 28, {
+    align: "right",
+    width: doc.page.width - 100,
+  })
 
   doc.fillColor(TEXT_COLOR)
   doc.y = 90
 
   // Form type + submitter info
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(14)
-    .fillColor(NAVY)
-    .text(formLabel, 50)
+  doc.font("Helvetica-Bold").fontSize(14).fillColor(NAVY).text(formLabel, 50)
   doc.moveDown(0.3)
   doc
     .font("Helvetica")
@@ -98,8 +95,16 @@ function drawHeader(doc, submission) {
 }
 
 function drawField(doc, label, value, x, y, width) {
-  doc.font("Helvetica-Bold").fontSize(7).fillColor(LABEL_COLOR).text(label.toUpperCase(), x, y, { width })
-  doc.font("Helvetica").fontSize(9).fillColor(TEXT_COLOR).text(value || "—", x, y + 10, { width })
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(7)
+    .fillColor(LABEL_COLOR)
+    .text(label.toUpperCase(), x, y, { width })
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .fillColor(TEXT_COLOR)
+    .text(value || "—", x, y + 10, { width })
 }
 
 function drawFieldRow(doc, fields, y) {
@@ -107,14 +112,25 @@ function drawFieldRow(doc, fields, y) {
   const pageWidth = doc.page.width - margin * 2
   const colWidth = pageWidth / fields.length
   for (let i = 0; i < fields.length; i++) {
-    drawField(doc, fields[i][0], fields[i][1], margin + i * colWidth, y, colWidth - 10)
+    drawField(
+      doc,
+      fields[i][0],
+      fields[i][1],
+      margin + i * colWidth,
+      y,
+      colWidth - 10
+    )
   }
   return y + 28
 }
 
 function drawSectionHeading(doc, title) {
   doc.moveDown(0.5)
-  doc.font("Helvetica-Bold").fontSize(8).fillColor(NAVY).text(title.toUpperCase(), 50)
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8)
+    .fillColor(NAVY)
+    .text(title.toUpperCase(), 50)
   doc.moveDown(0.3)
 }
 
@@ -138,7 +154,10 @@ function drawTableHeaders(doc, headers, colWidths, startX) {
 
 function drawTableRow(doc, cells, colWidths, startX, bold) {
   const y = doc.y
-  doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(8).fillColor(bold ? NAVY : TEXT_COLOR)
+  doc
+    .font(bold ? "Helvetica-Bold" : "Helvetica")
+    .fontSize(8)
+    .fillColor(bold ? NAVY : TEXT_COLOR)
   let x = startX
   for (let i = 0; i < cells.length; i++) {
     doc.text(String(cells[i] ?? ""), x, y, { width: colWidths[i] })
@@ -194,21 +213,41 @@ async function drawSignatures(doc, submission) {
     const x = margin + i * colWidth
     const sig = sigs[i]
 
-    doc.font("Helvetica-Bold").fontSize(7).fillColor(LABEL_COLOR).text(sig.label.toUpperCase(), x, startY)
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(7)
+      .fillColor(LABEL_COLOR)
+      .text(sig.label.toUpperCase(), x, startY)
 
     const imgBuf = await fetchImageBuffer(sig.url)
     if (imgBuf) {
       try {
         doc.image(imgBuf, x, startY + 12, { width: 120, height: 40 })
       } catch {
-        doc.font("Helvetica").fontSize(8).fillColor(TEXT_COLOR).text("Signature on file", x, startY + 20)
+        doc
+          .font("Helvetica")
+          .fontSize(8)
+          .fillColor(TEXT_COLOR)
+          .text("Signature on file", x, startY + 20)
       }
     } else {
-      doc.font("Helvetica").fontSize(8).fillColor(TEXT_COLOR).text("Not yet signed", x, startY + 20)
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .fillColor(TEXT_COLOR)
+        .text("Not yet signed", x, startY + 20)
     }
 
-    doc.font("Helvetica").fontSize(7).fillColor(TEXT_COLOR).text(sig.name || "—", x, startY + 56)
-    doc.font("Helvetica").fontSize(7).fillColor(LABEL_COLOR).text(formatTimestamp(sig.date), x, startY + 66)
+    doc
+      .font("Helvetica")
+      .fontSize(7)
+      .fillColor(TEXT_COLOR)
+      .text(sig.name || "—", x, startY + 56)
+    doc
+      .font("Helvetica")
+      .fontSize(7)
+      .fillColor(LABEL_COLOR)
+      .text(formatTimestamp(sig.date), x, startY + 66)
   }
 
   doc.y = startY + 80
@@ -219,36 +258,69 @@ async function drawSignatures(doc, submission) {
 function renderCheckRequest(doc, data) {
   let y = doc.y
 
-  y = drawFieldRow(doc, [
-    ["Date of Request", formatDate(data.dateRequest)],
-    ["Date Needed", formatDate(data.dateNeeded)],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      ["Date of Request", formatDate(data.dateRequest)],
+      ["Date Needed", formatDate(data.dateNeeded)],
+    ],
+    y
+  )
 
-  y = drawFieldRow(doc, [
-    ["Payee", data.payee],
-    ["Address", data.address ? `${data.address.street}, ${data.address.city}, ${data.address.state} ${data.address.zip}` : "—"],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      ["Payee", data.payee],
+      [
+        "Address",
+        data.address
+          ? `${data.address.street}, ${data.address.city}, ${data.address.state} ${data.address.zip}`
+          : "—",
+      ],
+    ],
+    y
+  )
 
   if (data.checkNumber) {
-    y = drawFieldRow(doc, [
-      ["Check Number", data.checkNumber],
-      ["Vendor ID", data.vendorId],
-    ], y)
+    y = drawFieldRow(
+      doc,
+      [
+        ["Check Number", data.checkNumber],
+        ["Vendor ID", data.vendorId],
+      ],
+      y
+    )
   }
 
   doc.y = y
   drawSectionHeading(doc, "Expenses")
 
   const colWidths = [140, 220, 80]
-  drawTableHeaders(doc, ["Account Code", "Description", "Amount"], colWidths, 50)
+  drawTableHeaders(
+    doc,
+    ["Account Code", "Description", "Amount"],
+    colWidths,
+    50
+  )
 
   for (const exp of data.expenses || []) {
     ensureSpace(doc, 20)
-    drawTableRow(doc, [exp.code || "—", exp.description || "—", currency(exp.amount)], colWidths, 50)
+    drawTableRow(
+      doc,
+      [exp.code || "—", exp.description || "—", currency(exp.amount)],
+      colWidths,
+      50
+    )
   }
 
   ensureSpace(doc, 20)
-  drawTableRow(doc, ["", "Grand Total", currency(data.grandTotal)], colWidths, 50, true)
+  drawTableRow(
+    doc,
+    ["", "Grand Total", currency(data.grandTotal)],
+    colWidths,
+    50,
+    true
+  )
 }
 
 // ─── Mileage Reimbursement ───────────────────────────────────────────────────
@@ -256,34 +328,71 @@ function renderCheckRequest(doc, data) {
 function renderMileage(doc, data) {
   let y = doc.y
 
-  y = drawFieldRow(doc, [
-    ["Employee Name", data.name],
-    ["Employee ID", data.employeeId],
-    ["Account Code", data.accountCode],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      ["Employee Name", data.name],
+      ["Employee ID", data.employeeId],
+      ["Account Code", data.accountCode],
+    ],
+    y
+  )
 
   doc.y = y
   drawSectionHeading(doc, "Trips")
 
   const colWidths = [65, 110, 110, 110, 55]
-  drawTableHeaders(doc, ["Date", "From", "To", "Purpose", "Miles"], colWidths, 50)
+  drawTableHeaders(
+    doc,
+    ["Date", "From", "To", "Purpose", "Miles"],
+    colWidths,
+    50
+  )
 
   for (const trip of data.trips || []) {
     ensureSpace(doc, 20)
     const effectiveMiles = trip.isRoundTrip ? trip.miles * 2 : trip.miles
     const milesText = `${effectiveMiles.toFixed(1)}${trip.isRoundTrip ? " RT" : ""}`
-    drawTableRow(doc, [formatDate(trip.date), trip.from, trip.to, trip.purpose || "—", milesText], colWidths, 50)
+    drawTableRow(
+      doc,
+      [
+        formatDate(trip.date),
+        trip.from,
+        trip.to,
+        trip.purpose || "—",
+        milesText,
+      ],
+      colWidths,
+      50
+    )
   }
 
   ensureSpace(doc, 20)
-  drawTableRow(doc, ["", "", "", "Total", `${data.totalMiles.toFixed(1)} mi`], colWidths, 50, true)
+  drawTableRow(
+    doc,
+    ["", "", "", "Total", `${data.totalMiles.toFixed(1)} mi`],
+    colWidths,
+    50,
+    true
+  )
 
   // Summary box
   doc.moveDown(0.5)
   ensureSpace(doc, 30)
-  doc.font("Helvetica").fontSize(9).fillColor(LABEL_COLOR)
-    .text(`${data.totalMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(2)} = `, 50, doc.y, { continued: true })
-  doc.font("Helvetica-Bold").fillColor(NAVY).text(currency(data.totalReimbursement))
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .fillColor(LABEL_COLOR)
+    .text(
+      `${data.totalMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(2)} = `,
+      50,
+      doc.y,
+      { continued: true }
+    )
+  doc
+    .font("Helvetica-Bold")
+    .fillColor(NAVY)
+    .text(currency(data.totalReimbursement))
 }
 
 // ─── Travel Reimbursement ────────────────────────────────────────────────────
@@ -291,35 +400,65 @@ function renderMileage(doc, data) {
 function renderTravel(doc, data) {
   let y = doc.y
 
-  y = drawFieldRow(doc, [
-    ["Employee Name", data.name],
-    ["Employee ID", data.employeeId],
-    ["Form Date", formatDate(data.formDate)],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      ["Employee Name", data.name],
+      ["Employee ID", data.employeeId],
+      ["Form Date", formatDate(data.formDate)],
+    ],
+    y
+  )
 
-  y = drawFieldRow(doc, [
-    ["Address", data.address],
-    ["Budget Year", data.budgetYear],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      ["Address", data.address],
+      ["Budget Year", data.budgetYear],
+    ],
+    y
+  )
 
-  y = drawFieldRow(doc, [
-    ["Account Code", data.accountCode],
-  ], y)
+  y = drawFieldRow(doc, [["Account Code", data.accountCode]], y)
 
-  y = drawFieldRow(doc, [
-    ["Meeting / Conference Title", data.meetingTitle],
-    ["Location", data.location],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      ["Meeting / Conference Title", data.meetingTitle],
+      ["Location", data.location],
+    ],
+    y
+  )
 
-  y = drawFieldRow(doc, [
-    ["Dates Away", `${formatDate(data.dateStart)} – ${formatDate(data.dateEnd)}`],
-    ["Time Away", data.timeAwayStart && data.timeAwayEnd ? `${data.timeAwayStart} – ${data.timeAwayEnd}` : "—"],
-  ], y)
+  y = drawFieldRow(
+    doc,
+    [
+      [
+        "Dates Away",
+        `${formatDate(data.dateStart)} – ${formatDate(data.dateEnd)}`,
+      ],
+      [
+        "Time Away",
+        data.timeAwayStart && data.timeAwayEnd
+          ? `${data.timeAwayStart} – ${data.timeAwayEnd}`
+          : "—",
+      ],
+    ],
+    y
+  )
 
   if (data.justification) {
     doc.y = y
-    doc.font("Helvetica-Bold").fontSize(7).fillColor(LABEL_COLOR).text("JUSTIFICATION", 50)
-    doc.font("Helvetica").fontSize(9).fillColor(TEXT_COLOR).text(data.justification, 50, doc.y + 2, { width: doc.page.width - 100 })
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(7)
+      .fillColor(LABEL_COLOR)
+      .text("JUSTIFICATION", 50)
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(TEXT_COLOR)
+      .text(data.justification, 50, doc.y + 2, { width: doc.page.width - 100 })
     doc.moveDown(0.5)
   } else {
     doc.y = y
@@ -342,7 +481,13 @@ function renderTravel(doc, data) {
     drawTableRow(doc, [label, currency(amount)], estCols, 50)
   }
   ensureSpace(doc, 18)
-  drawTableRow(doc, ["Total", currency(data.estimated.total)], estCols, 50, true)
+  drawTableRow(
+    doc,
+    ["Total", currency(data.estimated.total)],
+    estCols,
+    50,
+    true
+  )
 
   // Actual Expenses
   doc.moveDown(0.5)
@@ -352,7 +497,10 @@ function renderTravel(doc, data) {
   drawTableHeaders(doc, ["Category", "Amount"], actCols, 50)
 
   const actRows = [
-    [`Miles (${data.actuals.miles} × $${MILEAGE_RATE.toFixed(2)})`, currency(data.actuals.miles * MILEAGE_RATE)],
+    [
+      `Miles (${data.actuals.miles} × $${MILEAGE_RATE.toFixed(2)})`,
+      currency(data.actuals.miles * MILEAGE_RATE),
+    ],
     ["Other Transport", currency(data.actuals.otherTransport)],
     ["Lodging", currency(data.actuals.lodging)],
     ["Registration", currency(data.actuals.registration)],
@@ -363,7 +511,12 @@ function renderTravel(doc, data) {
   }
   for (const item of data.actuals.others || []) {
     ensureSpace(doc, 18)
-    drawTableRow(doc, [item.desc || "Other", currency(item.amount)], actCols, 50)
+    drawTableRow(
+      doc,
+      [item.desc || "Other", currency(item.amount)],
+      actCols,
+      50
+    )
   }
   ensureSpace(doc, 18)
   drawTableRow(doc, ["Meals", currency(data.actuals.mealTotal)], actCols, 50)
@@ -376,7 +529,12 @@ function renderTravel(doc, data) {
     ensureSpace(doc, 40)
     drawSectionHeading(doc, "Meals")
     const mealCols = [80, 70, 70, 70, 80]
-    drawTableHeaders(doc, ["Date", "Breakfast", "Lunch", "Dinner", "Day Total"], mealCols, 50)
+    drawTableHeaders(
+      doc,
+      ["Date", "Breakfast", "Lunch", "Dinner", "Day Total"],
+      mealCols,
+      50
+    )
 
     let mealGrandTotal = 0
     for (const meal of data.meals) {
@@ -385,13 +543,25 @@ function renderTravel(doc, data) {
       mealGrandTotal += dayTotal
       drawTableRow(
         doc,
-        [formatDate(meal.date), currency(meal.breakfast), currency(meal.lunch), currency(meal.dinner), currency(dayTotal)],
+        [
+          formatDate(meal.date),
+          currency(meal.breakfast),
+          currency(meal.lunch),
+          currency(meal.dinner),
+          currency(dayTotal),
+        ],
         mealCols,
         50
       )
     }
     ensureSpace(doc, 18)
-    drawTableRow(doc, ["", "", "", "Meal Total", currency(mealGrandTotal)], mealCols, 50, true)
+    drawTableRow(
+      doc,
+      ["", "", "", "Meal Total", currency(mealGrandTotal)],
+      mealCols,
+      50,
+      true
+    )
   }
 
   // Advance / Final Claim
@@ -399,10 +569,16 @@ function renderTravel(doc, data) {
     doc.moveDown(0.5)
     ensureSpace(doc, 30)
     if (data.advanceRequested > 0) {
-      drawFieldRow(doc, [
-        ["Advance Requested", currency(data.advanceRequested)],
-        data.finalClaim > 0 ? ["Final Claim", currency(data.finalClaim)] : ["", ""],
-      ], doc.y)
+      drawFieldRow(
+        doc,
+        [
+          ["Advance Requested", currency(data.advanceRequested)],
+          data.finalClaim > 0
+            ? ["Final Claim", currency(data.finalClaim)]
+            : ["", ""],
+        ],
+        doc.y
+      )
     } else if (data.finalClaim > 0) {
       drawFieldRow(doc, [["Final Claim", currency(data.finalClaim)]], doc.y)
     }
@@ -439,10 +615,15 @@ async function generatePdf(submission) {
     .font("Helvetica")
     .fontSize(7)
     .fillColor(LABEL_COLOR)
-    .text(`Generated by PaperPal · ${new Date().toLocaleDateString("en-US")}`, 50, doc.y, {
-      align: "center",
-      width: doc.page.width - 100,
-    })
+    .text(
+      `Generated by PaperPal · ${new Date().toLocaleDateString("en-US")}`,
+      50,
+      doc.y,
+      {
+        align: "center",
+        width: doc.page.width - 100,
+      }
+    )
 
   doc.end()
 
