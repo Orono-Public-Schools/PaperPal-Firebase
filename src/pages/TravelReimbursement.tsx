@@ -24,6 +24,8 @@ import SignatureField, {
 } from "@/components/forms/SignatureField"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
+import { useSandbox } from "@/hooks/useSandbox"
+import { useFormFields } from "@/hooks/useFormFields"
 import {
   createSubmission,
   getSubmission,
@@ -36,6 +38,7 @@ import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
 import type { TravelMeal, TravelActualOther, Attachment } from "@/lib/types"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -68,6 +71,8 @@ function emptyOther(): TravelActualOther {
 
 export default function TravelReimbursement() {
   const { user, userProfile } = useAuth()
+  const { sandbox } = useSandbox()
+  const { isVisible, getOrder } = useFormFields("travel")
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
@@ -349,15 +354,21 @@ export default function TravelReimbursement() {
           attachments: justificationFiles,
           summary: `Travel — ${meetingTitle || location}`,
           amount: finalClaim,
+          sandbox: sandbox || false,
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
-          reviewedAt: undefined,
-          approvedAt: undefined,
-          denialComments: undefined,
-          revisionComments: undefined,
-          approvalProcessingError: undefined,
-          pdfDriveId: undefined,
-          pdfDriveUrl: undefined,
+          reviewedAt: deleteField() as never,
+          approvedAt: deleteField() as never,
+          denialComments: deleteField() as never,
+          revisionComments: deleteField() as never,
+          approvalProcessingError: deleteField() as never,
+          pdfDriveId: deleteField() as never,
+          pdfDriveUrl: deleteField() as never,
+          activityLog: arrayUnion({
+            action: "resubmitted",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
         })
         setSubmissionId(resubmitId)
       } else {
@@ -372,8 +383,16 @@ export default function TravelReimbursement() {
           formData,
           attachments: justificationFiles,
           revisionHistory: [],
+          activityLog: [
+            {
+              action: "submitted",
+              by: user.email ?? "",
+              at: Timestamp.now(),
+            },
+          ],
           summary: `Travel — ${meetingTitle || location}`,
           amount: finalClaim,
+          ...(sandbox && { sandbox: true }),
         })
         setSubmissionId(id)
       }
@@ -442,9 +461,12 @@ export default function TravelReimbursement() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Employee / trip info */}
-        <Section title="Employee & Trip Information">
+        <Section
+          title="Employee & Trip Information"
+          style={{ order: getOrder("fullName") }}
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Full Name">
               <input
@@ -455,67 +477,77 @@ export default function TravelReimbursement() {
                 className="input-neu w-full"
               />
             </Field>
-            <Field label="Employee ID">
-              <input
-                type="text"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                placeholder="e.g. 12345"
-                className="input-neu"
-              />
-            </Field>
-            <Field label="Form Date">
-              <DatePicker value={formDate} onChange={setFormDate} required />
-            </Field>
-            <Field label="Home Address">
-              <input
-                type="text"
-                value={address}
-                required
-                placeholder="Street, City, State ZIP"
-                onChange={(e) => setAddress(e.target.value)}
-                className="input-neu"
-              />
-            </Field>
-            <Field label="Budget Year">
-              <input
-                type="text"
-                value={budgetYear}
-                required
-                placeholder="e.g. 2025-2026"
-                onChange={(e) => setBudgetYear(e.target.value)}
-                className="input-neu"
-              />
-            </Field>
-            <Field label="Account Code">
-              <input
-                type="text"
-                value={accountCode}
-                placeholder="##-###-###-###-###-###"
-                onChange={(e) =>
-                  setAccountCode(formatBudgetCode(e.target.value))
-                }
-                maxLength={20}
-                className="input-neu font-mono"
-                disabled={userProfile?.role === "staff"}
-                style={
-                  userProfile?.role === "staff"
-                    ? { opacity: 0.5, cursor: "not-allowed" }
-                    : undefined
-                }
-              />
-              {userProfile?.role !== "staff" && (
-                <BudgetCodeBuilder
-                  value={accountCode}
-                  onChange={setAccountCode}
+            {isVisible("employeeId") && (
+              <Field label="Employee ID">
+                <input
+                  type="text"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  placeholder="e.g. 12345"
+                  className="input-neu"
                 />
-              )}
-              {userProfile?.role === "staff" && (
-                <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                  Assigned by your supervisor during review.
-                </p>
-              )}
-            </Field>
+              </Field>
+            )}
+            {isVisible("formDate") && (
+              <Field label="Form Date">
+                <DatePicker value={formDate} onChange={setFormDate} required />
+              </Field>
+            )}
+            {isVisible("address") && (
+              <Field label="Home Address">
+                <input
+                  type="text"
+                  value={address}
+                  required
+                  placeholder="Street, City, State ZIP"
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="input-neu"
+                />
+              </Field>
+            )}
+            {isVisible("budgetYear") && (
+              <Field label="Budget Year">
+                <input
+                  type="text"
+                  value={budgetYear}
+                  required
+                  placeholder="e.g. 2025-2026"
+                  onChange={(e) => setBudgetYear(e.target.value)}
+                  className="input-neu"
+                />
+              </Field>
+            )}
+            {isVisible("accountCode") && (
+              <Field label="Account Code">
+                <input
+                  type="text"
+                  value={accountCode}
+                  placeholder="##-###-###-###-###-###"
+                  onChange={(e) =>
+                    setAccountCode(formatBudgetCode(e.target.value))
+                  }
+                  maxLength={20}
+                  className="input-neu font-mono"
+                  disabled={userProfile?.role === "staff"}
+                  style={
+                    userProfile?.role === "staff"
+                      ? { opacity: 0.5, cursor: "not-allowed" }
+                      : undefined
+                  }
+                />
+                {userProfile?.role !== "staff" && (
+                  <BudgetCodeBuilder
+                    value={accountCode}
+                    onChange={setAccountCode}
+                  />
+                )}
+                {userProfile?.role === "staff" && (
+                  <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                    Assigned by your supervisor during review.
+                  </p>
+                )}
+              </Field>
+            )}
             <Field label="Meeting / Conference Title">
               <input
                 type="text"
@@ -544,208 +576,227 @@ export default function TravelReimbursement() {
             <Field label="Date — End">
               <DatePicker value={dateEnd} onChange={setDateEnd} required />
             </Field>
-            <Field label="Away From Job — Start">
-              <DatePicker value={timeAwayStart} onChange={setTimeAwayStart} />
-            </Field>
-            <Field label="Away From Job — End">
-              <DatePicker value={timeAwayEnd} onChange={setTimeAwayEnd} />
-            </Field>
+            {isVisible("timeAway") && (
+              <Field label="Away From Job — Start">
+                <DatePicker value={timeAwayStart} onChange={setTimeAwayStart} />
+              </Field>
+            )}
+            {isVisible("timeAway") && (
+              <Field label="Away From Job — End">
+                <DatePicker value={timeAwayEnd} onChange={setTimeAwayEnd} />
+              </Field>
+            )}
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Route Request To">
-              <StaffEmailAutocomplete
-                value={routeRequestTo}
-                onChange={setRouteRequestTo}
-                placeholder="Supervisor or department admin"
-                className="input-neu"
-              />
-              <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                Usually your supervisor, or a specific department admin.
-              </p>
-            </Field>
-          </div>
+          {isVisible("routeTo") && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field label="Route Request To">
+                <StaffEmailAutocomplete
+                  value={routeRequestTo}
+                  onChange={setRouteRequestTo}
+                  placeholder="Supervisor or department admin"
+                  className="input-neu"
+                />
+                <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                  Usually your supervisor, or a specific department admin.
+                </p>
+              </Field>
+            </div>
+          )}
         </Section>
 
         {/* Justification for Release */}
-        <Section title="Justification for Release">
-          <Field label="Justification / Purpose">
-            <textarea
-              value={justification}
-              required
-              rows={3}
-              placeholder="Additional details or justification comments…"
-              onChange={(e) => setJustification(e.target.value)}
-              className="input-neu resize-none"
-            />
-          </Field>
-          <div className="mt-4">
-            <div className="flex items-center justify-between">
-              <p
-                className="text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Attachments
-              </p>
-              <span
-                className="text-[11px] font-medium"
-                style={{ color: "#94a3b8" }}
-              >
-                Supported: PDF, IMG, DOC
-              </span>
-            </div>
-            <label
-              className="mt-2 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 transition-colors"
-              style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#4356a9"
-                e.currentTarget.style.background = "rgba(67,86,169,0.03)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db"
-                e.currentTarget.style.background = "transparent"
-              }}
-              onDragOver={(e) => {
-                e.preventDefault()
-                e.currentTarget.style.borderColor = "#4356a9"
-                e.currentTarget.style.background = "rgba(67,86,169,0.06)"
-              }}
-              onDragLeave={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db"
-                e.currentTarget.style.background = "transparent"
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.currentTarget.style.borderColor = "#d1d5db"
-                e.currentTarget.style.background = "transparent"
-                handleFileUpload(e.dataTransfer.files)
-              }}
-            >
-              <Upload size={24} style={{ color: "#4356a9" }} />
-              <p className="text-sm">
+        {isVisible("justification") && (
+          <Section
+            title="Justification for Release"
+            style={{ order: getOrder("justification") }}
+          >
+            <Field label="Justification / Purpose">
+              <textarea
+                value={justification}
+                required
+                rows={3}
+                placeholder="Additional details or justification comments…"
+                onChange={(e) => setJustification(e.target.value)}
+                className="input-neu resize-none"
+              />
+            </Field>
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <p
+                  className="text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  Attachments
+                </p>
                 <span
-                  className="font-semibold underline"
+                  className="text-[11px] font-medium"
+                  style={{ color: "#94a3b8" }}
+                >
+                  Supported: PDF, IMG, DOC
+                </span>
+              </div>
+              <label
+                className="mt-2 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 transition-colors"
+                style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#4356a9"
+                  e.currentTarget.style.background = "rgba(67,86,169,0.03)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.style.borderColor = "#4356a9"
+                  e.currentTarget.style.background = "rgba(67,86,169,0.06)"
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                  handleFileUpload(e.dataTransfer.files)
+                }}
+              >
+                <Upload size={24} style={{ color: "#4356a9" }} />
+                <p className="text-sm">
+                  <span
+                    className="font-semibold underline"
+                    style={{ color: "#4356a9" }}
+                  >
+                    Click to upload
+                  </span>{" "}
+                  or drag and drop
+                </p>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                />
+              </label>
+              {uploading && (
+                <div
+                  className="mt-2 flex items-center gap-2 text-sm"
                   style={{ color: "#4356a9" }}
                 >
-                  Click to upload
-                </span>{" "}
-                or drag and drop
-              </p>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx"
-                className="hidden"
-                onChange={(e) => handleFileUpload(e.target.files)}
-              />
-            </label>
-            {uploading && (
-              <div
-                className="mt-2 flex items-center gap-2 text-sm"
-                style={{ color: "#4356a9" }}
-              >
-                <Loader2 size={14} className="animate-spin" />
-                Uploading…
-              </div>
-            )}
-            {justificationFiles.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {justificationFiles.map((f, i) => {
-                  const isImage = f.mimeType.startsWith("image/")
-                  const isPdf = f.mimeType === "application/pdf"
-                  const Icon = isImage ? Image : isPdf ? FileText : File
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2"
-                      style={{
-                        background: "#f8f9fb",
-                        border: "1px solid #e2e5ea",
-                      }}
-                    >
-                      <Icon
-                        size={16}
-                        style={{ color: "#4356a9", flexShrink: 0 }}
-                      />
-                      <a
-                        href={f.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 flex-1 truncate text-sm font-medium underline"
-                        style={{ color: "#1d2a5d" }}
+                  <Loader2 size={14} className="animate-spin" />
+                  Uploading…
+                </div>
+              )}
+              {justificationFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {justificationFiles.map((f, i) => {
+                    const isImage = f.mimeType.startsWith("image/")
+                    const isPdf = f.mimeType === "application/pdf"
+                    const Icon = isImage ? Image : isPdf ? FileText : File
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2"
+                        style={{
+                          background: "#f8f9fb",
+                          border: "1px solid #e2e5ea",
+                        }}
                       >
-                        {f.name}
-                      </a>
-                      <span
-                        className="text-[11px]"
-                        style={{ color: "#94a3b8" }}
-                      >
-                        {(f.size / 1024).toFixed(0)} KB
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setJustificationFiles((prev) =>
-                            prev.filter((_, j) => j !== i)
-                          )
-                        }
-                        className="cursor-pointer rounded p-1 transition-colors"
-                        style={{ color: "#94a3b8" }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = "#ad2122")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = "#94a3b8")
-                        }
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </Section>
+                        <Icon
+                          size={16}
+                          style={{ color: "#4356a9", flexShrink: 0 }}
+                        />
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 flex-1 truncate text-sm font-medium underline"
+                          style={{ color: "#1d2a5d" }}
+                        >
+                          {f.name}
+                        </a>
+                        <span
+                          className="text-[11px]"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          {(f.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setJustificationFiles((prev) =>
+                              prev.filter((_, j) => j !== i)
+                            )
+                          }
+                          className="cursor-pointer rounded p-1 transition-colors"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.color = "#94a3b8")
+                          }
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
 
         {/* Pre-approved costs */}
-        <Section title="Pre-Approved Estimated Expenses">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <DollarField
-              label="Transportation"
-              value={estTransport}
-              onChange={setEstTransport}
-            />
-            <DollarField
-              label="Lodging"
-              value={estLodging}
-              onChange={setEstLodging}
-            />
-            <DollarField
-              label="Meals"
-              value={estMeals}
-              onChange={setEstMeals}
-            />
-            <DollarField
-              label="Registration"
-              value={estRegistration}
-              onChange={setEstRegistration}
-            />
-            <DollarField
-              label="Substitute"
-              value={estSubstitute}
-              onChange={setEstSubstitute}
-            />
-            <DollarField
-              label="Other"
-              value={estOther}
-              onChange={setEstOther}
-            />
-          </div>
-          <TotalRow label="Total Estimated" value={estTotal} />
-        </Section>
+        {isVisible("estimatedExpenses") && (
+          <Section
+            title="Pre-Approved Estimated Expenses"
+            style={{ order: getOrder("estimatedExpenses") }}
+          >
+            <div className="grid gap-4 sm:grid-cols-3">
+              <DollarField
+                label="Transportation"
+                value={estTransport}
+                onChange={setEstTransport}
+              />
+              <DollarField
+                label="Lodging"
+                value={estLodging}
+                onChange={setEstLodging}
+              />
+              <DollarField
+                label="Meals"
+                value={estMeals}
+                onChange={setEstMeals}
+              />
+              <DollarField
+                label="Registration"
+                value={estRegistration}
+                onChange={setEstRegistration}
+              />
+              <DollarField
+                label="Substitute"
+                value={estSubstitute}
+                onChange={setEstSubstitute}
+              />
+              <DollarField
+                label="Other"
+                value={estOther}
+                onChange={setEstOther}
+              />
+            </div>
+            <TotalRow label="Total Estimated" value={estTotal} />
+          </Section>
+        )}
 
         {/* Actual costs */}
-        <Section title="Actual Costs">
+        <Section
+          title="Actual Costs"
+          style={{ order: getOrder("actualExpenses") }}
+        >
           {/* Transportation by Car */}
           <div
             className="mb-4 rounded-xl p-4"
@@ -949,150 +1000,290 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Meals per day */}
-        <Section title="Meal Expenses">
-          <div
-            className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2"
-            style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
-          >
-            <span
-              className="text-xs font-semibold"
-              style={{ color: "#ad2122" }}
+        {isVisible("meals") && (
+          <Section title="Meal Expenses" style={{ order: getOrder("meals") }}>
+            <div
+              className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2"
+              style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
             >
-              *Attach Original Receipts
-            </span>
-          </div>
-          <div className="overflow-visible">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr style={{ borderBottom: "2px solid #e2e5ea" }}>
-                  <th
-                    className="pr-3 pb-2 text-xs font-semibold uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Date
-                  </th>
-                  <th
-                    className="pr-3 pb-2 text-xs font-semibold uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Breakfast
-                  </th>
-                  <th
-                    className="pr-3 pb-2 text-xs font-semibold uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Lunch
-                  </th>
-                  <th
-                    className="pr-3 pb-2 text-xs font-semibold uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Dinner
-                  </th>
-                  <th
-                    className="pb-2 text-right text-xs font-semibold uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Total
-                  </th>
-                  <th className="pb-2" style={{ width: "32px" }} />
-                </tr>
-              </thead>
-              <tbody>
-                {meals.map((meal, i) => {
-                  const rowTotal =
-                    (meal.breakfast || 0) +
-                    (meal.lunch || 0) +
-                    (meal.dinner || 0)
-                  return (
-                    <tr
-                      key={meal.date}
-                      style={{ borderBottom: "1px solid #f0f2f5" }}
+              <span
+                className="text-xs font-semibold"
+                style={{ color: "#ad2122" }}
+              >
+                *Attach Original Receipts
+              </span>
+            </div>
+            <div className="overflow-visible">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #e2e5ea" }}>
+                    <th
+                      className="pr-3 pb-2 text-xs font-semibold uppercase"
+                      style={{ color: "#64748b" }}
                     >
-                      <td className="py-2 pr-3" style={{ minWidth: "140px" }}>
-                        <DatePicker
-                          value={meal.date}
-                          onChange={(v) => updateMeal(i, "date", v)}
+                      Date
+                    </th>
+                    <th
+                      className="pr-3 pb-2 text-xs font-semibold uppercase"
+                      style={{ color: "#64748b" }}
+                    >
+                      Breakfast
+                    </th>
+                    <th
+                      className="pr-3 pb-2 text-xs font-semibold uppercase"
+                      style={{ color: "#64748b" }}
+                    >
+                      Lunch
+                    </th>
+                    <th
+                      className="pr-3 pb-2 text-xs font-semibold uppercase"
+                      style={{ color: "#64748b" }}
+                    >
+                      Dinner
+                    </th>
+                    <th
+                      className="pb-2 text-right text-xs font-semibold uppercase"
+                      style={{ color: "#64748b" }}
+                    >
+                      Total
+                    </th>
+                    <th className="pb-2" style={{ width: "32px" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {meals.map((meal, i) => {
+                    const rowTotal =
+                      (meal.breakfast || 0) +
+                      (meal.lunch || 0) +
+                      (meal.dinner || 0)
+                    return (
+                      <tr
+                        key={meal.date}
+                        style={{ borderBottom: "1px solid #f0f2f5" }}
+                      >
+                        <td className="py-2 pr-3" style={{ minWidth: "140px" }}>
+                          <DatePicker
+                            value={meal.date}
+                            onChange={(v) => updateMeal(i, "date", v)}
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: "#94a3b8" }}>$</span>
+                            <input
+                              type="number"
+                              value={meal.breakfast || ""}
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={(e) =>
+                                updateMeal(
+                                  i,
+                                  "breakfast",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="input-neu"
+                              style={{ maxWidth: "80px" }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: "#94a3b8" }}>$</span>
+                            <input
+                              type="number"
+                              value={meal.lunch || ""}
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={(e) =>
+                                updateMeal(
+                                  i,
+                                  "lunch",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="input-neu"
+                              style={{ maxWidth: "80px" }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-1">
+                            <span style={{ color: "#94a3b8" }}>$</span>
+                            <input
+                              type="number"
+                              value={meal.dinner || ""}
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={(e) =>
+                                updateMeal(
+                                  i,
+                                  "dinner",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="input-neu"
+                              style={{ maxWidth: "80px" }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 text-right">
+                          <span
+                            className="font-semibold"
+                            style={{ color: "#1d2a5d" }}
+                          >
+                            ${rowTotal.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setMeals((prev) => prev.filter((_, j) => j !== i))
+                            }
+                            className="cursor-pointer rounded p-1 transition-colors"
+                            style={{ color: "#94a3b8" }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.color = "#ad2122")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.color = "#94a3b8")
+                            }
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setMeals((prev) => [...prev, emptyMeal(todayStr())])
+              }
+              className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
+              style={{ color: "#4356a9" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = "transparent")
+              }
+            >
+              <Plus size={15} />
+              Add Meal Row
+            </button>
+            <TotalRow label="Meal Total" value={mealTotal} />
+
+            {/* Receipt upload */}
+            <div className="mt-4">
+              <p
+                className="mb-2 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Meal Receipts
+              </p>
+              <label
+                className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-4 transition-colors"
+                style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#4356a9"
+                  e.currentTarget.style.background = "rgba(67,86,169,0.03)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.style.borderColor = "#4356a9"
+                  e.currentTarget.style.background = "rgba(67,86,169,0.06)"
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.style.borderColor = "#d1d5db"
+                  e.currentTarget.style.background = "transparent"
+                  handleReceiptUpload(e.dataTransfer.files)
+                }}
+              >
+                <Upload size={20} style={{ color: "#4356a9" }} />
+                <p className="text-xs">
+                  <span
+                    className="font-semibold underline"
+                    style={{ color: "#4356a9" }}
+                  >
+                    Upload receipts
+                  </span>{" "}
+                  or drag and drop
+                </p>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.gif"
+                  className="hidden"
+                  onChange={(e) => handleReceiptUpload(e.target.files)}
+                />
+              </label>
+              {uploadingReceipts && (
+                <div
+                  className="mt-2 flex items-center gap-2 text-sm"
+                  style={{ color: "#4356a9" }}
+                >
+                  <Loader2 size={14} className="animate-spin" />
+                  Uploading…
+                </div>
+              )}
+              {mealReceipts.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {mealReceipts.map((f, i) => {
+                    const isImg = f.mimeType.startsWith("image/")
+                    const Icon = isImg ? Image : FileText
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-lg px-3 py-1.5"
+                        style={{
+                          background: "#f8f9fb",
+                          border: "1px solid #e2e5ea",
+                        }}
+                      >
+                        <Icon
+                          size={14}
+                          style={{ color: "#4356a9", flexShrink: 0 }}
                         />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex items-center gap-1">
-                          <span style={{ color: "#94a3b8" }}>$</span>
-                          <input
-                            type="number"
-                            value={meal.breakfast || ""}
-                            min={0}
-                            step="0.01"
-                            placeholder="0.00"
-                            onChange={(e) =>
-                              updateMeal(
-                                i,
-                                "breakfast",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="input-neu"
-                            style={{ maxWidth: "80px" }}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex items-center gap-1">
-                          <span style={{ color: "#94a3b8" }}>$</span>
-                          <input
-                            type="number"
-                            value={meal.lunch || ""}
-                            min={0}
-                            step="0.01"
-                            placeholder="0.00"
-                            onChange={(e) =>
-                              updateMeal(
-                                i,
-                                "lunch",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="input-neu"
-                            style={{ maxWidth: "80px" }}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex items-center gap-1">
-                          <span style={{ color: "#94a3b8" }}>$</span>
-                          <input
-                            type="number"
-                            value={meal.dinner || ""}
-                            min={0}
-                            step="0.01"
-                            placeholder="0.00"
-                            onChange={(e) =>
-                              updateMeal(
-                                i,
-                                "dinner",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="input-neu"
-                            style={{ maxWidth: "80px" }}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-2 text-right">
-                        <span
-                          className="font-semibold"
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 flex-1 truncate text-xs font-medium underline"
                           style={{ color: "#1d2a5d" }}
                         >
-                          ${rowTotal.toFixed(2)}
+                          {f.name}
+                        </a>
+                        <span
+                          className="text-[10px]"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          {(f.size / 1024).toFixed(0)} KB
                         </span>
-                      </td>
-                      <td className="py-2">
                         <button
                           type="button"
                           onClick={() =>
-                            setMeals((prev) => prev.filter((_, j) => j !== i))
+                            setMealReceipts((prev) =>
+                              prev.filter((_, j) => j !== i)
+                            )
                           }
-                          className="cursor-pointer rounded p-1 transition-colors"
+                          className="cursor-pointer rounded p-0.5 transition-colors"
                           style={{ color: "#94a3b8" }}
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.color = "#ad2122")
@@ -1103,150 +1294,14 @@ export default function TravelReimbursement() {
                         >
                           <Trash2 size={13} />
                         </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          <button
-            type="button"
-            onClick={() => setMeals((prev) => [...prev, emptyMeal(todayStr())])}
-            className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200"
-            style={{ color: "#4356a9" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(67,86,169,0.06)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
-          >
-            <Plus size={15} />
-            Add Meal Row
-          </button>
-          <TotalRow label="Meal Total" value={mealTotal} />
-
-          {/* Receipt upload */}
-          <div className="mt-4">
-            <p
-              className="mb-2 text-xs font-semibold tracking-wider uppercase"
-              style={{ color: "#64748b" }}
-            >
-              Meal Receipts
-            </p>
-            <label
-              className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-4 transition-colors"
-              style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#4356a9"
-                e.currentTarget.style.background = "rgba(67,86,169,0.03)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db"
-                e.currentTarget.style.background = "transparent"
-              }}
-              onDragOver={(e) => {
-                e.preventDefault()
-                e.currentTarget.style.borderColor = "#4356a9"
-                e.currentTarget.style.background = "rgba(67,86,169,0.06)"
-              }}
-              onDragLeave={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db"
-                e.currentTarget.style.background = "transparent"
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.currentTarget.style.borderColor = "#d1d5db"
-                e.currentTarget.style.background = "transparent"
-                handleReceiptUpload(e.dataTransfer.files)
-              }}
-            >
-              <Upload size={20} style={{ color: "#4356a9" }} />
-              <p className="text-xs">
-                <span
-                  className="font-semibold underline"
-                  style={{ color: "#4356a9" }}
-                >
-                  Upload receipts
-                </span>{" "}
-                or drag and drop
-              </p>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.gif"
-                className="hidden"
-                onChange={(e) => handleReceiptUpload(e.target.files)}
-              />
-            </label>
-            {uploadingReceipts && (
-              <div
-                className="mt-2 flex items-center gap-2 text-sm"
-                style={{ color: "#4356a9" }}
-              >
-                <Loader2 size={14} className="animate-spin" />
-                Uploading…
-              </div>
-            )}
-            {mealReceipts.length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                {mealReceipts.map((f, i) => {
-                  const isImg = f.mimeType.startsWith("image/")
-                  const Icon = isImg ? Image : FileText
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 rounded-lg px-3 py-1.5"
-                      style={{
-                        background: "#f8f9fb",
-                        border: "1px solid #e2e5ea",
-                      }}
-                    >
-                      <Icon
-                        size={14}
-                        style={{ color: "#4356a9", flexShrink: 0 }}
-                      />
-                      <a
-                        href={f.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 flex-1 truncate text-xs font-medium underline"
-                        style={{ color: "#1d2a5d" }}
-                      >
-                        {f.name}
-                      </a>
-                      <span
-                        className="text-[10px]"
-                        style={{ color: "#94a3b8" }}
-                      >
-                        {(f.size / 1024).toFixed(0)} KB
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMealReceipts((prev) =>
-                            prev.filter((_, j) => j !== i)
-                          )
-                        }
-                        className="cursor-pointer rounded p-0.5 transition-colors"
-                        style={{ color: "#94a3b8" }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = "#ad2122")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = "#94a3b8")
-                        }
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </Section>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
 
         {/* Summary */}
         <div
@@ -1254,6 +1309,7 @@ export default function TravelReimbursement() {
           style={{
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            order: 99,
           }}
         >
           <div className="flex items-center justify-between text-sm">
@@ -1262,24 +1318,26 @@ export default function TravelReimbursement() {
               ${actTotal.toFixed(2)}
             </span>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span style={{ color: "#64748b" }}>Less Advance Requested</span>
-            <div className="flex items-center gap-2">
-              <span style={{ color: "#64748b" }}>$</span>
-              <input
-                type="number"
-                value={advanceRequested || ""}
-                min={0}
-                step="0.01"
-                placeholder="0.00"
-                onChange={(e) =>
-                  setAdvanceRequested(parseFloat(e.target.value) || 0)
-                }
-                className="input-neu text-right"
-                style={{ maxWidth: "100px" }}
-              />
+          {isVisible("advanceRequested") && (
+            <div className="flex items-center justify-between text-sm">
+              <span style={{ color: "#64748b" }}>Less Advance Requested</span>
+              <div className="flex items-center gap-2">
+                <span style={{ color: "#64748b" }}>$</span>
+                <input
+                  type="number"
+                  value={advanceRequested || ""}
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  onChange={(e) =>
+                    setAdvanceRequested(parseFloat(e.target.value) || 0)
+                  }
+                  className="input-neu text-right"
+                  style={{ maxWidth: "100px" }}
+                />
+              </div>
             </div>
-          </div>
+          )}
           <div
             className="flex items-center justify-between border-t pt-3"
             style={{ borderColor: "rgba(180,185,195,0.4)" }}
@@ -1293,7 +1351,10 @@ export default function TravelReimbursement() {
           </div>
         </div>
 
-        <Section title="Employee Signature">
+        <Section
+          title="Employee Signature"
+          style={{ order: getOrder("signature") }}
+        >
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}
@@ -1308,7 +1369,7 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3" style={{ order: 99 }}>
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -1334,9 +1395,11 @@ export default function TravelReimbursement() {
 function Section({
   title,
   children,
+  style: extraStyle,
 }: {
   title: string
   children: React.ReactNode
+  style?: React.CSSProperties
 }) {
   return (
     <div
@@ -1344,6 +1407,7 @@ function Section({
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+        ...extraStyle,
       }}
     >
       <h2

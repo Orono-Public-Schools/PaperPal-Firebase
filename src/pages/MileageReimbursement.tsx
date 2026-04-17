@@ -19,7 +19,10 @@ import SignatureField, {
 } from "@/components/forms/SignatureField"
 import DatePicker from "@/components/forms/DatePicker"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
+import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
 import { useAuth } from "@/hooks/useAuth"
+import { useSandbox } from "@/hooks/useSandbox"
+import { useFormFields } from "@/hooks/useFormFields"
 import {
   createSubmission,
   getSubmission,
@@ -47,6 +50,8 @@ function emptyTrip(): MileageTrip {
 
 export default function MileageReimbursement() {
   const { user, userProfile } = useAuth()
+  const { sandbox } = useSandbox()
+  const { isVisible, getOrder } = useFormFields("mileage")
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
@@ -166,15 +171,21 @@ export default function MileageReimbursement() {
           formData,
           summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
           amount: totalReimbursement,
+          sandbox: sandbox || false,
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
-          reviewedAt: undefined,
-          approvedAt: undefined,
-          denialComments: undefined,
-          revisionComments: undefined,
-          approvalProcessingError: undefined,
-          pdfDriveId: undefined,
-          pdfDriveUrl: undefined,
+          reviewedAt: deleteField() as never,
+          approvedAt: deleteField() as never,
+          denialComments: deleteField() as never,
+          revisionComments: deleteField() as never,
+          approvalProcessingError: deleteField() as never,
+          pdfDriveId: deleteField() as never,
+          pdfDriveUrl: deleteField() as never,
+          activityLog: arrayUnion({
+            action: "resubmitted",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
         })
         setSubmissionId(resubmitId)
       } else {
@@ -189,8 +200,16 @@ export default function MileageReimbursement() {
           formData,
           attachments: [],
           revisionHistory: [],
+          activityLog: [
+            {
+              action: "submitted",
+              by: user.email ?? "",
+              at: Timestamp.now(),
+            },
+          ],
           summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
           amount: totalReimbursement,
+          ...(sandbox && { sandbox: true }),
         })
         setSubmissionId(id)
       }
@@ -260,9 +279,12 @@ export default function MileageReimbursement() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Employee info */}
-        <Section title="Employee Information">
+        <Section
+          title="Employee Information"
+          style={{ order: getOrder("fullName") }}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full Name">
               <input
@@ -273,60 +295,66 @@ export default function MileageReimbursement() {
                 className="input-neu w-full"
               />
             </Field>
-            <Field label="Employee ID">
-              <input
-                type="text"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                placeholder="e.g. 12345"
-                className="input-neu w-full"
-              />
-            </Field>
-            <Field label="Account Code">
-              <input
-                type="text"
-                value={accountCode}
-                onChange={(e) =>
-                  setAccountCode(formatBudgetCode(e.target.value))
-                }
-                placeholder="##-###-###-###-###-###"
-                maxLength={20}
-                className="input-neu w-full font-mono"
-                disabled={userProfile?.role === "staff"}
-                style={
-                  userProfile?.role === "staff"
-                    ? { opacity: 0.5, cursor: "not-allowed" }
-                    : undefined
-                }
-              />
-              {userProfile?.role !== "staff" && (
-                <BudgetCodeBuilder
-                  value={accountCode}
-                  onChange={setAccountCode}
+            {isVisible("employeeId") && (
+              <Field label="Employee ID">
+                <input
+                  type="text"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  placeholder="e.g. 12345"
+                  className="input-neu w-full"
                 />
-              )}
-              {userProfile?.role === "staff" && (
+              </Field>
+            )}
+            {isVisible("accountCode") && (
+              <Field label="Account Code">
+                <input
+                  type="text"
+                  value={accountCode}
+                  onChange={(e) =>
+                    setAccountCode(formatBudgetCode(e.target.value))
+                  }
+                  placeholder="##-###-###-###-###-###"
+                  maxLength={20}
+                  className="input-neu w-full font-mono"
+                  disabled={userProfile?.role === "staff"}
+                  style={
+                    userProfile?.role === "staff"
+                      ? { opacity: 0.5, cursor: "not-allowed" }
+                      : undefined
+                  }
+                />
+                {userProfile?.role !== "staff" && (
+                  <BudgetCodeBuilder
+                    value={accountCode}
+                    onChange={setAccountCode}
+                  />
+                )}
+                {userProfile?.role === "staff" && (
+                  <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                    Assigned by your supervisor during review.
+                  </p>
+                )}
+              </Field>
+            )}
+            {isVisible("routeTo") && (
+              <Field label="Route To">
+                <StaffEmailAutocomplete
+                  value={routeRequestTo}
+                  onChange={setRouteRequestTo}
+                  placeholder="Supervisor email"
+                  className="input-neu"
+                />
                 <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                  Assigned by your supervisor during review.
+                  Your form will be sent to this person for approval.
                 </p>
-              )}
-            </Field>
-            <Field label="Route To">
-              <StaffEmailAutocomplete
-                value={routeRequestTo}
-                onChange={setRouteRequestTo}
-                placeholder="Supervisor email"
-                className="input-neu"
-              />
-              <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                Your form will be sent to this person for approval.
-              </p>
-            </Field>
+              </Field>
+            )}
           </div>
         </Section>
 
         {/* Trip log */}
-        <Section title="Trip Log">
+        <Section title="Trip Log" style={{ order: getOrder("trips") }}>
           <div
             className="divide-y"
             style={{ borderColor: "rgba(180,185,195,0.25)" }}
@@ -366,6 +394,7 @@ export default function MileageReimbursement() {
         <div
           className="rounded-xl p-5"
           style={{
+            order: getOrder("trips") + 0.5,
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
@@ -399,7 +428,10 @@ export default function MileageReimbursement() {
           </div>
         </div>
 
-        <Section title="Employee Signature">
+        <Section
+          title="Employee Signature"
+          style={{ order: getOrder("signature") }}
+        >
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}
@@ -414,7 +446,7 @@ export default function MileageReimbursement() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3" style={{ order: 99 }}>
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -440,9 +472,11 @@ export default function MileageReimbursement() {
 function Section({
   title,
   children,
+  style: extraStyle,
 }: {
   title: string
   children: React.ReactNode
+  style?: React.CSSProperties
 }) {
   return (
     <div
@@ -450,6 +484,7 @@ function Section({
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+        ...extraStyle,
       }}
     >
       <h2

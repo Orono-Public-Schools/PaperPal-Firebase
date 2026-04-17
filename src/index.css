@@ -102,7 +102,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background: linear-gradient(160deg, #0f1a3e 0%, #1a2754 40%, #1e2d5a 100%);
+    background: linear-gradient(160deg, #0a1230 0%, #131f45 40%, #172550 100%);
     min-height: 100vh;
   }
 }
@@ -397,5 +397,39 @@
     opacity: 0.6;
     cursor: default;
     transform: none;
+  }
+}
+
+/* ─── Print Styles ─────────────────────────────────────────────────────────── */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide nav, header, sidebar, back button, action buttons */
+  header,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Remove page background gradient + padding from layout wrapper */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove card shadows in print */
+  [style*="box-shadow"] {
+    box-shadow: none !important;
+  }
+
+  /* Ensure form data card fills page width */
+  .rounded-xl {
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 }

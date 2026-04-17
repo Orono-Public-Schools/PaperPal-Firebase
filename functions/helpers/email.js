@@ -10,7 +10,8 @@ const FORM_LABELS = {
 }
 
 function formUrl(submission) {
-  return `${APP_URL}/forms/${submission.formType}/${submission.id}`
+  const base = `${APP_URL}/forms/${submission.formType}/${submission.id}`
+  return submission.sandbox ? `${base}?sandbox=true` : base
 }
 
 function currency(n) {
@@ -49,6 +50,12 @@ function emailHtml({ heading, body, link, linkLabel = "View Request" }) {
   `
 }
 
+// In sandbox mode, redirect all emails to the submitter
+function sandboxTo(submission, originalTo) {
+  if (!submission.sandbox) return originalTo
+  return submission.submitterEmail
+}
+
 async function sendMail(to, subject, html, pdfBuffer, pdfFilename) {
   const db = getFirestore()
   const doc = {
@@ -82,14 +89,15 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
   const fname = pdfFilename(submission)
   const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
 
   if (!settings.notifyOnSubmit) return
 
   // Supervisor notification
   if (submission.supervisorEmail) {
     await sendMail(
-      submission.supervisorEmail,
-      `[PaperPal] ${formLabel} from ${submission.submitterName} — ${currency(submission.amount)}`,
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] ${formLabel} from ${submission.submitterName} — ${currency(submission.amount)}`,
       emailHtml({
         heading: `New ${formLabel} for Review`,
         body: `
@@ -108,7 +116,7 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
   // Receipt to submitter
   await sendMail(
     submission.submitterEmail,
-    `[PaperPal] Submitted — ${formLabel} ${submission.id}`,
+    `${tag}[PaperPal] Submitted — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Your ${formLabel} Has Been Submitted`,
       body: `
@@ -128,14 +136,15 @@ async function sendReviewedEmails(submission, settings, pdfBuffer) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
   const fname = pdfFilename(submission)
   const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
 
   if (!settings.notifyOnApproval) return
 
   // Final approver
   if (settings.finalApproverEmail) {
     await sendMail(
-      settings.finalApproverEmail,
-      `[PaperPal] Final Approval Needed — ${formLabel} from ${submission.submitterName}`,
+      sandboxTo(submission, settings.finalApproverEmail),
+      `${tag}[PaperPal] Final Approval Needed — ${formLabel} from ${submission.submitterName}`,
       emailHtml({
         heading: `${formLabel} Awaiting Final Approval`,
         body: `
@@ -153,7 +162,7 @@ async function sendReviewedEmails(submission, settings, pdfBuffer) {
   // Submitter — supervisor approved
   await sendMail(
     submission.submitterEmail,
-    `[PaperPal] Supervisor Approved — ${formLabel} ${submission.id}`,
+    `${tag}[PaperPal] Supervisor Approved — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Your ${formLabel} Has Been Approved by Your Supervisor`,
       body: `
@@ -169,8 +178,8 @@ async function sendReviewedEmails(submission, settings, pdfBuffer) {
   // Supervisor confirmation
   if (submission.supervisorEmail) {
     await sendMail(
-      submission.supervisorEmail,
-      `[PaperPal] You Approved — ${formLabel} ${submission.id}`,
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] You Approved — ${formLabel} ${submission.id}`,
       emailHtml({
         heading: `You Approved a ${formLabel}`,
         body: `
@@ -191,13 +200,14 @@ async function sendApprovedEmails(submission, settings, pdfBuffer) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
   const fname = pdfFilename(submission)
   const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
 
   if (!settings.notifyOnApproval) return
 
   // Submitter
   await sendMail(
     submission.submitterEmail,
-    `[PaperPal] Approved — ${formLabel} ${submission.id}`,
+    `${tag}[PaperPal] Approved — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Your ${formLabel} Has Been Fully Approved`,
       body: `
@@ -213,8 +223,8 @@ async function sendApprovedEmails(submission, settings, pdfBuffer) {
   // Supervisor
   if (submission.supervisorEmail) {
     await sendMail(
-      submission.supervisorEmail,
-      `[PaperPal] Final Approval — ${formLabel} ${submission.id}`,
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] Final Approval — ${formLabel} ${submission.id}`,
       emailHtml({
         heading: `${formLabel} Fully Approved`,
         body: `
@@ -235,12 +245,13 @@ async function sendDeniedEmails(submission, settings, pdfBuffer) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
   const fname = pdfFilename(submission)
   const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
 
   if (!settings.notifyOnDenial) return
 
   await sendMail(
     submission.submitterEmail,
-    `[PaperPal] Denied — ${formLabel} ${submission.id}`,
+    `${tag}[PaperPal] Denied — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Your ${formLabel} Was Denied`,
       body: `
@@ -264,12 +275,13 @@ async function sendRevisionsEmails(submission, settings, pdfBuffer) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
   const fname = pdfFilename(submission)
   const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
 
   if (!settings.notifyOnRevision) return
 
   await sendMail(
     submission.submitterEmail,
-    `[PaperPal] Revisions Requested — ${formLabel} ${submission.id}`,
+    `${tag}[PaperPal] Revisions Requested — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Revisions Requested on Your ${formLabel}`,
       body: `
@@ -288,10 +300,111 @@ async function sendRevisionsEmails(submission, settings, pdfBuffer) {
   )
 }
 
+// ─── On Resubmit (revisions_requested → pending) ────────────────────────────
+
+async function sendResubmittedEmails(submission, settings, pdfBuffer) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const fname = pdfFilename(submission)
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+
+  if (!settings.notifyOnSubmit) return
+
+  // Supervisor notification
+  if (submission.supervisorEmail) {
+    await sendMail(
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] Resubmitted — ${formLabel} from ${submission.submitterName}`,
+      emailHtml({
+        heading: `${formLabel} Resubmitted for Review`,
+        body: `
+          <p><strong>${submission.submitterName}</strong> has revised and resubmitted their ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong>.</p>
+          <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+          <p>Please review the updated request.</p>
+        `,
+        link,
+        linkLabel: "Review Request",
+      }),
+      pdfBuffer,
+      fname
+    )
+  }
+
+  // Receipt to submitter
+  await sendMail(
+    submission.submitterEmail,
+    `${tag}[PaperPal] Resubmitted — ${formLabel} ${submission.id}`,
+    emailHtml({
+      heading: `Your ${formLabel} Has Been Resubmitted`,
+      body: `
+        <p>Your revised ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been resubmitted and is awaiting supervisor approval.</p>
+        <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+      `,
+      link,
+    }),
+    pdfBuffer,
+    fname
+  )
+}
+
+// ─── On Redirect (supervisor reassigned) ────────────────────────────────────
+
+async function sendRedirectedEmails(
+  submission,
+  settings,
+  previousSupervisorEmail,
+  pdfBuffer
+) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const fname = pdfFilename(submission)
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+
+  // New supervisor notification
+  if (submission.supervisorEmail) {
+    await sendMail(
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] ${formLabel} Redirected to You — ${submission.submitterName}`,
+      emailHtml({
+        heading: `${formLabel} Redirected to You for Review`,
+        body: `
+          <p>A ${formLabel.toLowerCase()} from <strong>${submission.submitterName}</strong> for <strong>${currency(submission.amount)}</strong> has been redirected to you for review.</p>
+          <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+          <p>Please review and approve or deny this request.</p>
+        `,
+        link,
+        linkLabel: "Review Request",
+      }),
+      pdfBuffer,
+      fname
+    )
+  }
+
+  // Confirmation to previous supervisor
+  if (previousSupervisorEmail) {
+    await sendMail(
+      sandboxTo(submission, previousSupervisorEmail),
+      `${tag}[PaperPal] Redirected — ${formLabel} ${submission.id}`,
+      emailHtml({
+        heading: `${formLabel} Redirected`,
+        body: `
+          <p>You redirected <strong>${submission.submitterName}</strong>'s ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> to <strong>${submission.supervisorEmail}</strong>.</p>
+          <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+        `,
+        link,
+      }),
+      pdfBuffer,
+      fname
+    )
+  }
+}
+
 module.exports = {
   sendSubmitEmails,
   sendReviewedEmails,
   sendApprovedEmails,
   sendDeniedEmails,
   sendRevisionsEmails,
+  sendResubmittedEmails,
+  sendRedirectedEmails,
 }

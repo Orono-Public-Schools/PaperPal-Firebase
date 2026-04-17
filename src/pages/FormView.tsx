@@ -11,12 +11,16 @@ import {
   Car,
   Briefcase,
   Loader2,
+  ArrowRightLeft,
+  Printer,
+  Download,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import SignatureField, {
   type SignatureFieldRef,
 } from "@/components/forms/SignatureField"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { formatBudgetCode } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import {
@@ -24,8 +28,15 @@ import {
   updateSubmission,
   getAppSettings,
 } from "@/lib/firestore"
-import type { Submission, AppSettings, SubmissionStatus } from "@/lib/types"
-import { serverTimestamp, Timestamp } from "firebase/firestore"
+import type {
+  Submission,
+  AppSettings,
+  SubmissionStatus,
+  ActivityLogEntry,
+} from "@/lib/types"
+import { serverTimestamp, Timestamp, arrayUnion } from "firebase/firestore"
+import { httpsCallable } from "firebase/functions"
+import { functions } from "@/lib/firebase"
 import {
   CheckRequestView,
   MileageView,
@@ -87,7 +98,7 @@ const FORM_LABELS: Record<string, string> = {
   travel: "Travel Reimbursement",
 }
 
-type ActionMode = null | "approve" | "deny" | "revisions"
+type ActionMode = null | "approve" | "deny" | "revisions" | "redirect"
 
 export default function FormView() {
   const { id } = useParams<{ type: string; id: string }>()
@@ -103,6 +114,8 @@ export default function FormView() {
   const [acting, setActing] = useState(false)
   const [actionDone, setActionDone] = useState<string | null>(null)
   const [budgetCode, setBudgetCode] = useState("")
+  const [redirectEmail, setRedirectEmail] = useState("")
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -174,6 +187,11 @@ export default function FormView() {
       supervisorSignatureUrl: sig,
       supervisorName: userProfile?.fullName ?? email,
       reviewedAt: serverTimestamp() as never,
+      activityLog: arrayUnion({
+        action: "supervisor_approved",
+        by: email,
+        at: Timestamp.now(),
+      }),
     }
 
     if (budgetCode.trim()) {
@@ -207,6 +225,11 @@ export default function FormView() {
       finalApproverSignatureUrl: sig,
       finalApproverEmail: email,
       approvedAt: serverTimestamp() as never,
+      activityLog: arrayUnion({
+        action: "final_approved",
+        by: email,
+        at: Timestamp.now(),
+      }),
     })
     const updated = { ...submission, status: "approved" as SubmissionStatus }
     setSubmission(updated)
@@ -221,6 +244,12 @@ export default function FormView() {
     await updateSubmission(submission.id, {
       status: "denied",
       denialComments: comments.trim(),
+      activityLog: arrayUnion({
+        action: "denied",
+        by: email,
+        at: Timestamp.now(),
+        comments: comments.trim(),
+      }),
     })
     const updated = { ...submission, status: "denied" as SubmissionStatus }
     setSubmission(updated)
@@ -245,6 +274,12 @@ export default function FormView() {
             requestedAt: Timestamp.now(),
           },
         ],
+        activityLog: arrayUnion({
+          action: "revisions_requested",
+          by: email,
+          at: Timestamp.now(),
+          comments: comments.trim(),
+        }),
       })
       const updated = {
         ...submission,
@@ -261,12 +296,73 @@ export default function FormView() {
     setActing(false)
   }
 
+  async function handleRedirect() {
+    if (!submission || !redirectEmail.trim()) return
+    setActing(true)
+    try {
+      await updateSubmission(submission.id, {
+        supervisorEmail: redirectEmail.trim().toLowerCase(),
+        status: "pending",
+        activityLog: arrayUnion({
+          action: "redirected",
+          by: email,
+          at: Timestamp.now(),
+          comments: `Redirected to ${redirectEmail.trim().toLowerCase()}`,
+        }),
+      })
+      const updated = {
+        ...submission,
+        supervisorEmail: redirectEmail.trim().toLowerCase(),
+        status: "pending" as SubmissionStatus,
+      }
+      setSubmission(updated)
+      setActionMode(null)
+      setRedirectEmail("")
+      setActing(false)
+      setActionDone("Redirected — new supervisor notified")
+    } catch (err) {
+      console.error("Failed to redirect:", err)
+      alert("Failed to redirect. Please try again.")
+      setActing(false)
+    }
+  }
+
+  async function handleDownloadPdf() {
+    if (!submission) return
+    // If approved with a Drive URL, open it directly
+    if (submission.pdfDriveUrl) {
+      window.open(submission.pdfDriveUrl, "_blank")
+      return
+    }
+    // Otherwise generate on-demand via Cloud Function
+    setDownloading(true)
+    try {
+      const generatePdf = httpsCallable(functions, "generateSubmissionPdf")
+      const result = await generatePdf({ submissionId: submission.id })
+      const { pdf } = result.data as { pdf: string }
+      const blob = new Blob(
+        [Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0))],
+        { type: "application/pdf" }
+      )
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${submission.id}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Failed to download PDF:", err)
+      alert("Failed to generate PDF. Please try again.")
+    }
+    setDownloading(false)
+  }
+
   return (
     <AppLayout>
       {/* Back + header */}
       <button
         onClick={() => navigate(-1)}
-        className="mb-4 flex cursor-pointer items-center gap-1 text-sm font-medium"
+        className="mb-4 flex cursor-pointer items-center gap-1 text-sm font-medium print:hidden"
         style={{ color: "rgba(255,255,255,0.7)" }}
       >
         <ArrowLeft size={14} />
@@ -288,17 +384,53 @@ export default function FormView() {
             {submission.id} · Submitted by {submission.submitterName}
           </p>
         </div>
-        <div
-          className="flex items-center gap-2 rounded-full px-4 py-2"
-          style={{ background: statusCfg.bg }}
-        >
-          <StatusIcon size={14} style={{ color: statusCfg.color }} />
-          <span
-            className="text-sm font-semibold"
-            style={{ color: statusCfg.color }}
+        <div className="flex items-center gap-2">
+          {submission.sandbox && (
+            <div
+              className="flex items-center gap-1.5 rounded-full px-3 py-2"
+              style={{ background: "rgba(234,179,8,0.2)" }}
+            >
+              <span
+                className="text-xs font-bold tracking-wider uppercase"
+                style={{ color: "#eab308" }}
+              >
+                Sandbox
+              </span>
+            </div>
+          )}
+          <div
+            className="flex items-center gap-2 rounded-full px-4 py-2"
+            style={{ background: statusCfg.bg }}
           >
-            {statusCfg.label}
-          </span>
+            <StatusIcon size={14} style={{ color: statusCfg.color }} />
+            <span
+              className="text-sm font-semibold"
+              style={{ color: statusCfg.color }}
+            >
+              {statusCfg.label}
+            </span>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
+            style={{ color: "rgba(255,255,255,0.7)" }}
+            title="Print"
+          >
+            <Printer size={16} />
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
+            style={{ color: "rgba(255,255,255,0.7)" }}
+            title="Download PDF"
+          >
+            {downloading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+          </button>
         </div>
       </div>
 
@@ -458,10 +590,15 @@ export default function FormView() {
         )}
       </div>
 
+      {/* Activity Timeline */}
+      {submission.activityLog?.length > 0 && (
+        <ActivityTimeline log={submission.activityLog} />
+      )}
+
       {/* Approval actions */}
       {(canSupervisorAct || canFinalApproverAct) && !actionDone && (
         <div
-          className="mt-6 rounded-xl p-6"
+          className="mt-6 rounded-xl p-6 print:hidden"
           style={{
             background: "#ffffff",
             boxShadow:
@@ -485,13 +622,22 @@ export default function FormView() {
                 Approve
               </button>
               {canSupervisorAct && (
-                <button
-                  onClick={() => setActionMode("revisions")}
-                  className="btn-action-revisions"
-                >
-                  <RotateCcw size={16} />
-                  Request Revisions
-                </button>
+                <>
+                  <button
+                    onClick={() => setActionMode("revisions")}
+                    className="btn-action-revisions"
+                  >
+                    <RotateCcw size={16} />
+                    Request Revisions
+                  </button>
+                  <button
+                    onClick={() => setActionMode("redirect")}
+                    className="btn-action-revisions"
+                  >
+                    <ArrowRightLeft size={16} />
+                    Redirect
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setActionMode("deny")}
@@ -653,6 +799,52 @@ export default function FormView() {
               </div>
             </div>
           )}
+
+          {/* Redirect mode — pick new supervisor */}
+          {actionMode === "redirect" && (
+            <div>
+              <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
+                Reassign this request to a different supervisor. They will be
+                notified and can approve, deny, or redirect further.
+              </p>
+              <label
+                className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                New Supervisor
+              </label>
+              <StaffEmailAutocomplete
+                value={redirectEmail}
+                onChange={setRedirectEmail}
+                placeholder="Search by name or email…"
+                className="input-neu w-full sm:w-80"
+              />
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={handleRedirect}
+                  disabled={acting || !redirectEmail.trim()}
+                  className="btn-action-revisions-solid"
+                >
+                  {acting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <ArrowRightLeft size={14} />
+                  )}
+                  {acting ? "Redirecting…" : "Confirm Redirect"}
+                </button>
+                <button
+                  onClick={() => {
+                    setActionMode(null)
+                    setRedirectEmail("")
+                  }}
+                  className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+                  style={{ color: "#64748b" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -662,7 +854,7 @@ export default function FormView() {
           submission.status === "revisions_requested") &&
         !actionDone && (
           <div
-            className="mt-6 rounded-xl p-6"
+            className="mt-6 rounded-xl p-6 print:hidden"
             style={{
               background: "#ffffff",
               boxShadow:
@@ -701,6 +893,11 @@ export default function FormView() {
                   try {
                     await updateSubmission(submission.id, {
                       status: "cancelled",
+                      activityLog: arrayUnion({
+                        action: "cancelled",
+                        by: email,
+                        at: Timestamp.now(),
+                      }),
                     })
                     setSubmission({
                       ...submission,
@@ -768,6 +965,100 @@ function SigBlock({
           Not yet signed
         </p>
       )}
+    </div>
+  )
+}
+
+const ACTION_LABELS: Record<string, { label: string; color: string }> = {
+  submitted: { label: "Submitted", color: "#4356a9" },
+  resubmitted: { label: "Resubmitted", color: "#4356a9" },
+  supervisor_approved: { label: "Supervisor Approved", color: "#2d3f89" },
+  final_approved: { label: "Final Approved", color: "#1d2a5d" },
+  denied: { label: "Denied", color: "#ad2122" },
+  revisions_requested: { label: "Revisions Requested", color: "#c2410c" },
+  cancelled: { label: "Cancelled", color: "#64748b" },
+  redirected: { label: "Redirected", color: "#4356a9" },
+}
+
+function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {
+  const sorted = [...log].sort((a, b) => {
+    const aMs = a.at?.toMillis?.() ?? 0
+    const bMs = b.at?.toMillis?.() ?? 0
+    return aMs - bMs
+  })
+
+  return (
+    <div
+      className="mt-6 rounded-xl p-6"
+      style={{
+        background: "#ffffff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+      }}
+    >
+      <p
+        className="mb-4 text-sm font-semibold tracking-widest uppercase"
+        style={{ color: "#1d2a5d" }}
+      >
+        Activity
+      </p>
+      <div className="relative ml-3">
+        {/* Vertical line */}
+        <div
+          className="absolute top-1 bottom-1 left-0 w-px"
+          style={{ background: "rgba(180,185,195,0.4)" }}
+        />
+        <div className="space-y-4">
+          {sorted.map((entry, i) => {
+            const cfg = ACTION_LABELS[entry.action] ?? {
+              label: entry.action,
+              color: "#64748b",
+            }
+            const time = entry.at?.toDate?.()
+            return (
+              <div key={i} className="relative pl-5">
+                {/* Dot */}
+                <div
+                  className="absolute top-1.5 left-0 h-2 w-2 -translate-x-1/2 rounded-full"
+                  style={{ background: cfg.color }}
+                />
+                <div>
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: cfg.color }}
+                  >
+                    {cfg.label}
+                  </p>
+                  <p className="text-xs" style={{ color: "#64748b" }}>
+                    {entry.by}
+                    {time && (
+                      <>
+                        {" · "}
+                        {time.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}{" "}
+                        {time.toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </>
+                    )}
+                  </p>
+                  {entry.comments && (
+                    <p
+                      className="mt-1 text-xs italic"
+                      style={{ color: "#94a3b8" }}
+                    >
+                      {entry.comments}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

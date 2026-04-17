@@ -22,6 +22,8 @@ import type {
   BudgetSegmentType,
   BudgetSegment,
   SupervisorMapping,
+  FormFieldConfig,
+  FormType,
 } from "./types"
 
 // ─── ID Generator ─────────────────────────────────────────────────────────────
@@ -55,7 +57,8 @@ export async function getSubmission(id: string): Promise<Submission | null> {
 
 export async function updateSubmission(
   id: string,
-  updates: Partial<Submission>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updates: Record<string, any>
 ): Promise<void> {
   const ref = doc(db, "submissions", id)
   await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() })
@@ -371,4 +374,85 @@ export async function getUniqueStaffTitles(): Promise<string[]> {
   const records = await getStaffRecords()
   const titles = new Set(records.map((r) => r.title).filter(Boolean))
   return [...titles].sort()
+}
+
+// ─── Form Field Config ──────────────────────────────────────────────────────
+
+function f(
+  id: string,
+  label: string,
+  sortOrder: number,
+  locked = false
+): FormFieldConfig {
+  return { id, label, visible: true, sortOrder, locked }
+}
+
+export const DEFAULT_FORM_FIELDS: Record<FormType, FormFieldConfig[]> = {
+  check: [
+    f("fullName", "Full Name", 0, true),
+    f("dateOfRequest", "Date of Request", 1, true),
+    f("dateCheckNeeded", "Date Check Needed", 2),
+    f("routeTo", "Route To", 3, true),
+    f("payeeName", "Payee / Vendor Name", 4, true),
+    f("payeeAddress", "Payee Address", 5),
+    f("expenses", "Expenses", 6, true),
+    f("signature", "Employee Signature", 7, true),
+  ],
+  mileage: [
+    f("fullName", "Full Name", 0, true),
+    f("employeeId", "Employee ID", 1),
+    f("accountCode", "Account Code", 2),
+    f("routeTo", "Route To", 3, true),
+    f("trips", "Trip Details", 4, true),
+    f("tripPurpose", "Trip Purpose Column", 5),
+    f("roundTrip", "Round Trip Option", 6),
+    f("signature", "Employee Signature", 7, true),
+  ],
+  travel: [
+    f("fullName", "Full Name", 0, true),
+    f("employeeId", "Employee ID", 1),
+    f("formDate", "Form Date", 2),
+    f("address", "Employee Address", 3),
+    f("routeTo", "Route To", 4, true),
+    f("budgetYear", "Budget Year", 5),
+    f("accountCode", "Account Code", 6),
+    f("meetingDetails", "Meeting / Conference Details", 7, true),
+    f("timeAway", "Time Away", 8),
+    f("justification", "Justification & Attachments", 9),
+    f("estimatedExpenses", "Estimated Expenses", 10),
+    f("actualExpenses", "Actual Expenses", 11, true),
+    f("meals", "Meals", 12),
+    f("advanceRequested", "Advance Requested", 13),
+    f("signature", "Employee Signature", 14, true),
+  ],
+}
+
+export async function getFormFieldConfigs(): Promise<
+  Record<FormType, FormFieldConfig[]>
+> {
+  const ref = doc(db, "settings", "formFields")
+  const snap = await getDoc(ref)
+  if (snap.exists()) {
+    const data = snap.data() as Record<FormType, FormFieldConfig[]>
+    // Merge with defaults to pick up any new fields added later
+    const merged = { ...DEFAULT_FORM_FIELDS }
+    for (const formType of Object.keys(DEFAULT_FORM_FIELDS) as FormType[]) {
+      if (data[formType]) {
+        const savedIds = new Set(data[formType].map((f) => f.id))
+        const newFields = DEFAULT_FORM_FIELDS[formType].filter(
+          (f) => !savedIds.has(f.id)
+        )
+        merged[formType] = [...data[formType], ...newFields]
+      }
+    }
+    return merged
+  }
+  return DEFAULT_FORM_FIELDS
+}
+
+export async function updateFormFieldConfigs(
+  configs: Record<FormType, FormFieldConfig[]>
+): Promise<void> {
+  const ref = doc(db, "settings", "formFields")
+  await setDoc(ref, configs)
 }

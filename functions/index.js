@@ -16,6 +16,8 @@ const {
   sendApprovedEmails,
   sendDeniedEmails,
   sendRevisionsEmails,
+  sendResubmittedEmails,
+  sendRedirectedEmails,
 } = require("./helpers/email")
 
 initializeApp()
@@ -286,25 +288,54 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
     const before = event.data.before.data()
     const after = event.data.after.data()
 
-    // Only fire on actual status transitions
-    if (before.status === after.status) return
+    // Detect redirect: supervisor changed while status stays pending
+    const isRedirect =
+      before.status === "pending" &&
+      after.status === "pending" &&
+      before.supervisorEmail !== after.supervisorEmail
+
+    // Only fire on actual status transitions or redirects
+    if (before.status === after.status && !isRedirect) return
 
     try {
       const settingsSnap = await db.doc("settings/app").get()
       const settings = settingsSnap.data() || {}
 
+      // Handle redirect before the status switch
+      if (isRedirect) {
+        const pdfBuffer = await generatePdf(after)
+        await sendRedirectedEmails(
+          after,
+          settings,
+          before.supervisorEmail,
+          pdfBuffer
+        )
+        console.log(
+          `Redirect emails sent for ${after.id}: ${before.supervisorEmail} → ${after.supervisorEmail}`
+        )
+        return
+      }
+
       // Generate PDF with current signatures
       const pdfBuffer = await generatePdf(after)
 
       switch (after.status) {
+        case "pending":
+          // Resubmit: revisions_requested → pending
+          if (before.status === "revisions_requested") {
+            await sendResubmittedEmails(after, settings, pdfBuffer)
+            console.log(`Resubmit emails sent for ${after.id}`)
+          }
+          break
+
         case "reviewed":
           await sendReviewedEmails(after, settings, pdfBuffer)
           console.log(`Reviewed emails sent for ${after.id}`)
           break
 
         case "approved": {
-          // Upload to shared drive + log sheet
-          if (!after.pdfDriveId) {
+          // Upload to shared drive + log sheet (skip in sandbox)
+          if (!after.pdfDriveId && !after.sandbox) {
             const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
               pdfBuffer,
               after,
@@ -346,5 +377,49 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
         })
         .catch((e) => console.error("Failed to write error to doc:", e))
     }
+  }
+)
+
+// ─── On-Demand PDF Generation (callable) ─────────��────────────────────────
+
+exports.generateSubmissionPdf = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in")
+    }
+
+    const { submissionId } = request.data
+    if (!submissionId) {
+      throw new HttpsError("invalid-argument", "submissionId is required")
+    }
+
+    const submissionSnap = await db.doc(`submissions/${submissionId}`).get()
+    if (!submissionSnap.exists) {
+      throw new HttpsError("not-found", "Submission not found")
+    }
+
+    const submission = submissionSnap.data()
+
+    // Verify caller has access (submitter, supervisor, or admin)
+    const callerUid = request.auth.uid
+    const callerEmail = request.auth.token.email?.toLowerCase()
+    const userSnap = await db.doc(`users/${callerUid}`).get()
+    const user = userSnap.data()
+    const isAdminOrBO =
+      user?.role === "admin" ||
+      user?.role === "controller" ||
+      user?.role === "business_office"
+
+    if (
+      submission.submitterUid !== callerUid &&
+      submission.supervisorEmail?.toLowerCase() !== callerEmail &&
+      !isAdminOrBO
+    ) {
+      throw new HttpsError("permission-denied", "No access to this submission")
+    }
+
+    const pdfBuffer = await generatePdf(submission)
+    return { pdf: pdfBuffer.toString("base64") }
   }
 )

@@ -11,16 +11,16 @@ service cloud.firestore {
       return userRole() == 'admin';
     }
     function isAdminOrBO() {
-      return userRole() in ['admin', 'business_office'];
+      return userRole() in ['admin', 'business_office', 'controller'];
     }
 
     // Users can read and write their own profile
-    // Admins can read all profiles and update roles
+    // Admins can read all profiles and create/update roles
     match /users/{uid} {
       allow read: if request.auth != null
                   && (request.auth.uid == uid || isAdminOrBO());
       allow write: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && isAdmin();
+      allow create, update: if request.auth != null && isAdmin();
     }
 
     // Any authenticated user can check if their email is on the allowlist
@@ -42,6 +42,8 @@ service cloud.firestore {
                     && (
                       (resource.data.submitterUid == request.auth.uid
                        && resource.data.status in ['pending', 'revisions_requested'])
+                      || (resource.data.submitterUid == request.auth.uid
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenBySubmitter', 'updatedAt']))
                       || resource.data.supervisorEmail == request.auth.token.email
                       || isAdminOrBO()
                     );
