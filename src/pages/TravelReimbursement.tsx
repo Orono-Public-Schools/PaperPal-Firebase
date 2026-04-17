@@ -117,9 +117,10 @@ export default function TravelReimbursement() {
     estTransport: number; estLodging: number; estMeals: number
     estRegistration: number; estSubstitute: number; estOther: number
   }>("paperpal-draft-travel", !!resubmitId)
+  const { save: saveDraft, load: loadDraft, clear: clearDraft, lastSaved: draftLastSaved } = draft
 
   const draftLoaded = useRef(false)
-  const saved = draft.load()
+  const saved = loadDraft()
 
   // Employee / trip header
   const [submitterName, setSubmitterName] = useState(saved?.submitterName ?? userProfile?.fullName ?? "")
@@ -171,7 +172,7 @@ export default function TravelReimbursement() {
   // Auto-save draft
   useEffect(() => {
     if (draftLoaded.current) {
-      draft.save({
+      saveDraft({
         submitterName, employeeId, formDate, address, budgetYear, accountCode,
         meetingTitle, location, dateStart, dateEnd, timeAwayStart, timeAwayEnd,
         justification, routeRequestTo, advanceRequested, mileageFrom, mileageTo,
@@ -181,7 +182,7 @@ export default function TravelReimbursement() {
     }
     draftLoaded.current = true
   }, [
-    submitterName, employeeId, formDate, address, budgetYear, accountCode,
+    saveDraft, submitterName, employeeId, formDate, address, budgetYear, accountCode,
     meetingTitle, location, dateStart, dateEnd, timeAwayStart, timeAwayEnd,
     justification, routeRequestTo, advanceRequested, mileageFrom, mileageTo,
     actMiles, justificationFiles, expenses, taxExemptAcknowledged,
@@ -495,7 +496,7 @@ export default function TravelReimbursement() {
         })
         setSubmissionId(id)
       }
-      draft.clear()
+      clearDraft()
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -559,15 +560,15 @@ export default function TravelReimbursement() {
           Request reimbursement for travel with pre-approved and actual
           expenses.
         </p>
-        {draft.lastSaved && (
+        {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
             <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Draft saved {draft.lastSaved.toLocaleTimeString()}
+              Draft saved {draftLastSaved.toLocaleTimeString()}
             </span>
             <button
               type="button"
               onClick={() => {
-                draft.clear()
+                clearDraft()
                 window.location.reload()
               }}
               className="cursor-pointer text-[11px] font-medium underline"

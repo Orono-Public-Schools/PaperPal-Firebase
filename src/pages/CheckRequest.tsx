@@ -81,10 +81,11 @@ export default function CheckRequest() {
     payee: string; street: string; city: string; state: string; zip: string
     expenses: CheckRequestExpense[]; receipts: Attachment[]
   }>("paperpal-draft-check", !!resubmitId)
+  const { save: saveDraft, load: loadDraft, clear: clearDraft, lastSaved: draftLastSaved } = draft
 
   // Load draft on mount
   const draftLoaded = useRef(false)
-  const saved = draft.load()
+  const saved = loadDraft()
   const initName = saved?.submitterName ?? userProfile?.fullName ?? ""
   const initRoute = sandbox ? (user?.email ?? "") : (userProfile?.supervisorEmail ?? "")
   const initDateReq = saved?.dateRequest ?? new Date().toISOString().split("T")[0]
@@ -119,10 +120,10 @@ export default function CheckRequest() {
   // Auto-save draft on changes
   useEffect(() => {
     if (draftLoaded.current) {
-      draft.save({ submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts })
+      saveDraft({ submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts })
     }
     draftLoaded.current = true
-  }, [submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts])
+  }, [saveDraft, submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts])
 
   // Load existing submission for resubmit
   useEffect(() => {
@@ -251,7 +252,7 @@ export default function CheckRequest() {
         })
         setSubmissionId(id)
       }
-      draft.clear()
+      clearDraft()
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -315,15 +316,15 @@ export default function CheckRequest() {
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
           Submit a payment request for a vendor or service.
         </p>
-        {draft.lastSaved && (
+        {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
             <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Draft saved {draft.lastSaved.toLocaleTimeString()}
+              Draft saved {draftLastSaved.toLocaleTimeString()}
             </span>
             <button
               type="button"
               onClick={() => {
-                draft.clear()
+                clearDraft()
                 window.location.reload()
               }}
               className="cursor-pointer text-[11px] font-medium underline"

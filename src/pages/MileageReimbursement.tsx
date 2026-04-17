@@ -61,9 +61,10 @@ export default function MileageReimbursement() {
     submitterName: string; routeRequestTo: string; employeeId: string
     accountCode: string; trips: MileageTrip[]
   }>("paperpal-draft-mileage", !!resubmitId)
+  const { save: saveDraft, load: loadDraft, clear: clearDraft, lastSaved: draftLastSaved } = draft
 
   const draftLoaded = useRef(false)
-  const saved = draft.load()
+  const saved = loadDraft()
 
   const [submitterName, setSubmitterName] = useState(
     saved?.submitterName ?? userProfile?.fullName ?? ""
@@ -85,10 +86,10 @@ export default function MileageReimbursement() {
   // Auto-save draft
   useEffect(() => {
     if (draftLoaded.current) {
-      draft.save({ submitterName, routeRequestTo, employeeId, accountCode, trips })
+      saveDraft({ submitterName, routeRequestTo, employeeId, accountCode, trips })
     }
     draftLoaded.current = true
-  }, [submitterName, routeRequestTo, employeeId, accountCode, trips])
+  }, [saveDraft, submitterName, routeRequestTo, employeeId, accountCode, trips])
 
   // Build quick-fill options for From/To fields
   useEffect(() => {
@@ -231,7 +232,7 @@ export default function MileageReimbursement() {
         })
         setSubmissionId(id)
       }
-      draft.clear()
+      clearDraft()
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -296,15 +297,15 @@ export default function MileageReimbursement() {
           Reimbursed at <span className="font-semibold">$0.72 per mile</span>.
           Enter each trip below and submit for supervisor approval.
         </p>
-        {draft.lastSaved && (
+        {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
             <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Draft saved {draft.lastSaved.toLocaleTimeString()}
+              Draft saved {draftLastSaved.toLocaleTimeString()}
             </span>
             <button
               type="button"
               onClick={() => {
-                draft.clear()
+                clearDraft()
                 window.location.reload()
               }}
               className="cursor-pointer text-[11px] font-medium underline"
