@@ -1309,7 +1309,7 @@ export default function TravelReimbursement() {
           style={{
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            order: 99,
+            order: getOrder("signature") - 0.5,
           }}
         >
           <div className="flex items-center justify-between text-sm">

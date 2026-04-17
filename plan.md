@@ -1,74 +1,54 @@
 # PaperPal — Plan
 
+## Current Phase: Testing & Polish
+
+- End-to-end workflow testing on production
+- Verify all email notifications land correctly (submit, approve, deny, revisions, resubmit, redirect)
+- Test sandbox mode with controller role
+- Onboard controller user, verify final approver flow
+- Clean up dead code (ThemeToggle.tsx, useTheme.ts)
+- Verify form field config hides fields on FormView (read-only) too
+- Update plan.md with completed work
+
 ## Up Next
 
-- Supervisor redirect
-  - Supervisor can reassign a submission to a different supervisor/user
-  - Dropdown to pick new supervisor (staff email autocomplete)
-  - Updates supervisorEmail on the submission, resets to pending
-  - Notification email sent to the new supervisor
-  - Original supervisor gets a confirmation that it was reassigned
+- Mobile responsiveness
+  - Dashboard cards layout on small screens
+  - Submission rows — readable on phone
+  - Form pages — input grids, signature field, file upload
+  - Admin panel — tabs, accordion sections, form field editor
+  - FormView — header, timeline, approval actions
+  - Sidebar nav — already slides in, verify touch targets
 
-- Approval history / activity timeline
-  - Timeline component in FormView showing all workflow events
-  - Events: submitted, supervisor approved, final approved, denied, revisions requested, resubmitted, cancelled, redirected
-  - Each entry: who, what action, when, comments (if any)
-  - Store as an array on the submission (activityLog or expand revisionHistory)
-  - Displayed between form data and approval actions in FormView
+## Future (post business office meeting)
 
-- Bug fix: resubmit broken
-  - updateDoc() fails with "Unsupported field value: undefined" for reviewedAt
-  - Cause: resubmit sets reviewedAt/approvedAt/etc to undefined, but Firestore rejects undefined
-  - Fix: use deleteField() from firebase/firestore instead of undefined to clear fields
-
-- Print & export
-  - "Print" button on FormView — opens browser print dialog with clean print-friendly layout
-  - "Download PDF" button on FormView — downloads the server-generated PDF
-  - For approved submissions: download the final PDF (with all signatures) from Drive
-  - For in-progress submissions: generate a PDF on-demand via callable Cloud Function
-  - Print CSS: hide nav/header/actions, show only form data + signatures
+- Notification preferences (user opt-in/out from profile)
+- Reporting / analytics dashboard (totals, trends, approvals per month)
+- FormView: respect form field config (hide hidden fields in read-only view)
+- Light mode (requires refactoring inline styles to CSS variables)
 
 ## Done
 
-- Resubmission flow
-  - All 3 forms support ?resubmit=ID to load and edit existing submission
-  - Updates existing submission, resets status to pending
-  - Works from both pending (edit) and revisions_requested (edit & resubmit)
-- Cancel request
-  - Submitter can cancel pending or revisions_requested submissions
-  - Confirmation dialog, sets status to cancelled
-  - Firestore rules updated to allow submitter edits on pending status
-- Server-side email with PDF attachments
-  - All notifications moved to Cloud Functions (onSubmissionCreated + onSubmissionStatusChange)
-  - PDF generated at each status change, attached to every email
-  - Submitter gets: receipt, supervisor approved, final approved
-  - Supervisor gets: new request, approval confirmation, final approved
-  - Final approver gets: awaiting approval notification
+- Resubmit bug fix (deleteField instead of undefined)
+- Supervisor redirect (reassign + email notifications)
+- Activity timeline (log all workflow events, vertical timeline in FormView)
+- Print & export (print button, on-demand PDF via callable Cloud Function)
+- Resubmit email notifications (supervisor + submitter notified)
+- Controller role (restricted admin panel, Firestore rules, nav access)
+- Sandbox mode (isolated test environment, emails to self, no Drive uploads)
+- Form field config (admin UI to show/hide/reorder form sections)
+- Admin panel redesign (Forms & Mappings / Settings tabs, collapsible accordions)
+- Dashboard UI refresh (rotate-reveal cards, gradient submission rows, form-type accents)
+- History management (hide submissions, clear history, export CSV)
+- Searchable staff dropdown in admin Users & Roles
+- Add user bug fix (Firestore rules + error handling)
+- Resubmission flow (edit & resubmit from pending or revisions_requested)
+- Cancel request (submitter can cancel pending/revisions_requested)
+- Server-side email with PDF attachments (Cloud Functions)
 - Google Drive integration + PDF generation
-  - Shared Drive structure: Paperless Forms → FY folders → month folders
-  - "2026 FY" naming convention for fiscal year folders
-  - Auto-create folders + log sheet on first approval or via admin button
-  - Setup Drive Structure admin button creates all 12 months + log sheet
-  - Fiscal year rollover scheduled function (July 1)
-  - PDF uploaded to correct month folder on final approval
-  - Row appended to fiscal year log sheet
-  - pdfDriveId + pdfDriveUrl stored on submission
 - Firebase Trigger Email extension
-  - Configured for mail collection, sender paperpal@orono.k12.mn.us
-  - Gmail SMTP with app password
-- Budget code workflow
-  - Greyed out for staff users on all 3 forms
-  - Supervisor assigns budget code during approval review
-  - BudgetCodeBuilder available in supervisor approval section
-- UI polish
-  - Review buttons: Orono brand colors + hover effects (CSS classes)
-  - Status badges: Orono palette across FormView + Dashboard
-  - Success banner: lighter blue gradient with white text
-  - Email template: PaperPal logo, branded header, footer bar
-  - Chrome autofill suppression on address fields
-  - Dynamic PDF table rows for long addresses
-  - PR template for GitHub
-  - CI actions bumped to v6
+- Budget code workflow (staff greyed out, supervisor assigns)
+- UI polish (Orono brand colors, status badges, email template)
 - Staff integration (OneSync → Google Sheet → Cloud Function → Firestore)
 - Supervisor mappings (hybrid building + title approach)
 - Approval workflow (FormView)

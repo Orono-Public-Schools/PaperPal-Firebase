@@ -4,13 +4,16 @@ import { getFormFieldConfigs, DEFAULT_FORM_FIELDS } from "@/lib/firestore"
 
 let cache: Record<FormType, FormFieldConfig[]> | null = null
 
+export function invalidateFormFieldsCache() {
+  cache = null
+}
+
 export function useFormFields(formType: FormType) {
   const [fields, setFields] = useState<FormFieldConfig[]>(
     cache?.[formType] ?? DEFAULT_FORM_FIELDS[formType]
   )
 
   useEffect(() => {
-    if (cache) return
     getFormFieldConfigs().then((configs) => {
       cache = configs
       setFields(configs[formType])
