@@ -1,16 +1,90 @@
 # PaperPal — Plan
 
-## Current Phase: Testing & Polish
+## Current Phase: Travel Expenses Redesign
 
-- End-to-end workflow testing on production
-- Verify all email notifications land correctly (submit, approve, deny, revisions, resubmit, redirect)
-- Test sandbox mode with controller role
-- Onboard controller user, verify final approver flow
-- Clean up dead code (ThemeToggle.tsx, useTheme.ts)
-- Verify form field config hides fields on FormView (read-only) too
-- Update plan.md with completed work
+### 1. Unified Expenses Section
 
-## Up Next
+Replace the three separate sections (Actual Costs, Meal Expenses, Summary) with a single "Expenses" section. Users add individual expense items categorized by type.
+
+**Categories and fields:**
+
+| Category | Fields |
+|---|---|
+| Meal | Date, Meal Type (Breakfast/Lunch/Dinner), Amount, Receipt |
+| Lodging | Date, Location, Amount, Receipt |
+| Registration | Date, Amount, Receipt |
+| Other Transportation | Date, Description, Amount, Receipt |
+
+**Key design decisions:**
+- Transportation by Car (mileage calculator) stays separate — it's mileage-based, not receipt-based
+- "+ Add Expense" button with category picker dropdown
+- Expenses grouped visually by category with subtotals
+- Running total at the bottom
+- Tax acknowledgment checkbox: "I confirm all amounts are pre-tax (Orono Public Schools is tax-exempt)"
+
+**Data model change:**
+```ts
+interface TravelExpenseItem {
+  category: "meal" | "lodging" | "registration" | "other_transport"
+  date: string
+  amount: number
+  mealType?: "breakfast" | "lunch" | "dinner"
+  location?: string
+  description?: string
+  receipt?: Attachment
+}
+```
+
+Replace `actuals.otherTransport`, `actuals.lodging`, `actuals.registration`, `actuals.others`, and `meals` with `expenses: TravelExpenseItem[]`. Keep `actuals.miles` for the mileage calculator.
+
+**Backward compatibility:** Existing submissions use the old structure. FormView, FormDataView, and PDF generation must handle both old and new formats.
+
+### 2. Receipt Scan & Upload
+
+Per-expense-item receipt attachment with camera scanning support.
+
+**Implementation:**
+- `<input type="file" accept="image/*" capture="environment">` for camera scanning (opens camera on mobile, file picker on desktop)
+- Separate "Upload" button for file picker (PDF, image)
+- Image compression before upload (phone camera images can be large)
+- Upload to Firebase Storage, URL saved on the expense item as `receipt: Attachment`
+- Thumbnail preview shown inline next to the expense item
+- FormView shows receipt thumbnails with click-to-enlarge
+
+### 3. OCR Auto-Fill (Receipt Total Extraction)
+
+Auto-extract the total amount from scanned/uploaded receipt images.
+
+**Implementation:**
+- Callable Cloud Function sends receipt image to Google Cloud Vision API (TEXT_DETECTION)
+- Parse OCR text for dollar amounts — heuristics: look for "total", "amount due", "balance", or fall back to largest dollar value
+- Auto-fill the amount field, user confirms or adjusts
+- Show a subtle "Extracted: $XX.XX" hint so user knows it was auto-detected
+- Graceful fallback — if OCR fails or can't find a total, user enters manually
+
+**Cost:** Cloud Vision API is ~$1.50 per 1,000 images.
+
+### 4. PDF with Receipts
+
+Append receipt images/PDFs to the generated form PDF.
+
+**Implementation:**
+- After generating the form data pages, append each receipt as an additional page
+- Images: embed with PDFKit (already in use), scale to fit page
+- Uploaded PDFs: use `pdf-lib` to merge pages
+- Label each receipt page with the expense category, date, and amount
+- Receipts appear in the same order as the expenses on the form
+
+### Files affected:
+- `src/lib/types.ts` — new `TravelExpenseItem` type, update `TravelData`
+- `src/pages/TravelReimbursement.tsx` — rebuild expenses UI, add scan/upload per item
+- `src/components/forms/FormDataView.tsx` — update TravelView for new + old format
+- `src/pages/FormView.tsx` — receipt thumbnails
+- `functions/helpers/pdf.js` — update travel PDF layout, append receipt pages
+- `functions/index.js` — new `extractReceiptTotal` callable Cloud Function
+- `functions/package.json` — add `@google-cloud/vision` and `pdf-lib` dependencies
+
+## Up Next (after expenses redesign)
 
 - Mobile responsiveness
   - Dashboard cards layout on small screens
@@ -29,6 +103,7 @@
 
 ## Done
 
+- Testing & polish phase (totals positioning, form field cache fix, dead code cleanup)
 - Resubmit bug fix (deleteField instead of undefined)
 - Supervisor redirect (reassign + email notifications)
 - Activity timeline (log all workflow events, vertical timeline in FormView)
