@@ -362,7 +362,7 @@ export default function FormView() {
       {/* Back + header */}
       <button
         onClick={() => navigate(-1)}
-        className="print:hidden mb-4 flex cursor-pointer items-center gap-1 text-sm font-medium"
+        className="mb-4 flex cursor-pointer items-center gap-1 text-sm font-medium print:hidden"
         style={{ color: "rgba(255,255,255,0.7)" }}
       >
         <ArrowLeft size={14} />
@@ -412,7 +412,7 @@ export default function FormView() {
           </div>
           <button
             onClick={() => window.print()}
-            className="print:hidden flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Print"
           >
@@ -421,7 +421,7 @@ export default function FormView() {
           <button
             onClick={handleDownloadPdf}
             disabled={downloading}
-            className="print:hidden flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Download PDF"
           >
@@ -598,7 +598,7 @@ export default function FormView() {
       {/* Approval actions */}
       {(canSupervisorAct || canFinalApproverAct) && !actionDone && (
         <div
-          className="print:hidden mt-6 rounded-xl p-6"
+          className="mt-6 rounded-xl p-6 print:hidden"
           style={{
             background: "#ffffff",
             boxShadow:
@@ -854,7 +854,7 @@ export default function FormView() {
           submission.status === "revisions_requested") &&
         !actionDone && (
           <div
-            className="print:hidden mt-6 rounded-xl p-6"
+            className="mt-6 rounded-xl p-6 print:hidden"
             style={{
               background: "#ffffff",
               boxShadow:
@@ -1018,11 +1018,14 @@ function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {
               <div key={i} className="relative pl-5">
                 {/* Dot */}
                 <div
-                  className="absolute left-0 top-1.5 h-2 w-2 -translate-x-1/2 rounded-full"
+                  className="absolute top-1.5 left-0 h-2 w-2 -translate-x-1/2 rounded-full"
                   style={{ background: cfg.color }}
                 />
                 <div>
-                  <p className="text-sm font-medium" style={{ color: cfg.color }}>
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: cfg.color }}
+                  >
                     {cfg.label}
                   </p>
                   <p className="text-xs" style={{ color: "#64748b" }}>

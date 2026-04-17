@@ -253,29 +253,35 @@ export default function Dashboard() {
       {/* Tab: New Request */}
       {activeTab === "new" && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {FORM_TYPES.map(({ id, title, description, icon: Icon, pill, path }) => (
-            <button key={id} onClick={() => navigate(path)}
-              className="group cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04]"
-              style={{
-                background: `linear-gradient(135deg, ${pill.from}, ${pill.to})`,
-                boxShadow: `0 4px 24px ${pill.from}50`,
-                height: "220px",
-              }}
-            >
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 transition-all duration-400 group-hover:h-0 group-hover:opacity-0">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-                  <Icon size={32} style={{ color: "#ffffff" }} />
+          {FORM_TYPES.map(
+            ({ id, title, description, icon: Icon, pill, path }) => (
+              <button
+                key={id}
+                onClick={() => navigate(path)}
+                className="group cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04]"
+                style={{
+                  background: `linear-gradient(135deg, ${pill.from}, ${pill.to})`,
+                  boxShadow: `0 4px 24px ${pill.from}50`,
+                  height: "220px",
+                }}
+              >
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 transition-all duration-400 group-hover:h-0 group-hover:opacity-0">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+                    <Icon size={32} style={{ color: "#ffffff" }} />
+                  </div>
+                  <span className="text-lg font-bold text-white">{title}</span>
                 </div>
-                <span className="text-lg font-bold text-white">{title}</span>
-              </div>
-              <div className="flex h-0 w-full flex-col items-center justify-center gap-3 overflow-hidden p-6 opacity-0 transition-all duration-400 group-hover:h-full group-hover:opacity-100">
-                <p className="text-center text-sm leading-relaxed text-white/90">{description}</p>
-                <div className="mt-2 rounded-lg bg-white/20 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors duration-200 group-hover:bg-white/30">
-                  Get Started →
+                <div className="flex h-0 w-full flex-col items-center justify-center gap-3 overflow-hidden p-6 opacity-0 transition-all duration-400 group-hover:h-full group-hover:opacity-100">
+                  <p className="text-center text-sm leading-relaxed text-white/90">
+                    {description}
+                  </p>
+                  <div className="mt-2 rounded-lg bg-white/20 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors duration-200 group-hover:bg-white/30">
+                    Get Started →
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          )}
         </div>
       )}
 
@@ -301,11 +307,21 @@ export default function Dashboard() {
                     ["ID", "Type", "Summary", "Amount", "Status", "Date"],
                     ...historySubmissions.map((s) => {
                       const ts = s.createdAt as { toDate?: () => Date } | null
-                      const date = ts?.toDate?.()?.toLocaleDateString("en-US") ?? ""
-                      return [s.id, s.formType, s.summary, s.amount.toFixed(2), s.status, date]
+                      const date =
+                        ts?.toDate?.()?.toLocaleDateString("en-US") ?? ""
+                      return [
+                        s.id,
+                        s.formType,
+                        s.summary,
+                        s.amount.toFixed(2),
+                        s.status,
+                        date,
+                      ]
                     }),
                   ]
-                  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n")
+                  const csv = rows
+                    .map((r) => r.map((c) => `"${c}"`).join(","))
+                    .join("\n")
                   const blob = new Blob([csv], { type: "text/csv" })
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement("a")
@@ -315,25 +331,43 @@ export default function Dashboard() {
                   URL.revokeObjectURL(url)
                 }}
                 className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
-                style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.06)" }}
+                style={{
+                  color: "rgba(255,255,255,0.5)",
+                  background: "rgba(255,255,255,0.06)",
+                }}
               >
                 <Download size={13} />
                 Export CSV
               </button>
               <button
                 onClick={async () => {
-                  if (!confirm(`Hide ${historySubmissions.length} completed submissions from your history?`)) return
+                  if (
+                    !confirm(
+                      `Hide ${historySubmissions.length} completed submissions from your history?`
+                    )
+                  )
+                    return
                   for (const s of historySubmissions) {
                     await updateSubmission(s.id, { hiddenBySubmitter: true })
                   }
                   setSubmissionData((prev) =>
-                    prev ? { ...prev, data: prev.data.map((s) =>
-                      s.status !== "pending" ? { ...s, hiddenBySubmitter: true } : s
-                    )} : prev
+                    prev
+                      ? {
+                          ...prev,
+                          data: prev.data.map((s) =>
+                            s.status !== "pending"
+                              ? { ...s, hiddenBySubmitter: true }
+                              : s
+                          ),
+                        }
+                      : prev
                   )
                 }}
                 className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
-                style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.06)" }}
+                style={{
+                  color: "rgba(255,255,255,0.5)",
+                  background: "rgba(255,255,255,0.06)",
+                }}
               >
                 <Trash2 size={13} />
                 Clear History
@@ -349,9 +383,14 @@ export default function Dashboard() {
             onHide={async (id) => {
               await updateSubmission(id, { hiddenBySubmitter: true })
               setSubmissionData((prev) =>
-                prev ? { ...prev, data: prev.data.map((s) =>
-                  s.id === id ? { ...s, hiddenBySubmitter: true } : s
-                )} : prev
+                prev
+                  ? {
+                      ...prev,
+                      data: prev.data.map((s) =>
+                        s.id === id ? { ...s, hiddenBySubmitter: true } : s
+                      ),
+                    }
+                  : prev
               )
             }}
           />
@@ -459,7 +498,10 @@ function SubmissionList({
             {/* Left accent bar — form type color */}
             <div
               className="w-1 self-stretch rounded-l-xl"
-              style={{ background: FORM_TYPE_COLORS[s.formType] ?? "rgba(255,255,255,0.25)" }}
+              style={{
+                background:
+                  FORM_TYPE_COLORS[s.formType] ?? "rgba(255,255,255,0.25)",
+              }}
             />
 
             {/* Content */}
@@ -477,14 +519,20 @@ function SubmissionList({
                 {s.sandbox && (
                   <span
                     className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
-                    style={{ background: "rgba(234,179,8,0.25)", color: "#fbbf24" }}
+                    style={{
+                      background: "rgba(234,179,8,0.25)",
+                      color: "#fbbf24",
+                    }}
                   >
                     Sandbox
                   </span>
                 )}
                 <span
                   className="rounded-full px-3 py-1 text-xs font-semibold"
-                  style={{ background: "rgba(255,255,255,0.15)", color: "#ffffff" }}
+                  style={{
+                    background: "rgba(255,255,255,0.15)",
+                    color: "#ffffff",
+                  }}
                 >
                   {statusStyle.label}
                 </span>

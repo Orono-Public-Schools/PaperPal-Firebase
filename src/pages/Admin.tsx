@@ -375,73 +375,129 @@ const FORM_PREVIEWS: Record<FormType, Record<string, () => React.ReactNode>> = {
   check: {
     fullName: () => (
       <div className="grid gap-3 sm:grid-cols-3">
-        <div><PreviewLabel text="Full Name" /><InputBar /></div>
-        <div><PreviewLabel text="Date of Request" /><InputBar /></div>
-        <div><PreviewLabel text="Date Check Needed" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Full Name" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="Date of Request" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="Date Check Needed" />
+          <InputBar />
+        </div>
       </div>
     ),
     dateOfRequest: () => null,
     dateCheckNeeded: () => null,
     routeTo: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Route To" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Route To" />
+          <InputBar />
+        </div>
       </div>
     ),
     payeeName: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Payee / Vendor Name" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Payee / Vendor Name" />
+          <InputBar />
+        </div>
       </div>
     ),
     payeeAddress: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Street Address" /><InputBar /></div>
-        <div><PreviewLabel text="City" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Street Address" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="City" />
+          <InputBar />
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><PreviewLabel text="State" /><InputBar /></div>
-          <div><PreviewLabel text="ZIP" /><InputBar /></div>
+          <div>
+            <PreviewLabel text="State" />
+            <InputBar />
+          </div>
+          <div>
+            <PreviewLabel text="ZIP" />
+            <InputBar />
+          </div>
         </div>
       </div>
     ),
     expenses: () => (
       <div className="space-y-2">
         <div className="grid grid-cols-3 gap-2">
-          <div><PreviewLabel text="Account Code" /><InputBar /></div>
-          <div><PreviewLabel text="Description" /><InputBar /></div>
-          <div><PreviewLabel text="Amount" /><InputBar w="80px" /></div>
+          <div>
+            <PreviewLabel text="Account Code" />
+            <InputBar />
+          </div>
+          <div>
+            <PreviewLabel text="Description" />
+            <InputBar />
+          </div>
+          <div>
+            <PreviewLabel text="Amount" />
+            <InputBar w="80px" />
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <InputBar /><InputBar /><InputBar w="80px" />
+          <InputBar />
+          <InputBar />
+          <InputBar w="80px" />
         </div>
       </div>
     ),
     signature: () => (
       <div
         className="flex items-center justify-center rounded-lg"
-        style={{ background: "#f8f9fb", border: "1px dashed #c8ccd4", height: 60 }}
+        style={{
+          background: "#f8f9fb",
+          border: "1px dashed #c8ccd4",
+          height: 60,
+        }}
       >
-        <span className="text-xs" style={{ color: "#94a3b8" }}>Signature area</span>
+        <span className="text-xs" style={{ color: "#94a3b8" }}>
+          Signature area
+        </span>
       </div>
     ),
   },
   mileage: {
     fullName: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Full Name" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Full Name" />
+          <InputBar />
+        </div>
       </div>
     ),
     employeeId: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Employee ID" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Employee ID" />
+          <InputBar />
+        </div>
       </div>
     ),
     accountCode: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Account Code" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Account Code" />
+          <InputBar />
+        </div>
       </div>
     ),
     routeTo: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Route To" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Route To" />
+          <InputBar />
+        </div>
       </div>
     ),
     trips: () => (
@@ -452,7 +508,9 @@ const FORM_PREVIEWS: Record<FormType, Record<string, () => React.ReactNode>> = {
           ))}
         </div>
         <div className="grid grid-cols-5 gap-2">
-          {[1,2,3,4,5].map((n) => <InputBar key={n} />)}
+          {[1, 2, 3, 4, 5].map((n) => (
+            <InputBar key={n} />
+          ))}
         </div>
       </div>
     ),
@@ -461,79 +519,140 @@ const FORM_PREVIEWS: Record<FormType, Record<string, () => React.ReactNode>> = {
     signature: () => (
       <div
         className="flex items-center justify-center rounded-lg"
-        style={{ background: "#f8f9fb", border: "1px dashed #c8ccd4", height: 60 }}
+        style={{
+          background: "#f8f9fb",
+          border: "1px dashed #c8ccd4",
+          height: 60,
+        }}
       >
-        <span className="text-xs" style={{ color: "#94a3b8" }}>Signature area</span>
+        <span className="text-xs" style={{ color: "#94a3b8" }}>
+          Signature area
+        </span>
       </div>
     ),
   },
   travel: {
     fullName: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Full Name" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Full Name" />
+          <InputBar />
+        </div>
       </div>
     ),
     employeeId: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Employee ID" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Employee ID" />
+          <InputBar />
+        </div>
       </div>
     ),
     formDate: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Form Date" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Form Date" />
+          <InputBar />
+        </div>
       </div>
     ),
     address: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Home Address" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Home Address" />
+          <InputBar />
+        </div>
       </div>
     ),
     routeTo: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Route To" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Route To" />
+          <InputBar />
+        </div>
       </div>
     ),
     budgetYear: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Budget Year" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Budget Year" />
+          <InputBar />
+        </div>
       </div>
     ),
     accountCode: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Account Code" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Account Code" />
+          <InputBar />
+        </div>
       </div>
     ),
     meetingDetails: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Meeting / Conference Title" /><InputBar /></div>
-        <div><PreviewLabel text="Location" /><InputBar /></div>
-        <div><PreviewLabel text="Date Start" /><InputBar /></div>
-        <div><PreviewLabel text="Date End" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Meeting / Conference Title" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="Location" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="Date Start" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="Date End" />
+          <InputBar />
+        </div>
       </div>
     ),
     timeAway: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Away From Job Start" /><InputBar /></div>
-        <div><PreviewLabel text="Away From Job End" /><InputBar /></div>
+        <div>
+          <PreviewLabel text="Away From Job Start" />
+          <InputBar />
+        </div>
+        <div>
+          <PreviewLabel text="Away From Job End" />
+          <InputBar />
+        </div>
       </div>
     ),
     justification: () => (
       <div>
         <PreviewLabel text="Justification / Purpose" />
-        <div className="rounded-lg" style={{ background: "#f4f5f7", height: 50 }} />
+        <div
+          className="rounded-lg"
+          style={{ background: "#f4f5f7", height: 50 }}
+        />
       </div>
     ),
     estimatedExpenses: () => (
       <div className="grid gap-3 sm:grid-cols-3">
-        {["Transport", "Lodging", "Meals", "Registration", "Substitute", "Other"].map((l) => (
-          <div key={l}><PreviewLabel text={l} /><InputBar w="80px" /></div>
+        {[
+          "Transport",
+          "Lodging",
+          "Meals",
+          "Registration",
+          "Substitute",
+          "Other",
+        ].map((l) => (
+          <div key={l}>
+            <PreviewLabel text={l} />
+            <InputBar w="80px" />
+          </div>
         ))}
       </div>
     ),
     actualExpenses: () => (
       <div className="grid gap-3 sm:grid-cols-3">
         {["Miles", "Other Transport", "Lodging", "Registration"].map((l) => (
-          <div key={l}><PreviewLabel text={l} /><InputBar w="80px" /></div>
+          <div key={l}>
+            <PreviewLabel text={l} />
+            <InputBar w="80px" />
+          </div>
         ))}
       </div>
     ),
@@ -545,21 +664,32 @@ const FORM_PREVIEWS: Record<FormType, Record<string, () => React.ReactNode>> = {
           ))}
         </div>
         <div className="grid grid-cols-5 gap-2">
-          {[1,2,3,4,5].map((n) => <InputBar key={n} />)}
+          {[1, 2, 3, 4, 5].map((n) => (
+            <InputBar key={n} />
+          ))}
         </div>
       </div>
     ),
     advanceRequested: () => (
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><PreviewLabel text="Advance Requested" /><InputBar w="120px" /></div>
+        <div>
+          <PreviewLabel text="Advance Requested" />
+          <InputBar w="120px" />
+        </div>
       </div>
     ),
     signature: () => (
       <div
         className="flex items-center justify-center rounded-lg"
-        style={{ background: "#f8f9fb", border: "1px dashed #c8ccd4", height: 60 }}
+        style={{
+          background: "#f8f9fb",
+          border: "1px dashed #c8ccd4",
+          height: 60,
+        }}
       >
-        <span className="text-xs" style={{ color: "#94a3b8" }}>Signature area</span>
+        <span className="text-xs" style={{ color: "#94a3b8" }}>
+          Signature area
+        </span>
       </div>
     ),
   },
@@ -3149,29 +3279,34 @@ function StaffSearchDropdown({
   )
 
   const q = query.toLowerCase().trim()
-  const filtered = q.length >= 1
-    ? staff
-        .filter(
-          (s) =>
-            s.email.toLowerCase().includes(q) ||
-            `${s.firstName} ${s.lastName}`.toLowerCase().includes(q)
-        )
-        .sort((a, b) =>
-          `${a.lastName} ${a.firstName}`.localeCompare(
-            `${b.lastName} ${b.firstName}`
+  const filtered =
+    q.length >= 1
+      ? staff
+          .filter(
+            (s) =>
+              s.email.toLowerCase().includes(q) ||
+              `${s.firstName} ${s.lastName}`.toLowerCase().includes(q)
           )
-        )
-        .slice(0, 12)
-    : staff
-        .sort((a, b) =>
-          `${a.lastName} ${a.firstName}`.localeCompare(
-            `${b.lastName} ${b.firstName}`
+          .sort((a, b) =>
+            `${a.lastName} ${a.firstName}`.localeCompare(
+              `${b.lastName} ${b.firstName}`
+            )
           )
-        )
-        .slice(0, 12)
+          .slice(0, 12)
+      : staff
+          .sort((a, b) =>
+            `${a.lastName} ${a.firstName}`.localeCompare(
+              `${b.lastName} ${b.firstName}`
+            )
+          )
+          .slice(0, 12)
 
   return (
-    <div ref={containerRef} className="relative flex-1" style={{ minWidth: 200 }}>
+    <div
+      ref={containerRef}
+      className="relative flex-1"
+      style={{ minWidth: 200 }}
+    >
       {selected && !open ? (
         <button
           type="button"
@@ -3222,10 +3357,7 @@ function StaffSearchDropdown({
           }}
         >
           {filtered.length === 0 ? (
-            <p
-              className="px-3 py-2 text-xs"
-              style={{ color: "#94a3b8" }}
-            >
+            <p className="px-3 py-2 text-xs" style={{ color: "#94a3b8" }}>
               No matches found.
             </p>
           ) : (

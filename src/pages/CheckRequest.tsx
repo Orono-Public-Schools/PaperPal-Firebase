@@ -235,7 +235,10 @@ export default function CheckRequest() {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Request details */}
-        <Section title="Request Details" style={{ order: getOrder("fullName") }}>
+        <Section
+          title="Request Details"
+          style={{ order: getOrder("fullName") }}
+        >
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Full Name">
               <input
@@ -257,10 +260,7 @@ export default function CheckRequest() {
             )}
             {isVisible("dateCheckNeeded") && (
               <Field label="Date Check Needed">
-                <DatePicker
-                  value={dateNeeded}
-                  onChange={setDateNeeded}
-                />
+                <DatePicker value={dateNeeded} onChange={setDateNeeded} />
               </Field>
             )}
           </div>
@@ -282,7 +282,10 @@ export default function CheckRequest() {
         </Section>
 
         {/* Payee info */}
-        <Section title="Payee Information" style={{ order: getOrder("payeeName") }}>
+        <Section
+          title="Payee Information"
+          style={{ order: getOrder("payeeName") }}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Payee / Vendor Name">
               <input
@@ -396,7 +399,10 @@ export default function CheckRequest() {
           </div>
         </div>
 
-        <Section title="Employee Signature" style={{ order: getOrder("signature") }}>
+        <Section
+          title="Employee Signature"
+          style={{ order: getOrder("signature") }}
+        >
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}

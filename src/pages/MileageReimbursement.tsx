@@ -281,7 +281,10 @@ export default function MileageReimbursement() {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Employee info */}
-        <Section title="Employee Information" style={{ order: getOrder("fullName") }}>
+        <Section
+          title="Employee Information"
+          style={{ order: getOrder("fullName") }}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full Name">
               <input
@@ -425,7 +428,10 @@ export default function MileageReimbursement() {
           </div>
         </div>
 
-        <Section title="Employee Signature" style={{ order: getOrder("signature") }}>
+        <Section
+          title="Employee Signature"
+          style={{ order: getOrder("signature") }}
+        >
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}
