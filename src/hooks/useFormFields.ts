@@ -10,10 +10,7 @@ export function useFormFields(formType: FormType) {
   )
 
   useEffect(() => {
-    if (cache) {
-      setFields(cache[formType])
-      return
-    }
+    if (cache) return
     getFormFieldConfigs().then((configs) => {
       cache = configs
       setFields(configs[formType])
