@@ -8,14 +8,19 @@ import {
   History,
   Plus,
   ClipboardCheck,
+  Trash2,
+  Download,
+  X,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAuth } from "@/hooks/useAuth"
+import { useSandbox } from "@/hooks/useSandbox"
 import {
   getUserSubmissions,
   getPendingApprovals,
   getReviewedSubmissions,
   getAppSettings,
+  updateSubmission,
 } from "@/lib/firestore"
 import type { Submission, SubmissionStatus } from "@/lib/types"
 
@@ -42,7 +47,7 @@ const FORM_TYPES = [
     description:
       "Request reimbursement for travel with estimated and actual expenses.",
     icon: Briefcase,
-    pill: { from: "#4356a9", to: "#6b7fd4" },
+    pill: { from: "#2d3589", to: "#4a56c9" },
     path: "/forms/travel",
   },
 ]
@@ -56,29 +61,62 @@ const TABS = [
 
 const STATUS_STYLES: Record<
   SubmissionStatus,
-  { label: string; bg: string; color: string }
+  {
+    label: string
+    bg: string
+    color: string
+    cardBg: string
+    cardBorder: string
+    cardGlow: string
+  }
 > = {
-  pending: { label: "Pending", bg: "rgba(67,86,169,0.12)", color: "#4356a9" },
+  pending: {
+    label: "Pending",
+    bg: "rgba(67,86,169,0.12)",
+    color: "#4356a9",
+    cardBg: "linear-gradient(135deg, #4356a9 0%, #5a6fbf 100%)",
+    cardBorder: "#4356a9",
+    cardGlow: "rgba(67,86,169,0.3)",
+  },
   reviewed: {
     label: "Awaiting Final Approval",
     bg: "rgba(45,63,137,0.12)",
     color: "#2d3f89",
+    cardBg: "linear-gradient(135deg, #2d3f89 0%, #4356a9 100%)",
+    cardBorder: "#2d3f89",
+    cardGlow: "rgba(45,63,137,0.3)",
   },
   approved: {
     label: "Approved",
     bg: "rgba(29,42,93,0.12)",
     color: "#1d2a5d",
+    cardBg: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+    cardBorder: "#1d2a5d",
+    cardGlow: "rgba(29,42,93,0.3)",
   },
-  denied: { label: "Denied", bg: "rgba(173,33,34,0.12)", color: "#ad2122" },
+  denied: {
+    label: "Denied",
+    bg: "rgba(173,33,34,0.12)",
+    color: "#ad2122",
+    cardBg: "linear-gradient(135deg, #ad2122 0%, #c9393a 100%)",
+    cardBorder: "#ad2122",
+    cardGlow: "rgba(173,33,34,0.3)",
+  },
   revisions_requested: {
     label: "Revisions Requested",
     bg: "rgba(67,86,169,0.12)",
     color: "#4356a9",
+    cardBg: "linear-gradient(135deg, #4356a9 0%, #6b7fd4 100%)",
+    cardBorder: "#4356a9",
+    cardGlow: "rgba(67,86,169,0.3)",
   },
   cancelled: {
     label: "Cancelled",
     bg: "rgba(148,163,184,0.12)",
     color: "#64748b",
+    cardBg: "linear-gradient(135deg, #64748b 0%, #94a3b8 100%)",
+    cardBorder: "#64748b",
+    cardGlow: "rgba(100,116,139,0.2)",
   },
 }
 
@@ -88,8 +126,15 @@ const FORM_LABELS: Record<string, string> = {
   travel: "Travel",
 }
 
+const FORM_TYPE_COLORS: Record<string, string> = {
+  check: "#1d2a5d",
+  mileage: "#ad2122",
+  travel: "#2d3589",
+}
+
 export default function Dashboard() {
   const { user, userProfile } = useAuth()
+  const { sandbox } = useSandbox()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
@@ -117,16 +162,21 @@ export default function Dashboard() {
     }
   }, [user, activeTab])
 
-  const submissions =
+  const allSubmissions =
     submissionData && submissionData.uid === user?.uid
       ? submissionData.data
       : []
+  const submissions = allSubmissions.filter((s) =>
+    sandbox ? s.sandbox === true : !s.sandbox
+  )
   const loadingSubmissions =
     (activeTab === "pending" || activeTab === "history") &&
     submissionData?.uid !== user?.uid
 
   const pendingSubmissions = submissions.filter((s) => s.status === "pending")
-  const historySubmissions = submissions.filter((s) => s.status !== "pending")
+  const historySubmissions = submissions.filter(
+    (s) => s.status !== "pending" && !s.hiddenBySubmitter
+  )
 
   // Approvals — submissions assigned to this user for review
   const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
@@ -192,22 +242,6 @@ export default function Dashboard() {
                     }
                   : { color: "rgba(255,255,255,0.5)" }
               }
-              onMouseEnter={(e) => {
-                if (!active) {
-                  ;(e.currentTarget as HTMLButtonElement).style.color =
-                    "#ffffff"
-                  ;(e.currentTarget as HTMLButtonElement).style.background =
-                    "rgba(255,255,255,0.08)"
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  ;(e.currentTarget as HTMLButtonElement).style.color =
-                    "rgba(255,255,255,0.5)"
-                  ;(e.currentTarget as HTMLButtonElement).style.background =
-                    "transparent"
-                }
-              }}
             >
               <Icon size={15} />
               {label}
@@ -219,73 +253,29 @@ export default function Dashboard() {
       {/* Tab: New Request */}
       {activeTab === "new" && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {FORM_TYPES.map(
-            ({ id, title, description, icon: Icon, pill, path }) => (
-              <button
-                key={id}
-                onClick={() => navigate(path)}
-                className="group cursor-pointer overflow-hidden rounded-xl text-center transition-all duration-500"
-                style={{
-                  backgroundColor: "#ffffff",
-                  maxHeight: "180px",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.maxHeight = "340px"
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 32px rgba(0,0,0,0.25)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.maxHeight = "180px"
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 16px rgba(0,0,0,0.15)"
-                }}
-              >
-                {/* Color accent bar */}
-                <div
-                  className="h-1 w-full"
-                  style={{
-                    background: `linear-gradient(90deg, ${pill.from}, ${pill.to})`,
-                  }}
-                />
-
-                {/* Icon */}
-                <div
-                  className="mx-auto mt-5 mb-3 flex h-14 w-14 items-center justify-center rounded-xl"
-                  style={{ background: `${pill.from}15` }}
-                >
-                  <Icon size={26} style={{ color: pill.from }} />
+          {FORM_TYPES.map(({ id, title, description, icon: Icon, pill, path }) => (
+            <button key={id} onClick={() => navigate(path)}
+              className="group cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04]"
+              style={{
+                background: `linear-gradient(135deg, ${pill.from}, ${pill.to})`,
+                boxShadow: `0 4px 24px ${pill.from}50`,
+                height: "220px",
+              }}
+            >
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 transition-all duration-400 group-hover:h-0 group-hover:opacity-0">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+                  <Icon size={32} style={{ color: "#ffffff" }} />
                 </div>
-
-                {/* Title */}
-                <div
-                  className="px-4 pb-4 text-base font-bold"
-                  style={{ color: "#1d2a5d" }}
-                >
-                  {title}
+                <span className="text-lg font-bold text-white">{title}</span>
+              </div>
+              <div className="flex h-0 w-full flex-col items-center justify-center gap-3 overflow-hidden p-6 opacity-0 transition-all duration-400 group-hover:h-full group-hover:opacity-100">
+                <p className="text-center text-sm leading-relaxed text-white/90">{description}</p>
+                <div className="mt-2 rounded-lg bg-white/20 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors duration-200 group-hover:bg-white/30">
+                  Get Started →
                 </div>
-
-                {/* Hover content */}
-                <div
-                  className="mx-4 mb-4 -translate-y-6 scale-0 rounded-lg px-4 py-4 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
-                  style={{ backgroundColor: `${pill.from}08` }}
-                >
-                  <p
-                    className="text-sm leading-relaxed"
-                    style={{ color: "#64748b" }}
-                  >
-                    {description}
-                  </p>
-                  <div
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white"
-                    style={{ background: pill.from }}
-                  >
-                    Get Started →
-                  </div>
-                </div>
-              </button>
-            )
-          )}
+              </div>
+            </button>
+          ))}
         </div>
       )}
 
@@ -302,19 +292,78 @@ export default function Dashboard() {
 
       {/* Tab: History */}
       {activeTab === "history" && (
-        <SubmissionList
-          submissions={historySubmissions}
-          loading={loadingSubmissions}
-          emptyIcon={History}
-          emptyTitle="No submissions yet"
-          emptySubtitle="Your completed requests will show up here."
-        />
+        <>
+          {historySubmissions.length > 0 && (
+            <div className="mb-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  const rows = [
+                    ["ID", "Type", "Summary", "Amount", "Status", "Date"],
+                    ...historySubmissions.map((s) => {
+                      const ts = s.createdAt as { toDate?: () => Date } | null
+                      const date = ts?.toDate?.()?.toLocaleDateString("en-US") ?? ""
+                      return [s.id, s.formType, s.summary, s.amount.toFixed(2), s.status, date]
+                    }),
+                  ]
+                  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n")
+                  const blob = new Blob([csv], { type: "text/csv" })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement("a")
+                  a.href = url
+                  a.download = "paperpal-history.csv"
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+                style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.06)" }}
+              >
+                <Download size={13} />
+                Export CSV
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Hide ${historySubmissions.length} completed submissions from your history?`)) return
+                  for (const s of historySubmissions) {
+                    await updateSubmission(s.id, { hiddenBySubmitter: true })
+                  }
+                  setSubmissionData((prev) =>
+                    prev ? { ...prev, data: prev.data.map((s) =>
+                      s.status !== "pending" ? { ...s, hiddenBySubmitter: true } : s
+                    )} : prev
+                  )
+                }}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+                style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.06)" }}
+              >
+                <Trash2 size={13} />
+                Clear History
+              </button>
+            </div>
+          )}
+          <SubmissionList
+            submissions={historySubmissions}
+            loading={loadingSubmissions}
+            emptyIcon={History}
+            emptyTitle="No submissions yet"
+            emptySubtitle="Your completed requests will show up here."
+            onHide={async (id) => {
+              await updateSubmission(id, { hiddenBySubmitter: true })
+              setSubmissionData((prev) =>
+                prev ? { ...prev, data: prev.data.map((s) =>
+                  s.id === id ? { ...s, hiddenBySubmitter: true } : s
+                )} : prev
+              )
+            }}
+          />
+        </>
       )}
 
       {/* Tab: Approvals */}
       {activeTab === "approvals" && (
         <SubmissionList
-          submissions={approvalData ?? []}
+          submissions={(approvalData ?? []).filter((s) =>
+            sandbox ? s.sandbox === true : !s.sandbox
+          )}
           loading={loadingApprovals}
           emptyIcon={ClipboardCheck}
           emptyTitle="No pending approvals"
@@ -335,6 +384,7 @@ function SubmissionList({
   emptyTitle,
   emptySubtitle,
   showSubmitter,
+  onHide,
 }: {
   submissions: Submission[]
   loading: boolean
@@ -342,6 +392,7 @@ function SubmissionList({
   emptyTitle: string
   emptySubtitle: string
   showSubmitter?: boolean
+  onHide?: (id: string) => void
 }) {
   const navigate = useNavigate()
   if (loading) {
@@ -361,21 +412,22 @@ function SubmissionList({
   if (submissions.length === 0) {
     return (
       <div
-        className="rounded-xl p-8 text-center"
+        className="rounded-2xl p-10 text-center"
         style={{
-          background: "#ffffff",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+          background: "rgba(255,255,255,0.06)",
+          border: "1px dashed rgba(255,255,255,0.15)",
         }}
       >
-        <EmptyIcon
-          size={32}
-          className="mx-auto mb-3"
-          style={{ color: "#9ca3af" }}
-        />
-        <p className="font-medium" style={{ color: "#1d2a5d" }}>
+        <div
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl"
+          style={{ background: "rgba(255,255,255,0.08)" }}
+        >
+          <EmptyIcon size={24} style={{ color: "rgba(255,255,255,0.35)" }} />
+        </div>
+        <p className="font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>
           {emptyTitle}
         </p>
-        <p className="mt-1 text-sm" style={{ color: "#64748b" }}>
+        <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
           {emptySubtitle}
         </p>
       </div>
@@ -398,35 +450,61 @@ function SubmissionList({
           <div
             key={s.id}
             onClick={() => navigate(`/forms/${s.formType}/${s.id}`)}
-            className="flex cursor-pointer items-center justify-between rounded-xl px-5 py-4 transition-shadow hover:shadow-lg"
+            className="group flex cursor-pointer items-center gap-4 overflow-hidden rounded-xl transition-all duration-200 hover:-translate-y-0.5"
             style={{
-              background: "#ffffff",
-              boxShadow:
-                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+              background: statusStyle.cardBg,
+              boxShadow: `0 2px 12px ${statusStyle.cardGlow}`,
             }}
           >
-            <div className="min-w-0">
-              <p
-                className="truncate text-sm font-semibold"
-                style={{ color: "#1d2a5d" }}
-              >
-                {s.summary}
-              </p>
-              <p className="mt-0.5 text-xs" style={{ color: "#94a3b8" }}>
-                {showSubmitter && <>{s.submitterName} · </>}
-                {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
-              </p>
-            </div>
-            <div className="ml-4 flex shrink-0 items-center gap-3">
-              <span
-                className="rounded-full px-3 py-1 text-xs font-semibold"
-                style={{ background: statusStyle.bg, color: statusStyle.color }}
-              >
-                {statusStyle.label}
-              </span>
-              <span className="text-sm font-bold" style={{ color: "#1d2a5d" }}>
-                ${s.amount.toFixed(2)}
-              </span>
+            {/* Left accent bar — form type color */}
+            <div
+              className="w-1 self-stretch rounded-l-xl"
+              style={{ background: FORM_TYPE_COLORS[s.formType] ?? "rgba(255,255,255,0.25)" }}
+            />
+
+            {/* Content */}
+            <div className="flex flex-1 items-center justify-between py-4 pr-5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">
+                  {s.summary}
+                </p>
+                <p className="mt-0.5 text-xs text-white/50">
+                  {showSubmitter && <>{s.submitterName} · </>}
+                  {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
+                </p>
+              </div>
+              <div className="ml-4 flex shrink-0 items-center gap-3">
+                {s.sandbox && (
+                  <span
+                    className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
+                    style={{ background: "rgba(234,179,8,0.25)", color: "#fbbf24" }}
+                  >
+                    Sandbox
+                  </span>
+                )}
+                <span
+                  className="rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ background: "rgba(255,255,255,0.15)", color: "#ffffff" }}
+                >
+                  {statusStyle.label}
+                </span>
+                <span className="text-sm font-bold text-white">
+                  ${s.amount.toFixed(2)}
+                </span>
+                {onHide && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onHide(s.id)
+                    }}
+                    className="cursor-pointer rounded-lg p-1.5 opacity-0 transition-all duration-200 group-hover:opacity-100"
+                    style={{ color: "rgba(255,255,255,0.4)" }}
+                    title="Remove from history"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Plus,
   Trash2,
@@ -14,6 +14,12 @@ import {
   RefreshCw,
   Link2,
   HardDrive,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
+  SlidersHorizontal,
+  Lock,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
@@ -36,6 +42,8 @@ import {
   updateSupervisorMappings,
   getUniqueStaffTitles,
   seedBuildingsFromInitials,
+  getFormFieldConfigs,
+  updateFormFieldConfigs,
 } from "@/lib/firestore"
 import { httpsCallable } from "firebase/functions"
 import { functions } from "@/lib/firebase"
@@ -48,21 +56,34 @@ import type {
   BudgetSegmentType,
   BudgetSegment,
   SupervisorMapping,
+  FormFieldConfig,
+  FormType,
 } from "@/lib/types"
 
 const ROLE_LABELS: Record<UserRole, string> = {
   staff: "Staff",
   supervisor: "Supervisor",
+  controller: "Controller",
   business_office: "Business Office",
   admin: "Admin",
 }
 
+const ADMIN_TABS = [
+  { id: "forms", label: "Forms & Mappings", icon: SlidersHorizontal },
+  { id: "settings", label: "Settings", icon: Settings },
+] as const
+
+type AdminTab = (typeof ADMIN_TABS)[number]["id"]
+
 export default function Admin() {
   const { userProfile } = useAuth()
+  const [activeTab, setActiveTab] = useState<AdminTab>("forms")
+
+  const isAdmin = userProfile?.role === "admin"
 
   if (
     !userProfile ||
-    (userProfile.role !== "admin" && userProfile.role !== "business_office")
+    !["admin", "business_office", "controller"].includes(userProfile.role)
   ) {
     return (
       <AppLayout>
@@ -85,21 +106,61 @@ export default function Admin() {
           Admin Panel
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Manage buildings, staff data, user roles, and email settings.
+          Manage forms, mappings, and system settings.
         </p>
       </div>
 
-      <div className="space-y-6">
-        <GeneralSettingsSection />
-        <BudgetSegmentsSection />
-        <StaffSyncSection />
-        <SupervisorMappingsSection />
-        <BuildingsSection />
-        <StaffSection />
-        <RolesSection />
-        <EmailSettingsSection />
-        <DrivePdfSettingsSection />
+      {/* Tabs */}
+      <div
+        className="mb-6 flex gap-1 rounded-xl p-1"
+        style={{ background: "rgba(255,255,255,0.08)" }}
+      >
+        {ADMIN_TABS.map(({ id, label, icon: Icon }) => {
+          const active = activeTab === id
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200"
+              style={
+                active
+                  ? {
+                      background:
+                        "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                      color: "white",
+                      boxShadow: "0 2px 10px rgba(29,42,93,0.35)",
+                    }
+                  : { color: "rgba(255,255,255,0.5)" }
+              }
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          )
+        })}
       </div>
+
+      {/* Forms & Mappings */}
+      {activeTab === "forms" && (
+        <div className="space-y-6">
+          <FormFieldsSection />
+          <BudgetSegmentsSection />
+          <BuildingsSection />
+          <SupervisorMappingsSection />
+        </div>
+      )}
+
+      {/* Settings */}
+      {activeTab === "settings" && (
+        <div className="space-y-6">
+          <GeneralSettingsSection />
+          <RolesSection />
+          <StaffSection />
+          {isAdmin && <StaffSyncSection />}
+          {isAdmin && <EmailSettingsSection />}
+          {isAdmin && <DrivePdfSettingsSection />}
+        </div>
+      )}
     </AppLayout>
   )
 }
@@ -109,7 +170,7 @@ export default function Admin() {
 function GeneralSettingsSection() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -257,6 +318,564 @@ function GeneralSettingsSection() {
                   ))}
                 </select>
               </Field>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save"}</span>
+            </button>
+            {saved && (
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
+                Saved!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Form Fields ────────────────────────────────────────────────────────────
+
+const FORM_TYPE_LABELS: Record<FormType, string> = {
+  check: "Check Request",
+  mileage: "Mileage Reimbursement",
+  travel: "Travel Reimbursement",
+}
+
+// Placeholder input bar for form preview
+function InputBar({ w = "100%" }: { w?: string }) {
+  return (
+    <div
+      className="rounded-lg"
+      style={{ background: "#f4f5f7", height: 34, width: w }}
+    />
+  )
+}
+
+function PreviewLabel({ text }: { text: string }) {
+  return (
+    <p
+      className="mb-1 text-[10px] font-semibold tracking-wider uppercase"
+      style={{ color: "#94a3b8" }}
+    >
+      {text}
+    </p>
+  )
+}
+
+// Each form type defines its sections as preview renderers
+const FORM_PREVIEWS: Record<FormType, Record<string, () => React.ReactNode>> = {
+  check: {
+    fullName: () => (
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div><PreviewLabel text="Full Name" /><InputBar /></div>
+        <div><PreviewLabel text="Date of Request" /><InputBar /></div>
+        <div><PreviewLabel text="Date Check Needed" /><InputBar /></div>
+      </div>
+    ),
+    dateOfRequest: () => null,
+    dateCheckNeeded: () => null,
+    routeTo: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Route To" /><InputBar /></div>
+      </div>
+    ),
+    payeeName: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Payee / Vendor Name" /><InputBar /></div>
+      </div>
+    ),
+    payeeAddress: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Street Address" /><InputBar /></div>
+        <div><PreviewLabel text="City" /><InputBar /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><PreviewLabel text="State" /><InputBar /></div>
+          <div><PreviewLabel text="ZIP" /><InputBar /></div>
+        </div>
+      </div>
+    ),
+    expenses: () => (
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <div><PreviewLabel text="Account Code" /><InputBar /></div>
+          <div><PreviewLabel text="Description" /><InputBar /></div>
+          <div><PreviewLabel text="Amount" /><InputBar w="80px" /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <InputBar /><InputBar /><InputBar w="80px" />
+        </div>
+      </div>
+    ),
+    signature: () => (
+      <div
+        className="flex items-center justify-center rounded-lg"
+        style={{ background: "#f8f9fb", border: "1px dashed #c8ccd4", height: 60 }}
+      >
+        <span className="text-xs" style={{ color: "#94a3b8" }}>Signature area</span>
+      </div>
+    ),
+  },
+  mileage: {
+    fullName: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Full Name" /><InputBar /></div>
+      </div>
+    ),
+    employeeId: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Employee ID" /><InputBar /></div>
+      </div>
+    ),
+    accountCode: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Account Code" /><InputBar /></div>
+      </div>
+    ),
+    routeTo: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Route To" /><InputBar /></div>
+      </div>
+    ),
+    trips: () => (
+      <div className="space-y-2">
+        <div className="grid grid-cols-5 gap-2">
+          {["Date", "From", "To", "Miles", "Purpose"].map((h) => (
+            <PreviewLabel key={h} text={h} />
+          ))}
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {[1,2,3,4,5].map((n) => <InputBar key={n} />)}
+        </div>
+      </div>
+    ),
+    tripPurpose: () => null,
+    roundTrip: () => null,
+    signature: () => (
+      <div
+        className="flex items-center justify-center rounded-lg"
+        style={{ background: "#f8f9fb", border: "1px dashed #c8ccd4", height: 60 }}
+      >
+        <span className="text-xs" style={{ color: "#94a3b8" }}>Signature area</span>
+      </div>
+    ),
+  },
+  travel: {
+    fullName: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Full Name" /><InputBar /></div>
+      </div>
+    ),
+    employeeId: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Employee ID" /><InputBar /></div>
+      </div>
+    ),
+    formDate: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Form Date" /><InputBar /></div>
+      </div>
+    ),
+    address: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Home Address" /><InputBar /></div>
+      </div>
+    ),
+    routeTo: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Route To" /><InputBar /></div>
+      </div>
+    ),
+    budgetYear: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Budget Year" /><InputBar /></div>
+      </div>
+    ),
+    accountCode: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Account Code" /><InputBar /></div>
+      </div>
+    ),
+    meetingDetails: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Meeting / Conference Title" /><InputBar /></div>
+        <div><PreviewLabel text="Location" /><InputBar /></div>
+        <div><PreviewLabel text="Date Start" /><InputBar /></div>
+        <div><PreviewLabel text="Date End" /><InputBar /></div>
+      </div>
+    ),
+    timeAway: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Away From Job Start" /><InputBar /></div>
+        <div><PreviewLabel text="Away From Job End" /><InputBar /></div>
+      </div>
+    ),
+    justification: () => (
+      <div>
+        <PreviewLabel text="Justification / Purpose" />
+        <div className="rounded-lg" style={{ background: "#f4f5f7", height: 50 }} />
+      </div>
+    ),
+    estimatedExpenses: () => (
+      <div className="grid gap-3 sm:grid-cols-3">
+        {["Transport", "Lodging", "Meals", "Registration", "Substitute", "Other"].map((l) => (
+          <div key={l}><PreviewLabel text={l} /><InputBar w="80px" /></div>
+        ))}
+      </div>
+    ),
+    actualExpenses: () => (
+      <div className="grid gap-3 sm:grid-cols-3">
+        {["Miles", "Other Transport", "Lodging", "Registration"].map((l) => (
+          <div key={l}><PreviewLabel text={l} /><InputBar w="80px" /></div>
+        ))}
+      </div>
+    ),
+    meals: () => (
+      <div className="space-y-2">
+        <div className="grid grid-cols-5 gap-2">
+          {["Date", "Breakfast", "Lunch", "Dinner", "Total"].map((h) => (
+            <PreviewLabel key={h} text={h} />
+          ))}
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {[1,2,3,4,5].map((n) => <InputBar key={n} />)}
+        </div>
+      </div>
+    ),
+    advanceRequested: () => (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><PreviewLabel text="Advance Requested" /><InputBar w="120px" /></div>
+      </div>
+    ),
+    signature: () => (
+      <div
+        className="flex items-center justify-center rounded-lg"
+        style={{ background: "#f8f9fb", border: "1px dashed #c8ccd4", height: 60 }}
+      >
+        <span className="text-xs" style={{ color: "#94a3b8" }}>Signature area</span>
+      </div>
+    ),
+  },
+}
+
+// Section titles that map to field IDs
+const SECTION_TITLES: Record<FormType, Record<string, string>> = {
+  check: {
+    fullName: "Request Details",
+    routeTo: "Request Details",
+    dateOfRequest: "Request Details",
+    dateCheckNeeded: "Request Details",
+    payeeName: "Payee Information",
+    payeeAddress: "Payee Information",
+    expenses: "Expenses",
+    signature: "Employee Signature",
+  },
+  mileage: {
+    fullName: "Employee Information",
+    employeeId: "Employee Information",
+    accountCode: "Employee Information",
+    routeTo: "Employee Information",
+    trips: "Trip Log",
+    tripPurpose: "Trip Log",
+    roundTrip: "Trip Log",
+    signature: "Employee Signature",
+  },
+  travel: {
+    fullName: "Employee & Trip Information",
+    employeeId: "Employee & Trip Information",
+    formDate: "Employee & Trip Information",
+    address: "Employee & Trip Information",
+    routeTo: "Employee & Trip Information",
+    budgetYear: "Employee & Trip Information",
+    accountCode: "Employee & Trip Information",
+    meetingDetails: "Meeting / Conference Details",
+    timeAway: "Time Away",
+    justification: "Justification & Attachments",
+    estimatedExpenses: "Estimated Expenses",
+    actualExpenses: "Actual Costs",
+    meals: "Meal Expenses",
+    advanceRequested: "Advance Requested",
+    signature: "Employee Signature",
+  },
+}
+
+function FormFieldsSection() {
+  const [configs, setConfigs] = useState<Record<
+    FormType,
+    FormFieldConfig[]
+  > | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [activeForm, setActiveForm] = useState<FormType>("check")
+
+  useEffect(() => {
+    getFormFieldConfigs().then((c) => {
+      setConfigs(c)
+      setLoading(false)
+    })
+  }, [])
+
+  function moveField(formType: FormType, index: number, dir: -1 | 1) {
+    if (!configs) return
+    const fields = [...configs[formType]].sort(
+      (a, b) => a.sortOrder - b.sortOrder
+    )
+    const swapIdx = index + dir
+    if (swapIdx < 0 || swapIdx >= fields.length) return
+    const tempOrder = fields[index].sortOrder
+    fields[index] = { ...fields[index], sortOrder: fields[swapIdx].sortOrder }
+    fields[swapIdx] = { ...fields[swapIdx], sortOrder: tempOrder }
+    setConfigs({ ...configs, [formType]: fields })
+  }
+
+  function toggleField(formType: FormType, id: string) {
+    if (!configs) return
+    setConfigs({
+      ...configs,
+      [formType]: configs[formType].map((f) =>
+        f.id === id && !f.locked ? { ...f, visible: !f.visible } : f
+      ),
+    })
+  }
+
+  async function handleSave() {
+    if (!configs) return
+    setSaving(true)
+    await updateFormFieldConfigs(configs)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  const fields = configs
+    ? [...configs[activeForm]].sort((a, b) => a.sortOrder - b.sortOrder)
+    : []
+
+  return (
+    <Section
+      title="Form Fields"
+      icon={SlidersHorizontal}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {loading ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
+      ) : (
+        <>
+          <p className="mb-4 text-xs" style={{ color: "#94a3b8" }}>
+            Show, hide, and reorder sections on each form. Locked sections
+            cannot be hidden. Changes affect all users.
+          </p>
+
+          {/* Form type tabs */}
+          <div
+            className="mb-5 flex gap-1 rounded-lg p-1"
+            style={{ background: "#f4f5f7" }}
+          >
+            {(Object.keys(FORM_TYPE_LABELS) as FormType[]).map((ft) => (
+              <button
+                key={ft}
+                onClick={() => setActiveForm(ft)}
+                className="flex-1 cursor-pointer rounded-md px-3 py-2 text-xs font-semibold transition-colors"
+                style={
+                  activeForm === ft
+                    ? {
+                        background: "#ffffff",
+                        color: "#1d2a5d",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      }
+                    : { color: "#64748b" }
+                }
+              >
+                {FORM_TYPE_LABELS[ft]}
+              </button>
+            ))}
+          </div>
+
+          {/* Form preview */}
+          <div
+            className="rounded-xl p-5"
+            style={{
+              background:
+                "linear-gradient(160deg, #0f1a3e 0%, #1a2754 40%, #1e2d5a 100%)",
+            }}
+          >
+            {/* Mini form header */}
+            <div className="mb-4">
+              <p
+                className="text-lg font-bold"
+                style={{ color: "rgba(255,255,255,0.9)" }}
+              >
+                {FORM_TYPE_LABELS[activeForm]}
+              </p>
+              <p
+                className="mt-0.5 text-xs"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                {fields.filter((f) => f.visible).length} of {fields.length}{" "}
+                fields visible — hover sections to edit
+              </p>
+            </div>
+
+            {/* Sections rendered like the actual form */}
+            <div className="flex flex-col gap-4">
+              {fields.map((field, i) => {
+                const preview = FORM_PREVIEWS[activeForm]?.[field.id]
+                if (!preview) return null
+                const content = preview()
+                if (content === null) return null
+
+                const sectionTitle =
+                  SECTION_TITLES[activeForm]?.[field.id] ?? field.label
+
+                if (field.visible) {
+                  return (
+                    <div
+                      key={field.id}
+                      className="group relative rounded-xl p-5 transition-all duration-200"
+                      style={{
+                        background: "#ffffff",
+                        boxShadow:
+                          "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+                      }}
+                    >
+                      <h3
+                        className="mb-3 text-xs font-semibold tracking-widest uppercase"
+                        style={{ color: "#1d2a5d" }}
+                      >
+                        {sectionTitle}
+                      </h3>
+                      {content}
+
+                      {/* Hover toolbar */}
+                      <div
+                        className="pointer-events-none absolute inset-0 flex items-start justify-end gap-1 rounded-xl p-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
+                        style={{ background: "rgba(29,42,93,0.03)" }}
+                      >
+                        <button
+                          onClick={() => moveField(activeForm, i, -1)}
+                          disabled={i === 0}
+                          className="cursor-pointer rounded-lg p-1.5 transition-colors hover:bg-white disabled:cursor-default disabled:opacity-20"
+                          style={{
+                            color: "#64748b",
+                            background: "rgba(255,255,255,0.8)",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveField(activeForm, i, 1)}
+                          disabled={i === fields.length - 1}
+                          className="cursor-pointer rounded-lg p-1.5 transition-colors hover:bg-white disabled:cursor-default disabled:opacity-20"
+                          style={{
+                            color: "#64748b",
+                            background: "rgba(255,255,255,0.8)",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        {!field.locked && (
+                          <button
+                            onClick={() => toggleField(activeForm, field.id)}
+                            className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors hover:bg-white"
+                            style={{
+                              color: "#ad2122",
+                              background: "rgba(255,255,255,0.8)",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                            }}
+                          >
+                            <EyeOff size={12} />
+                            Hide
+                          </button>
+                        )}
+                        {field.locked && (
+                          <div
+                            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold"
+                            style={{
+                              color: "#94a3b8",
+                              background: "rgba(255,255,255,0.8)",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                            }}
+                          >
+                            <Lock size={10} />
+                            Required
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+
+                // Hidden field — collapsed
+                return (
+                  <div
+                    key={field.id}
+                    className="group flex items-center justify-between rounded-xl px-5 py-3 transition-all duration-200"
+                    style={{
+                      border: "1px dashed rgba(255,255,255,0.15)",
+                      background: "rgba(255,255,255,0.03)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <EyeOff
+                        size={13}
+                        style={{ color: "rgba(255,255,255,0.25)" }}
+                      />
+                      <span
+                        className="text-xs font-medium"
+                        style={{
+                          color: "rgba(255,255,255,0.35)",
+                          textDecoration: "line-through",
+                        }}
+                      >
+                        {sectionTitle} — {field.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => moveField(activeForm, i, -1)}
+                        disabled={i === 0}
+                        className="cursor-pointer rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 disabled:cursor-default disabled:opacity-20"
+                        style={{ color: "rgba(255,255,255,0.4)" }}
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        onClick={() => moveField(activeForm, i, 1)}
+                        disabled={i === fields.length - 1}
+                        className="cursor-pointer rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 disabled:cursor-default disabled:opacity-20"
+                        style={{ color: "rgba(255,255,255,0.4)" }}
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                      <button
+                        onClick={() => toggleField(activeForm, field.id)}
+                        className="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors"
+                        style={{
+                          color: "#4356a9",
+                          background: "rgba(67,86,169,0.15)",
+                        }}
+                      >
+                        <Eye size={12} />
+                        Show
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -761,7 +1380,7 @@ function BudgetSegmentsSection() {
 function BuildingsSection() {
   const [buildings, setBuildings] = useState<Building[]>([])
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const [adding, setAdding] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [newInitials, setNewInitials] = useState("")
@@ -1373,6 +1992,7 @@ function SupervisorMappingsSection() {
     .filter(
       (u) =>
         u.role === "supervisor" ||
+        u.role === "controller" ||
         u.role === "admin" ||
         u.role === "business_office"
     )
@@ -2017,28 +2637,33 @@ function RolesSection() {
   async function handleAddUser() {
     if (!addEmail) return
     setAdding(true)
-    const staff = staffRecords.find(
-      (s) => s.email.toLowerCase() === addEmail.toLowerCase()
-    )
-    const uid = `pre-${addEmail.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    const profile: Partial<UserProfile> = {
-      uid,
-      email: addEmail.toLowerCase(),
-      firstName: staff?.firstName ?? "",
-      lastName: staff?.lastName ?? "",
-      fullName: staff
-        ? `${staff.firstName} ${staff.lastName}`.trim()
-        : addEmail,
-      employeeId: staff?.employeeId ?? "",
-      building: staff?.building ?? "",
-      role: addRole,
+    try {
+      const staff = staffRecords.find(
+        (s) => s.email.toLowerCase() === addEmail.toLowerCase()
+      )
+      const uid = `pre-${addEmail.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+      const profile: Partial<UserProfile> = {
+        uid,
+        email: addEmail.toLowerCase(),
+        firstName: staff?.firstName ?? "",
+        lastName: staff?.lastName ?? "",
+        fullName: staff
+          ? `${staff.firstName} ${staff.lastName}`.trim()
+          : addEmail,
+        employeeId: staff?.employeeId ?? "",
+        building: staff?.building ?? "",
+        role: addRole,
+      }
+      await createOrUpdateUserProfile(uid, profile)
+      const updated = await getAllUsers()
+      setUsers(updated)
+      setAddEmail("")
+      setAddRole("staff")
+      setShowAdd(false)
+    } catch (err) {
+      console.error("Failed to add user:", err)
+      alert("Failed to add user. You may not have permission.")
     }
-    await createOrUpdateUserProfile(uid, profile)
-    const updated = await getAllUsers()
-    setUsers(updated)
-    setAddEmail("")
-    setAddRole("staff")
-    setShowAdd(false)
     setAdding(false)
   }
 
@@ -2112,26 +2737,11 @@ function RolesSection() {
                 Add from Staff Directory
               </p>
               <div className="flex flex-wrap items-end gap-2">
-                <div className="flex-1" style={{ minWidth: 200 }}>
-                  <select
-                    value={addEmail}
-                    onChange={(e) => setAddEmail(e.target.value)}
-                    className="input-neu w-full text-xs"
-                  >
-                    <option value="">Select staff member…</option>
-                    {availableStaff
-                      .sort((a, b) =>
-                        `${a.lastName} ${a.firstName}`.localeCompare(
-                          `${b.lastName} ${b.firstName}`
-                        )
-                      )
-                      .map((s) => (
-                        <option key={s.email} value={s.email}>
-                          {s.firstName} {s.lastName} — {s.email}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                <StaffSearchDropdown
+                  staff={availableStaff}
+                  value={addEmail}
+                  onChange={setAddEmail}
+                />
                 <div>
                   <select
                     value={addRole}
@@ -2506,6 +3116,162 @@ function DrivePdfSettingsSection() {
   )
 }
 
+// ─── Staff Search Dropdown ───────────────────────────────────────────────────
+
+function StaffSearchDropdown({
+  staff,
+  value,
+  onChange,
+}: {
+  staff: StaffRecord[]
+  value: string
+  onChange: (email: string) => void
+}) {
+  const [query, setQuery] = useState("")
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const selected = staff.find(
+    (s) => s.email.toLowerCase() === value.toLowerCase()
+  )
+
+  const q = query.toLowerCase().trim()
+  const filtered = q.length >= 1
+    ? staff
+        .filter(
+          (s) =>
+            s.email.toLowerCase().includes(q) ||
+            `${s.firstName} ${s.lastName}`.toLowerCase().includes(q)
+        )
+        .sort((a, b) =>
+          `${a.lastName} ${a.firstName}`.localeCompare(
+            `${b.lastName} ${b.firstName}`
+          )
+        )
+        .slice(0, 12)
+    : staff
+        .sort((a, b) =>
+          `${a.lastName} ${a.firstName}`.localeCompare(
+            `${b.lastName} ${b.firstName}`
+          )
+        )
+        .slice(0, 12)
+
+  return (
+    <div ref={containerRef} className="relative flex-1" style={{ minWidth: 200 }}>
+      {selected && !open ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(true)
+            setQuery("")
+          }}
+          className="input-neu flex w-full cursor-pointer items-center justify-between text-left text-xs"
+        >
+          <span style={{ color: "#1d2a5d" }}>
+            {selected.firstName} {selected.lastName}{" "}
+            <span style={{ color: "#94a3b8" }}>— {selected.email}</span>
+          </span>
+          <span
+            className="ml-2 text-[10px]"
+            style={{ color: "#94a3b8" }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onChange("")
+              setQuery("")
+            }}
+          >
+            ✕
+          </span>
+        </button>
+      ) : (
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search staff by name or email…"
+          className="input-neu w-full text-xs"
+          autoFocus={open}
+        />
+      )}
+      {open && (
+        <div
+          className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg py-1"
+          style={{
+            background: "#ffffff",
+            boxShadow:
+              "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
+            border: "1px solid #e2e5ea",
+          }}
+        >
+          {filtered.length === 0 ? (
+            <p
+              className="px-3 py-2 text-xs"
+              style={{ color: "#94a3b8" }}
+            >
+              No matches found.
+            </p>
+          ) : (
+            filtered.map((s) => (
+              <button
+                key={s.email}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  onChange(s.email)
+                  setQuery("")
+                  setOpen(false)
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate text-xs font-medium"
+                    style={{ color: "#1d2a5d" }}
+                  >
+                    {s.firstName} {s.lastName}
+                  </p>
+                  <p
+                    className="truncate text-[11px]"
+                    style={{ color: "#64748b" }}
+                  >
+                    {s.email}
+                  </p>
+                </div>
+                {s.title && (
+                  <span
+                    className="shrink-0 text-[10px]"
+                    style={{ color: "#94a3b8" }}
+                  >
+                    {s.title}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Shared Sub-components ───────────────────────────────────────────────────
 
 function Section({
@@ -2523,7 +3289,7 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl"
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
@@ -2531,24 +3297,39 @@ function Section({
     >
       <button
         onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between"
+        className="flex w-full cursor-pointer items-center justify-between p-5"
       >
-        <div className="flex items-center gap-2">
-          <Icon size={16} />
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-7 w-7 items-center justify-center rounded-lg"
+            style={{ background: "rgba(29,42,93,0.08)" }}
+          >
+            <Icon size={14} />
+          </div>
           <h2
             className="text-sm font-semibold tracking-widest uppercase"
-            style={{ color: "#425275" }}
+            style={{ color: "#1d2a5d" }}
           >
             {title}
           </h2>
         </div>
-        {expanded ? (
-          <ChevronUp size={16} style={{ color: "#64748b" }} />
-        ) : (
-          <ChevronDown size={16} style={{ color: "#64748b" }} />
-        )}
+        <ChevronDown
+          size={18}
+          style={{
+            color: "#64748b",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease",
+          }}
+        />
       </button>
-      {expanded && <div className="mt-4">{children}</div>}
+      {expanded && (
+        <div
+          className="px-5 pb-5"
+          style={{ borderTop: "1px solid rgba(180,185,195,0.2)" }}
+        >
+          <div className="pt-4">{children}</div>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,7 +8,10 @@ import SignatureField, {
 } from "@/components/forms/SignatureField"
 import DatePicker from "@/components/forms/DatePicker"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
+import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
 import { useAuth } from "@/hooks/useAuth"
+import { useSandbox } from "@/hooks/useSandbox"
+import { useFormFields } from "@/hooks/useFormFields"
 import {
   createSubmission,
   getSubmission,
@@ -25,6 +28,8 @@ function emptyExpense(): CheckRequestExpense {
 
 export default function CheckRequest() {
   const { user, userProfile } = useAuth()
+  const { sandbox } = useSandbox()
+  const { isVisible, getOrder } = useFormFields("check")
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
@@ -121,15 +126,21 @@ export default function CheckRequest() {
           formData,
           summary: `Check Request — ${payee}`,
           amount: grandTotal,
+          sandbox: sandbox || false,
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
-          reviewedAt: undefined,
-          approvedAt: undefined,
-          denialComments: undefined,
-          revisionComments: undefined,
-          approvalProcessingError: undefined,
-          pdfDriveId: undefined,
-          pdfDriveUrl: undefined,
+          reviewedAt: deleteField() as never,
+          approvedAt: deleteField() as never,
+          denialComments: deleteField() as never,
+          revisionComments: deleteField() as never,
+          approvalProcessingError: deleteField() as never,
+          pdfDriveId: deleteField() as never,
+          pdfDriveUrl: deleteField() as never,
+          activityLog: arrayUnion({
+            action: "resubmitted",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
         })
         setSubmissionId(resubmitId)
       } else {
@@ -144,8 +155,16 @@ export default function CheckRequest() {
           formData,
           attachments: [],
           revisionHistory: [],
+          activityLog: [
+            {
+              action: "submitted",
+              by: user.email ?? "",
+              at: Timestamp.now(),
+            },
+          ],
           summary: `Check Request — ${payee}`,
           amount: grandTotal,
+          ...(sandbox && { sandbox: true }),
         })
         setSubmissionId(id)
       }
@@ -214,9 +233,9 @@ export default function CheckRequest() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Request details */}
-        <Section title="Request Details">
+        <Section title="Request Details" style={{ order: getOrder("fullName") }}>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Full Name">
               <input
@@ -227,38 +246,43 @@ export default function CheckRequest() {
                 className="input-neu w-full"
               />
             </Field>
-            <Field label="Date of Request">
-              <DatePicker
-                value={dateRequest}
-                onChange={setDateRequest}
-                required
-              />
-            </Field>
-            <Field label="Date Check Needed">
-              <DatePicker
-                value={dateNeeded}
-                onChange={setDateNeeded}
-                required
-              />
-            </Field>
+            {isVisible("dateOfRequest") && (
+              <Field label="Date of Request">
+                <DatePicker
+                  value={dateRequest}
+                  onChange={setDateRequest}
+                  required
+                />
+              </Field>
+            )}
+            {isVisible("dateCheckNeeded") && (
+              <Field label="Date Check Needed">
+                <DatePicker
+                  value={dateNeeded}
+                  onChange={setDateNeeded}
+                />
+              </Field>
+            )}
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Route To">
-              <StaffEmailAutocomplete
-                value={routeRequestTo}
-                onChange={setRouteRequestTo}
-                placeholder="Supervisor email"
-                className="input-neu"
-              />
-              <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                Your form will be sent to this person for approval.
-              </p>
-            </Field>
-          </div>
+          {isVisible("routeTo") && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field label="Route To">
+                <StaffEmailAutocomplete
+                  value={routeRequestTo}
+                  onChange={setRouteRequestTo}
+                  placeholder="Supervisor email"
+                  className="input-neu"
+                />
+                <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
+                  Your form will be sent to this person for approval.
+                </p>
+              </Field>
+            </div>
+          )}
         </Section>
 
         {/* Payee info */}
-        <Section title="Payee Information">
+        <Section title="Payee Information" style={{ order: getOrder("payeeName") }}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Payee / Vendor Name">
               <input
@@ -270,55 +294,55 @@ export default function CheckRequest() {
                 className="input-neu"
               />
             </Field>
-            <Field label="Street Address">
-              <input
-                type="text"
-                value={street}
-                required
-                placeholder="123 Main St"
-                onChange={(e) => setStreet(e.target.value)}
-                className="input-neu"
-              />
-            </Field>
-            <Field label="City">
-              <input
-                type="text"
-                value={city}
-                required
-                placeholder="City"
-                onChange={(e) => setCity(e.target.value)}
-                className="input-neu"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="State">
-                <input
-                  type="text"
-                  value={state}
-                  required
-                  placeholder="MN"
-                  maxLength={2}
-                  onChange={(e) => setState(e.target.value.toUpperCase())}
-                  className="input-neu"
-                />
-              </Field>
-              <Field label="ZIP">
-                <input
-                  type="text"
-                  value={zip}
-                  required
-                  placeholder="55368"
-                  maxLength={10}
-                  onChange={(e) => setZip(e.target.value)}
-                  className="input-neu"
-                />
-              </Field>
-            </div>
+            {isVisible("payeeAddress") && (
+              <>
+                <Field label="Street Address">
+                  <input
+                    type="text"
+                    value={street}
+                    placeholder="123 Main St"
+                    onChange={(e) => setStreet(e.target.value)}
+                    className="input-neu"
+                  />
+                </Field>
+                <Field label="City">
+                  <input
+                    type="text"
+                    value={city}
+                    placeholder="City"
+                    onChange={(e) => setCity(e.target.value)}
+                    className="input-neu"
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="State">
+                    <input
+                      type="text"
+                      value={state}
+                      placeholder="MN"
+                      maxLength={2}
+                      onChange={(e) => setState(e.target.value.toUpperCase())}
+                      className="input-neu"
+                    />
+                  </Field>
+                  <Field label="ZIP">
+                    <input
+                      type="text"
+                      value={zip}
+                      placeholder="55368"
+                      maxLength={10}
+                      onChange={(e) => setZip(e.target.value)}
+                      className="input-neu"
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
           </div>
         </Section>
 
         {/* Expense lines */}
-        <Section title="Expenses">
+        <Section title="Expenses" style={{ order: getOrder("expenses") }}>
           <div
             className="divide-y"
             style={{ borderColor: "rgba(180,185,195,0.25)" }}
@@ -357,6 +381,7 @@ export default function CheckRequest() {
         <div
           className="rounded-xl p-5"
           style={{
+            order: getOrder("expenses") + 0.5,
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
@@ -371,7 +396,7 @@ export default function CheckRequest() {
           </div>
         </div>
 
-        <Section title="Employee Signature">
+        <Section title="Employee Signature" style={{ order: getOrder("signature") }}>
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}
@@ -386,7 +411,7 @@ export default function CheckRequest() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3" style={{ order: 99 }}>
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -412,9 +437,11 @@ export default function CheckRequest() {
 function Section({
   title,
   children,
+  style: extraStyle,
 }: {
   title: string
   children: React.ReactNode
+  style?: React.CSSProperties
 }) {
   return (
     <div
@@ -422,6 +449,7 @@ function Section({
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+        ...extraStyle,
       }}
     >
       <h2

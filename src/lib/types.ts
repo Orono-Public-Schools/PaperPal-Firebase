@@ -2,7 +2,12 @@ import { Timestamp } from "firebase/firestore"
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
 
-export type UserRole = "staff" | "supervisor" | "business_office" | "admin"
+export type UserRole =
+  | "staff"
+  | "supervisor"
+  | "controller"
+  | "business_office"
+  | "admin"
 
 // ─── Buildings ───────────────────────────────────────────────────────────────
 
@@ -236,6 +241,23 @@ export interface Attachment {
   size: number
 }
 
+export type ActivityAction =
+  | "submitted"
+  | "resubmitted"
+  | "supervisor_approved"
+  | "final_approved"
+  | "denied"
+  | "revisions_requested"
+  | "cancelled"
+  | "redirected"
+
+export interface ActivityLogEntry {
+  action: ActivityAction
+  by: string
+  at: Timestamp
+  comments?: string
+}
+
 export interface Submission {
   id: string
   formType: FormType
@@ -269,6 +291,11 @@ export interface Submission {
   revisionComments?: string
   denialComments?: string
   revisionHistory: RevisionHistoryEntry[]
+  activityLog: ActivityLogEntry[]
+
+  // Sandbox + visibility
+  sandbox?: boolean
+  hiddenBySubmitter?: boolean
 
   // Denormalized summary fields
   summary: string
@@ -279,6 +306,16 @@ export interface Submission {
   updatedAt: Timestamp
   reviewedAt?: Timestamp
   approvedAt?: Timestamp
+}
+
+// ─── Form Field Config ──────────────────────────────────────────────────────
+
+export interface FormFieldConfig {
+  id: string
+  label: string
+  visible: boolean
+  sortOrder: number
+  locked: boolean // true = always visible, can't hide
 }
 
 // ─── Mail ────────────────────────────────────────────────────────────────────

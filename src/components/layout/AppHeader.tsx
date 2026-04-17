@@ -12,9 +12,11 @@ import {
   LayoutDashboard,
   UserCircle,
   Settings,
+  FlaskConical,
 } from "lucide-react"
 import { useNavigate, useLocation } from "react-router"
 import { useAuth } from "@/hooks/useAuth"
+import { useSandbox } from "@/hooks/useSandbox"
 
 const NAV_SECTIONS = [
   {
@@ -53,6 +55,7 @@ const NAV_SECTIONS = [
 
 export default function AppHeader() {
   const { userProfile, signOut } = useAuth()
+  const { sandbox, setSandbox } = useSandbox()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -73,7 +76,9 @@ export default function AppHeader() {
   }, [])
 
   const isAdmin =
-    userProfile?.role === "admin" || userProfile?.role === "business_office"
+    userProfile?.role === "admin" ||
+    userProfile?.role === "controller" ||
+    userProfile?.role === "business_office"
 
   const visibleSections = NAV_SECTIONS.filter((s) => !s.adminOnly || isAdmin)
 
@@ -95,6 +100,15 @@ export default function AppHeader() {
 
   return (
     <>
+      {sandbox && (
+        <div
+          className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold"
+          style={{ background: "#eab308", color: "#422006" }}
+        >
+          <FlaskConical size={12} />
+          Sandbox Mode — emails go to you only, no Drive uploads
+        </div>
+      )}
       <header
         className="sticky top-0 z-50 flex items-center justify-between px-6 py-3"
         style={{
@@ -275,9 +289,62 @@ export default function AppHeader() {
           ))}
         </nav>
 
+        {/* Sandbox toggle (controller+) */}
+        {isAdmin && (
+          <div
+            className="mx-4 mt-auto rounded-lg p-3"
+            style={{
+              background: sandbox
+                ? "rgba(234,179,8,0.15)"
+                : "rgba(255,255,255,0.05)",
+              border: sandbox
+                ? "1px solid rgba(234,179,8,0.3)"
+                : "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <FlaskConical
+                size={15}
+                style={{ color: sandbox ? "#eab308" : "rgba(255,255,255,0.4)" }}
+              />
+              <span
+                className="flex-1 text-sm font-medium"
+                style={{
+                  color: sandbox ? "#eab308" : "rgba(255,255,255,0.6)",
+                }}
+              >
+                Sandbox Mode
+              </span>
+              <div
+                className="relative h-5 w-9 rounded-full transition-colors"
+                style={{
+                  background: sandbox ? "#eab308" : "rgba(255,255,255,0.2)",
+                }}
+                onClick={() => setSandbox(!sandbox)}
+              >
+                <div
+                  className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
+                  style={{
+                    left: sandbox ? "18px" : "2px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }}
+                />
+              </div>
+            </label>
+            {sandbox && (
+              <p
+                className="mt-1.5 text-[10px]"
+                style={{ color: "rgba(234,179,8,0.7)" }}
+              >
+                Emails go to you only. No Drive uploads.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Bottom: sign out */}
         <div
-          className="mt-auto p-4"
+          className="p-4"
           style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
         >
           <button

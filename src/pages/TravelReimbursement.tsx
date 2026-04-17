@@ -24,6 +24,8 @@ import SignatureField, {
 } from "@/components/forms/SignatureField"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
+import { useSandbox } from "@/hooks/useSandbox"
+import { useFormFields } from "@/hooks/useFormFields"
 import {
   createSubmission,
   getSubmission,
@@ -36,6 +38,7 @@ import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
 import type { TravelMeal, TravelActualOther, Attachment } from "@/lib/types"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -68,6 +71,8 @@ function emptyOther(): TravelActualOther {
 
 export default function TravelReimbursement() {
   const { user, userProfile } = useAuth()
+  const { sandbox } = useSandbox()
+  const { isVisible, getOrder } = useFormFields("travel")
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
@@ -349,15 +354,21 @@ export default function TravelReimbursement() {
           attachments: justificationFiles,
           summary: `Travel — ${meetingTitle || location}`,
           amount: finalClaim,
+          sandbox: sandbox || false,
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
-          reviewedAt: undefined,
-          approvedAt: undefined,
-          denialComments: undefined,
-          revisionComments: undefined,
-          approvalProcessingError: undefined,
-          pdfDriveId: undefined,
-          pdfDriveUrl: undefined,
+          reviewedAt: deleteField() as never,
+          approvedAt: deleteField() as never,
+          denialComments: deleteField() as never,
+          revisionComments: deleteField() as never,
+          approvalProcessingError: deleteField() as never,
+          pdfDriveId: deleteField() as never,
+          pdfDriveUrl: deleteField() as never,
+          activityLog: arrayUnion({
+            action: "resubmitted",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
         })
         setSubmissionId(resubmitId)
       } else {
@@ -372,8 +383,16 @@ export default function TravelReimbursement() {
           formData,
           attachments: justificationFiles,
           revisionHistory: [],
+          activityLog: [
+            {
+              action: "submitted",
+              by: user.email ?? "",
+              at: Timestamp.now(),
+            },
+          ],
           summary: `Travel — ${meetingTitle || location}`,
           amount: finalClaim,
+          ...(sandbox && { sandbox: true }),
         })
         setSubmissionId(id)
       }
@@ -442,9 +461,9 @@ export default function TravelReimbursement() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Employee / trip info */}
-        <Section title="Employee & Trip Information">
+        <Section title="Employee & Trip Information" style={{ order: getOrder("fullName") }}>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Full Name">
               <input
@@ -455,6 +474,7 @@ export default function TravelReimbursement() {
                 className="input-neu w-full"
               />
             </Field>
+            {isVisible("employeeId") && (
             <Field label="Employee ID">
               <input
                 type="text"
@@ -464,9 +484,13 @@ export default function TravelReimbursement() {
                 className="input-neu"
               />
             </Field>
+            )}
+            {isVisible("formDate") && (
             <Field label="Form Date">
               <DatePicker value={formDate} onChange={setFormDate} required />
             </Field>
+            )}
+            {isVisible("address") && (
             <Field label="Home Address">
               <input
                 type="text"
@@ -477,6 +501,8 @@ export default function TravelReimbursement() {
                 className="input-neu"
               />
             </Field>
+            )}
+            {isVisible("budgetYear") && (
             <Field label="Budget Year">
               <input
                 type="text"
@@ -487,6 +513,8 @@ export default function TravelReimbursement() {
                 className="input-neu"
               />
             </Field>
+            )}
+            {isVisible("accountCode") && (
             <Field label="Account Code">
               <input
                 type="text"
@@ -516,6 +544,7 @@ export default function TravelReimbursement() {
                 </p>
               )}
             </Field>
+            )}
             <Field label="Meeting / Conference Title">
               <input
                 type="text"
@@ -544,13 +573,18 @@ export default function TravelReimbursement() {
             <Field label="Date — End">
               <DatePicker value={dateEnd} onChange={setDateEnd} required />
             </Field>
+            {isVisible("timeAway") && (
             <Field label="Away From Job — Start">
               <DatePicker value={timeAwayStart} onChange={setTimeAwayStart} />
             </Field>
+            )}
+            {isVisible("timeAway") && (
             <Field label="Away From Job — End">
               <DatePicker value={timeAwayEnd} onChange={setTimeAwayEnd} />
             </Field>
+            )}
           </div>
+          {isVisible("routeTo") && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Route Request To">
               <StaffEmailAutocomplete
@@ -564,10 +598,12 @@ export default function TravelReimbursement() {
               </p>
             </Field>
           </div>
+          )}
         </Section>
 
         {/* Justification for Release */}
-        <Section title="Justification for Release">
+        {isVisible("justification") && (
+        <Section title="Justification for Release" style={{ order: getOrder("justification") }}>
           <Field label="Justification / Purpose">
             <textarea
               value={justification}
@@ -706,9 +742,11 @@ export default function TravelReimbursement() {
             )}
           </div>
         </Section>
+        )}
 
         {/* Pre-approved costs */}
-        <Section title="Pre-Approved Estimated Expenses">
+        {isVisible("estimatedExpenses") && (
+        <Section title="Pre-Approved Estimated Expenses" style={{ order: getOrder("estimatedExpenses") }}>
           <div className="grid gap-4 sm:grid-cols-3">
             <DollarField
               label="Transportation"
@@ -743,9 +781,10 @@ export default function TravelReimbursement() {
           </div>
           <TotalRow label="Total Estimated" value={estTotal} />
         </Section>
+        )}
 
         {/* Actual costs */}
-        <Section title="Actual Costs">
+        <Section title="Actual Costs" style={{ order: getOrder("actualExpenses") }}>
           {/* Transportation by Car */}
           <div
             className="mb-4 rounded-xl p-4"
@@ -949,7 +988,8 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Meals per day */}
-        <Section title="Meal Expenses">
+        {isVisible("meals") && (
+        <Section title="Meal Expenses" style={{ order: getOrder("meals") }}>
           <div
             className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2"
             style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
@@ -1247,6 +1287,7 @@ export default function TravelReimbursement() {
             )}
           </div>
         </Section>
+        )}
 
         {/* Summary */}
         <div
@@ -1254,6 +1295,7 @@ export default function TravelReimbursement() {
           style={{
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            order: 99,
           }}
         >
           <div className="flex items-center justify-between text-sm">
@@ -1262,6 +1304,7 @@ export default function TravelReimbursement() {
               ${actTotal.toFixed(2)}
             </span>
           </div>
+          {isVisible("advanceRequested") && (
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: "#64748b" }}>Less Advance Requested</span>
             <div className="flex items-center gap-2">
@@ -1280,6 +1323,7 @@ export default function TravelReimbursement() {
               />
             </div>
           </div>
+          )}
           <div
             className="flex items-center justify-between border-t pt-3"
             style={{ borderColor: "rgba(180,185,195,0.4)" }}
@@ -1293,7 +1337,7 @@ export default function TravelReimbursement() {
           </div>
         </div>
 
-        <Section title="Employee Signature">
+        <Section title="Employee Signature" style={{ order: getOrder("signature") }}>
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}
@@ -1308,7 +1352,7 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3" style={{ order: 99 }}>
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -1334,9 +1378,11 @@ export default function TravelReimbursement() {
 function Section({
   title,
   children,
+  style: extraStyle,
 }: {
   title: string
   children: React.ReactNode
+  style?: React.CSSProperties
 }) {
   return (
     <div
@@ -1344,6 +1390,7 @@ function Section({
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+        ...extraStyle,
       }}
     >
       <h2
