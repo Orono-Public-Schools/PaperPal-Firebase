@@ -1,5 +1,6 @@
 const PDFDocument = require("pdfkit")
 const https = require("https")
+const { PDFDocument: PDFLib } = require("pdf-lib")
 
 const MILEAGE_RATE = 0.72
 
@@ -475,104 +476,140 @@ function renderTravel(doc, data) {
     doc.y = y
   }
 
-  // Estimated Expenses
-  drawSectionHeading(doc, "Estimated Expenses")
-  const estCols = [200, 100]
-  drawTableHeaders(doc, ["Category", "Amount"], estCols, 50)
-  const estRows = [
-    ["Transport", data.estimated.transport],
-    ["Lodging", data.estimated.lodging],
-    ["Meals", data.estimated.meals],
-    ["Registration", data.estimated.registration],
-    ["Substitute", data.estimated.substitute],
-    ["Other", data.estimated.other],
-  ]
-  for (const [label, amount] of estRows) {
-    ensureSpace(doc, 18)
-    drawTableRow(doc, [label, currency(amount)], estCols, 50)
+  const CATEGORY_LABELS = {
+    meal: "Meal",
+    lodging: "Lodging",
+    registration: "Registration",
+    other_transport: "Other Transportation",
   }
-  ensureSpace(doc, 18)
-  drawTableRow(
-    doc,
-    ["Total", currency(data.estimated.total)],
-    estCols,
-    50,
-    true
-  )
 
-  // Actual Expenses
-  doc.moveDown(0.5)
-  ensureSpace(doc, 40)
-  drawSectionHeading(doc, "Actual Expenses")
-  const actCols = [200, 100]
-  drawTableHeaders(doc, ["Category", "Amount"], actCols, 50)
-
-  const actRows = [
-    [
-      `Miles (${data.actuals.miles} × $${MILEAGE_RATE.toFixed(2)})`,
-      currency(data.actuals.miles * MILEAGE_RATE),
-    ],
-    ["Other Transport", currency(data.actuals.otherTransport)],
-    ["Lodging", currency(data.actuals.lodging)],
-    ["Registration", currency(data.actuals.registration)],
-  ]
-  for (const [label, amount] of actRows) {
-    ensureSpace(doc, 18)
-    drawTableRow(doc, [label, amount], actCols, 50)
-  }
-  for (const item of data.actuals.others || []) {
-    ensureSpace(doc, 18)
-    drawTableRow(
-      doc,
-      [item.desc || "Other", currency(item.amount)],
-      actCols,
-      50
-    )
-  }
-  ensureSpace(doc, 18)
-  drawTableRow(doc, ["Meals", currency(data.actuals.mealTotal)], actCols, 50)
-  ensureSpace(doc, 18)
-  drawTableRow(doc, ["Total", currency(data.actuals.total)], actCols, 50, true)
-
-  // Meals detail
-  if (data.meals && data.meals.length > 0) {
+  if (data.expenses && data.expenses.length > 0) {
+    // New format: unified expenses table (mileage included as a row)
     doc.moveDown(0.5)
     ensureSpace(doc, 40)
-    drawSectionHeading(doc, "Meals")
-    const mealCols = [80, 70, 70, 70, 80]
-    drawTableHeaders(
-      doc,
-      ["Date", "Breakfast", "Lunch", "Dinner", "Day Total"],
-      mealCols,
-      50
-    )
+    drawSectionHeading(doc, "Expenses")
+    const expCols = [60, 90, 130, 70]
+    drawTableHeaders(doc, ["Date", "Category", "Detail", "Amount"], expCols, 50)
 
-    let mealGrandTotal = 0
-    for (const meal of data.meals) {
+    const mileageCost = data.actuals.miles * MILEAGE_RATE
+    let expTotal = 0
+
+    if (data.actuals.miles > 0) {
       ensureSpace(doc, 18)
-      const dayTotal = meal.breakfast + meal.lunch + meal.dinner
-      mealGrandTotal += dayTotal
       drawTableRow(
         doc,
         [
-          formatDate(meal.date),
-          currency(meal.breakfast),
-          currency(meal.lunch),
-          currency(meal.dinner),
-          currency(dayTotal),
+          "—",
+          "Mileage",
+          `${data.actuals.miles} mi × $${MILEAGE_RATE.toFixed(2)}`,
+          currency(mileageCost),
         ],
-        mealCols,
+        expCols,
+        50
+      )
+      expTotal += mileageCost
+    }
+
+    for (const exp of data.expenses) {
+      ensureSpace(doc, 18)
+      const detail = exp.mealType
+        ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
+        : exp.location || exp.description || "—"
+      drawTableRow(
+        doc,
+        [
+          formatDate(exp.date),
+          CATEGORY_LABELS[exp.category] || exp.category,
+          detail,
+          currency(exp.amount),
+        ],
+        expCols,
+        50
+      )
+      expTotal += exp.amount || 0
+    }
+    ensureSpace(doc, 18)
+    drawTableRow(doc, ["", "", "Total", currency(expTotal)], expCols, 50, true)
+  } else {
+    // Legacy format: actuals + meals
+    doc.moveDown(0.5)
+    ensureSpace(doc, 40)
+    drawSectionHeading(doc, "Actual Expenses")
+    const actCols = [200, 100]
+    drawTableHeaders(doc, ["Category", "Amount"], actCols, 50)
+
+    const actRows = [
+      [
+        `Miles (${data.actuals.miles} × $${MILEAGE_RATE.toFixed(2)})`,
+        currency(data.actuals.miles * MILEAGE_RATE),
+      ],
+      ["Other Transport", currency(data.actuals.otherTransport)],
+      ["Lodging", currency(data.actuals.lodging)],
+      ["Registration", currency(data.actuals.registration)],
+    ]
+    for (const [label, amount] of actRows) {
+      ensureSpace(doc, 18)
+      drawTableRow(doc, [label, amount], actCols, 50)
+    }
+    for (const item of data.actuals.others || []) {
+      ensureSpace(doc, 18)
+      drawTableRow(
+        doc,
+        [item.desc || "Other", currency(item.amount)],
+        actCols,
         50
       )
     }
     ensureSpace(doc, 18)
+    drawTableRow(doc, ["Meals", currency(data.actuals.mealTotal)], actCols, 50)
+    ensureSpace(doc, 18)
     drawTableRow(
       doc,
-      ["", "", "", "Meal Total", currency(mealGrandTotal)],
-      mealCols,
+      ["Total", currency(data.actuals.total)],
+      actCols,
       50,
       true
     )
+
+    if (data.meals && data.meals.length > 0) {
+      doc.moveDown(0.5)
+      ensureSpace(doc, 40)
+      drawSectionHeading(doc, "Meals")
+      const mealCols = [80, 70, 70, 70, 80]
+      drawTableHeaders(
+        doc,
+        ["Date", "Breakfast", "Lunch", "Dinner", "Day Total"],
+        mealCols,
+        50
+      )
+
+      let mealGrandTotal = 0
+      for (const meal of data.meals) {
+        ensureSpace(doc, 18)
+        const dayTotal = meal.breakfast + meal.lunch + meal.dinner
+        mealGrandTotal += dayTotal
+        drawTableRow(
+          doc,
+          [
+            formatDate(meal.date),
+            currency(meal.breakfast),
+            currency(meal.lunch),
+            currency(meal.dinner),
+            currency(dayTotal),
+          ],
+          mealCols,
+          50
+        )
+      }
+      ensureSpace(doc, 18)
+      drawTableRow(
+        doc,
+        ["", "", "", "Meal Total", currency(mealGrandTotal)],
+        mealCols,
+        50,
+        true
+      )
+    }
   }
 
   // Advance / Final Claim
@@ -636,12 +673,98 @@ async function generatePdf(submission) {
       }
     )
 
+  // Collect all attachments to append as pages
+  // 1. Travel expense item receipts (new format)
+  const expenseReceipts = (formData.expenses || [])
+    .filter((e) => e.receipt?.url)
+    .map((e) => ({
+      label: `Receipt: ${
+        {
+          meal: "Meal",
+          lodging: "Lodging",
+          registration: "Registration",
+          other_transport: "Other Transportation",
+        }[e.category] || e.category
+      } — ${formatDate(e.date)} — ${currency(e.amount)}`,
+      url: e.receipt.url,
+      mimeType: e.receipt.mimeType,
+    }))
+
+  // 2. Submission-level attachments (check request receipts, justification files, etc.)
+  const submissionAttachments = (submission.attachments || [])
+    .filter((a) => a.url)
+    .map((a, i) => ({
+      label: `Attachment ${i + 1}: ${a.name}`,
+      url: a.url,
+      mimeType: a.mimeType,
+    }))
+
+  const allAttachments = [...expenseReceipts, ...submissionAttachments]
+
+  for (const att of allAttachments) {
+    if (att.mimeType?.startsWith("image/")) {
+      const imgBuf = await fetchImageBuffer(att.url)
+      if (imgBuf) {
+        doc.addPage()
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(10)
+          .fillColor(NAVY)
+          .text(att.label, 50, 40)
+        try {
+          const maxW = doc.page.width - 100
+          const maxH = doc.page.height - 120
+          doc.image(imgBuf, 50, 65, { fit: [maxW, maxH] })
+        } catch {
+          doc
+            .font("Helvetica")
+            .fontSize(9)
+            .fillColor(TEXT_COLOR)
+            .text("(Image could not be embedded)", 50, 70)
+        }
+      }
+    }
+    // PDF attachments handled after PDFKit finishes via pdf-lib merge
+  }
+
   doc.end()
 
-  return new Promise((resolve, reject) => {
+  const pdfKitBuffer = await new Promise((resolve, reject) => {
     doc.on("end", () => resolve(Buffer.concat(chunks)))
     doc.on("error", reject)
   })
+
+  // Merge any PDF attachments using pdf-lib
+  const pdfAttachments = allAttachments.filter(
+    (a) => a.mimeType === "application/pdf" && a.url
+  )
+  if (pdfAttachments.length === 0) return pdfKitBuffer
+
+  try {
+    const merged = await PDFLib.load(pdfKitBuffer)
+
+    for (const item of pdfAttachments) {
+      const buf = await fetchImageBuffer(item.url)
+      if (!buf) continue
+      try {
+        const externalPdf = await PDFLib.load(buf)
+        const pages = await merged.copyPages(
+          externalPdf,
+          externalPdf.getPageIndices()
+        )
+        for (const page of pages) {
+          merged.addPage(page)
+        }
+      } catch {
+        // Skip unreadable PDFs
+      }
+    }
+
+    const mergedBytes = await merged.save()
+    return Buffer.from(mergedBytes)
+  } catch {
+    return pdfKitBuffer
+  }
 }
 
 module.exports = { generatePdf }

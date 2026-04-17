@@ -25,6 +25,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
+import { invalidateFormFieldsCache } from "@/hooks/useFormFields"
 import {
   getBuildings,
   createBuilding,
@@ -781,6 +782,7 @@ function FormFieldsSection() {
     if (!configs) return
     setSaving(true)
     await updateFormFieldConfigs(configs)
+    invalidateFormFieldsCache()
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
     setSaving(false)

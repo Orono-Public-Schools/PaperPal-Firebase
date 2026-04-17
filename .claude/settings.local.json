@@ -55,7 +55,11 @@
       "Bash(firebase functions:delete onSubmissionApproved --region us-central1 --force)",
       "Bash(gh pr create --base main --head dev-joel --title 'feat: server-side PDF emails, Drive integration, budget code workflow' --body ' *)",
       "Bash(firebase functions:log --only onSubmissionCreated)",
-      "Bash(firebase functions:log --only onSubmissionStatusChange)"
+      "Bash(firebase functions:log --only onSubmissionStatusChange)",
+      "Bash(gh pr create --base main --head dev-joel --title 'feat: resubmit, cancel request, PDF fixes, revision flow' --body ' *)",
+      "Bash(git fetch *)",
+      "Bash(grep -n \"role\\\\|admin\\\\|business\" /c/Users/joel.mellor/Documents/Scripts/PaperPal/functions/helpers/*.js)",
+      "Bash(gh pr create --base main --head dev-joel --title 'feat: workflow features, sandbox, controller role, UI refresh' --body ' *)"
     ]
   }
 }

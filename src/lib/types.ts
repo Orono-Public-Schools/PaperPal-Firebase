@@ -166,6 +166,16 @@ export interface MileageData {
   totalReimbursement: number
 }
 
+export interface TravelExpenseItem {
+  category: "meal" | "lodging" | "registration" | "other_transport"
+  date: string
+  amount: number
+  mealType?: "breakfast" | "lunch" | "dinner"
+  location?: string
+  description?: string
+  receipt?: Attachment
+}
+
 export interface TravelMeal {
   date: string
   breakfast: number
@@ -211,6 +221,8 @@ export interface TravelData {
     total: number
   }
   meals: TravelMeal[]
+  expenses?: TravelExpenseItem[]
+  taxExemptAcknowledged?: boolean
   advanceRequested: number
   finalClaim: number
 }

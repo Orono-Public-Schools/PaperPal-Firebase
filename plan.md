@@ -1,74 +1,135 @@
 # PaperPal — Plan
 
-## Up Next
+## Current Phase: Travel Expenses Redesign
 
-- Supervisor redirect
-  - Supervisor can reassign a submission to a different supervisor/user
-  - Dropdown to pick new supervisor (staff email autocomplete)
-  - Updates supervisorEmail on the submission, resets to pending
-  - Notification email sent to the new supervisor
-  - Original supervisor gets a confirmation that it was reassigned
+### 1. Unified Expenses Section
 
-- Approval history / activity timeline
-  - Timeline component in FormView showing all workflow events
-  - Events: submitted, supervisor approved, final approved, denied, revisions requested, resubmitted, cancelled, redirected
-  - Each entry: who, what action, when, comments (if any)
-  - Store as an array on the submission (activityLog or expand revisionHistory)
-  - Displayed between form data and approval actions in FormView
+Replace the three separate sections (Actual Costs, Meal Expenses, Summary) with a single "Expenses" section. Users add individual expense items categorized by type.
 
-- Bug fix: resubmit broken
-  - updateDoc() fails with "Unsupported field value: undefined" for reviewedAt
-  - Cause: resubmit sets reviewedAt/approvedAt/etc to undefined, but Firestore rejects undefined
-  - Fix: use deleteField() from firebase/firestore instead of undefined to clear fields
+**Categories and fields:**
 
-- Print & export
-  - "Print" button on FormView — opens browser print dialog with clean print-friendly layout
-  - "Download PDF" button on FormView — downloads the server-generated PDF
-  - For approved submissions: download the final PDF (with all signatures) from Drive
-  - For in-progress submissions: generate a PDF on-demand via callable Cloud Function
-  - Print CSS: hide nav/header/actions, show only form data + signatures
+| Category             | Fields                                                    |
+| -------------------- | --------------------------------------------------------- |
+| Meal                 | Date, Meal Type (Breakfast/Lunch/Dinner), Amount, Receipt |
+| Lodging              | Date, Location, Amount, Receipt                           |
+| Registration         | Date, Amount, Receipt                                     |
+| Other Transportation | Date, Description, Amount, Receipt                        |
+
+**Key design decisions:**
+
+- Transportation by Car (mileage calculator) stays separate — it's mileage-based, not receipt-based
+- "+ Add Expense" button with category picker dropdown
+- Expenses grouped visually by category with subtotals
+- Running total at the bottom
+- Tax acknowledgment checkbox: "I confirm all amounts are pre-tax (Orono Public Schools is tax-exempt)"
+
+**Data model change:**
+
+```ts
+interface TravelExpenseItem {
+  category: "meal" | "lodging" | "registration" | "other_transport"
+  date: string
+  amount: number
+  mealType?: "breakfast" | "lunch" | "dinner"
+  location?: string
+  description?: string
+  receipt?: Attachment
+}
+```
+
+Replace `actuals.otherTransport`, `actuals.lodging`, `actuals.registration`, `actuals.others`, and `meals` with `expenses: TravelExpenseItem[]`. Keep `actuals.miles` for the mileage calculator.
+
+**Backward compatibility:** Existing submissions use the old structure. FormView, FormDataView, and PDF generation must handle both old and new formats.
+
+### 2. Receipt Scan & Upload
+
+Per-expense-item receipt attachment with camera scanning support.
+
+**Implementation:**
+
+- `<input type="file" accept="image/*" capture="environment">` for camera scanning (opens camera on mobile, file picker on desktop)
+- Separate "Upload" button for file picker (PDF, image)
+- Image compression before upload (phone camera images can be large)
+- Upload to Firebase Storage, URL saved on the expense item as `receipt: Attachment`
+- Thumbnail preview shown inline next to the expense item
+- FormView shows receipt thumbnails with click-to-enlarge
+
+### 3. OCR Auto-Fill (Receipt Total Extraction)
+
+Auto-extract the total amount from scanned/uploaded receipt images.
+
+**Implementation:**
+
+- Callable Cloud Function sends receipt image to Google Cloud Vision API (TEXT_DETECTION)
+- Parse OCR text for dollar amounts — heuristics: look for "total", "amount due", "balance", or fall back to largest dollar value
+- Auto-fill the amount field, user confirms or adjusts
+- Show a subtle "Extracted: $XX.XX" hint so user knows it was auto-detected
+- Graceful fallback — if OCR fails or can't find a total, user enters manually
+
+**Cost:** Cloud Vision API is ~$1.50 per 1,000 images.
+
+### 4. PDF with Receipts
+
+Append receipt images/PDFs to the generated form PDF.
+
+**Implementation:**
+
+- After generating the form data pages, append each receipt as an additional page
+- Images: embed with PDFKit (already in use), scale to fit page
+- Uploaded PDFs: use `pdf-lib` to merge pages
+- Label each receipt page with the expense category, date, and amount
+- Receipts appear in the same order as the expenses on the form
+
+### Files affected:
+
+- `src/lib/types.ts` — new `TravelExpenseItem` type, update `TravelData`
+- `src/pages/TravelReimbursement.tsx` — rebuild expenses UI, add scan/upload per item
+- `src/components/forms/FormDataView.tsx` — update TravelView for new + old format
+- `src/pages/FormView.tsx` — receipt thumbnails
+- `functions/helpers/pdf.js` — update travel PDF layout, append receipt pages
+- `functions/index.js` — new `extractReceiptTotal` callable Cloud Function
+- `functions/package.json` — add `@google-cloud/vision` and `pdf-lib` dependencies
+
+## Up Next (after expenses redesign)
+
+- Mobile responsiveness
+  - Dashboard cards layout on small screens
+  - Submission rows — readable on phone
+  - Form pages — input grids, signature field, file upload
+  - Admin panel — tabs, accordion sections, form field editor
+  - FormView — header, timeline, approval actions
+  - Sidebar nav — already slides in, verify touch targets
+
+## Future (post business office meeting)
+
+- Notification preferences (user opt-in/out from profile)
+- Reporting / analytics dashboard (totals, trends, approvals per month)
+- FormView: respect form field config (hide hidden fields in read-only view)
+- Light mode (requires refactoring inline styles to CSS variables)
 
 ## Done
 
-- Resubmission flow
-  - All 3 forms support ?resubmit=ID to load and edit existing submission
-  - Updates existing submission, resets status to pending
-  - Works from both pending (edit) and revisions_requested (edit & resubmit)
-- Cancel request
-  - Submitter can cancel pending or revisions_requested submissions
-  - Confirmation dialog, sets status to cancelled
-  - Firestore rules updated to allow submitter edits on pending status
-- Server-side email with PDF attachments
-  - All notifications moved to Cloud Functions (onSubmissionCreated + onSubmissionStatusChange)
-  - PDF generated at each status change, attached to every email
-  - Submitter gets: receipt, supervisor approved, final approved
-  - Supervisor gets: new request, approval confirmation, final approved
-  - Final approver gets: awaiting approval notification
+- Testing & polish phase (totals positioning, form field cache fix, dead code cleanup)
+- Resubmit bug fix (deleteField instead of undefined)
+- Supervisor redirect (reassign + email notifications)
+- Activity timeline (log all workflow events, vertical timeline in FormView)
+- Print & export (print button, on-demand PDF via callable Cloud Function)
+- Resubmit email notifications (supervisor + submitter notified)
+- Controller role (restricted admin panel, Firestore rules, nav access)
+- Sandbox mode (isolated test environment, emails to self, no Drive uploads)
+- Form field config (admin UI to show/hide/reorder form sections)
+- Admin panel redesign (Forms & Mappings / Settings tabs, collapsible accordions)
+- Dashboard UI refresh (rotate-reveal cards, gradient submission rows, form-type accents)
+- History management (hide submissions, clear history, export CSV)
+- Searchable staff dropdown in admin Users & Roles
+- Add user bug fix (Firestore rules + error handling)
+- Resubmission flow (edit & resubmit from pending or revisions_requested)
+- Cancel request (submitter can cancel pending/revisions_requested)
+- Server-side email with PDF attachments (Cloud Functions)
 - Google Drive integration + PDF generation
-  - Shared Drive structure: Paperless Forms → FY folders → month folders
-  - "2026 FY" naming convention for fiscal year folders
-  - Auto-create folders + log sheet on first approval or via admin button
-  - Setup Drive Structure admin button creates all 12 months + log sheet
-  - Fiscal year rollover scheduled function (July 1)
-  - PDF uploaded to correct month folder on final approval
-  - Row appended to fiscal year log sheet
-  - pdfDriveId + pdfDriveUrl stored on submission
 - Firebase Trigger Email extension
-  - Configured for mail collection, sender paperpal@orono.k12.mn.us
-  - Gmail SMTP with app password
-- Budget code workflow
-  - Greyed out for staff users on all 3 forms
-  - Supervisor assigns budget code during approval review
-  - BudgetCodeBuilder available in supervisor approval section
-- UI polish
-  - Review buttons: Orono brand colors + hover effects (CSS classes)
-  - Status badges: Orono palette across FormView + Dashboard
-  - Success banner: lighter blue gradient with white text
-  - Email template: PaperPal logo, branded header, footer bar
-  - Chrome autofill suppression on address fields
-  - Dynamic PDF table rows for long addresses
-  - PR template for GitHub
-  - CI actions bumped to v6
+- Budget code workflow (staff greyed out, supervisor assigns)
+- UI polish (Orono brand colors, status badges, email template)
 - Staff integration (OneSync → Google Sheet → Cloud Function → Firestore)
 - Supervisor mappings (hybrid building + title approach)
 - Approval workflow (FormView)
