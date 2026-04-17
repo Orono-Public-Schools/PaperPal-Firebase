@@ -101,123 +101,130 @@ export default function AppHeader() {
   return (
     <>
       <div className="sticky top-0 z-50">
-      {sandbox && (
-        <div
-          className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold"
-          style={{ background: "#eab308", color: "#422006" }}
-        >
-          <FlaskConical size={12} />
-          Sandbox Mode — emails go to you only, no Drive uploads
-          <button
-            onClick={() => { setSandbox(false); window.location.reload() }}
-            className="ml-2 cursor-pointer rounded px-2 py-0.5 text-[11px] font-bold transition-colors"
-            style={{ background: "rgba(66,32,6,0.15)", color: "#422006" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(66,32,6,0.25)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(66,32,6,0.15)")}
+        {sandbox && (
+          <div
+            className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold"
+            style={{ background: "#eab308", color: "#422006" }}
           >
-            Turn Off
-          </button>
-        </div>
-      )}
-      <header
-        className="flex items-center justify-between px-6 py-3"
-        style={{
-          background: "#1d2a5d",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-        }}
-      >
-        {/* Left: branding */}
-        <button
-          onClick={() => navigate("/")}
-          className="flex cursor-pointer items-center"
-          style={{ gap: "2px" }}
-        >
-          <img
-            src="/orono-paperpal.png"
-            alt="PaperPal"
-            className="h-12 w-12 object-contain"
-          />
-          <div className="text-xl font-bold tracking-tight text-white">
-            PaperPal
+            <FlaskConical size={12} />
+            Sandbox Mode — emails go to you only, no Drive uploads
+            <button
+              onClick={() => {
+                setSandbox(false)
+                window.location.reload()
+              }}
+              className="ml-2 cursor-pointer rounded px-2 py-0.5 text-[11px] font-bold transition-colors"
+              style={{ background: "rgba(66,32,6,0.15)", color: "#422006" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(66,32,6,0.25)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "rgba(66,32,6,0.15)")
+              }
+            >
+              Turn Off
+            </button>
           </div>
-        </button>
-
-        {/* Right: hamburger + user + sign out */}
-        <div className="flex items-center gap-3">
+        )}
+        <header
+          className="flex items-center justify-between px-6 py-3"
+          style={{
+            background: "#1d2a5d",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+          }}
+        >
+          {/* Left: branding */}
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex cursor-pointer items-center justify-center rounded p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Open menu"
+            onClick={() => navigate("/")}
+            className="flex cursor-pointer items-center"
+            style={{ gap: "2px" }}
           >
-            <Menu size={20} />
+            <img
+              src="/orono-paperpal.png"
+              alt="PaperPal"
+              className="h-12 w-12 object-contain"
+            />
+            <div className="text-xl font-bold tracking-tight text-white">
+              PaperPal
+            </div>
           </button>
 
-          {userProfile && (
-            <div ref={profileRef} className="relative">
-              <button
-                onClick={() => setProfileOpen(!profileOpen)}
-                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 transition-colors hover:bg-white/10"
-              >
-                {userProfile.photoURL ? (
-                  <img
-                    src={userProfile.photoURL}
-                    alt={userProfile.fullName}
-                    className="h-7 w-7 rounded-full object-cover"
-                    style={{ border: "2px solid rgba(255,255,255,0.2)" }}
-                  />
-                ) : (
+          {/* Right: hamburger + user + sign out */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex cursor-pointer items-center justify-center rounded p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            {userProfile && (
+              <div ref={profileRef} className="relative">
+                <button
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 transition-colors hover:bg-white/10"
+                >
+                  {userProfile.photoURL ? (
+                    <img
+                      src={userProfile.photoURL}
+                      alt={userProfile.fullName}
+                      className="h-7 w-7 rounded-full object-cover"
+                      style={{ border: "2px solid rgba(255,255,255,0.2)" }}
+                    />
+                  ) : (
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                      style={{ background: "rgba(255,255,255,0.15)" }}
+                    >
+                      {userProfile.firstName?.[0]}
+                      {userProfile.lastName?.[0]}
+                    </div>
+                  )}
+                  <span className="text-sm text-white/90">
+                    {userProfile.firstName}
+                  </span>
+                </button>
+
+                {profileOpen && (
                   <div
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-                    style={{ background: "rgba(255,255,255,0.15)" }}
+                    className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-lg py-1"
+                    style={{
+                      background: "#ffffff",
+                      boxShadow:
+                        "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
+                      border: "1px solid #e2e5ea",
+                    }}
                   >
-                    {userProfile.firstName?.[0]}
-                    {userProfile.lastName?.[0]}
+                    <button
+                      onClick={() => {
+                        navigate("/profile")
+                        setProfileOpen(false)
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                      style={{ color: "#334155" }}
+                    >
+                      <Settings size={15} style={{ color: "#64748b" }} />
+                      Profile Settings
+                    </button>
+                    <div style={{ borderTop: "1px solid #e2e5ea" }} />
+                    <button
+                      onClick={() => {
+                        signOut()
+                        setProfileOpen(false)
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                      style={{ color: "#ad2122" }}
+                    >
+                      <LogOut size={15} />
+                      Sign Out
+                    </button>
                   </div>
                 )}
-                <span className="text-sm text-white/90">
-                  {userProfile.firstName}
-                </span>
-              </button>
-
-              {profileOpen && (
-                <div
-                  className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-lg py-1"
-                  style={{
-                    background: "#ffffff",
-                    boxShadow:
-                      "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
-                    border: "1px solid #e2e5ea",
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      navigate("/profile")
-                      setProfileOpen(false)
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
-                    style={{ color: "#334155" }}
-                  >
-                    <Settings size={15} style={{ color: "#64748b" }} />
-                    Profile Settings
-                  </button>
-                  <div style={{ borderTop: "1px solid #e2e5ea" }} />
-                  <button
-                    onClick={() => {
-                      signOut()
-                      setProfileOpen(false)
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
-                    style={{ color: "#ad2122" }}
-                  >
-                    <LogOut size={15} />
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </header>
+              </div>
+            )}
+          </div>
+        </header>
       </div>
 
       {/* Backdrop */}
@@ -331,7 +338,10 @@ export default function AppHeader() {
                 style={{
                   background: sandbox ? "#eab308" : "rgba(255,255,255,0.2)",
                 }}
-                onClick={() => { setSandbox(!sandbox); window.location.reload() }}
+                onClick={() => {
+                  setSandbox(!sandbox)
+                  window.location.reload()
+                }}
               >
                 <div
                   className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"

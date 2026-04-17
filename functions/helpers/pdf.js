@@ -512,10 +512,9 @@ function renderTravel(doc, data) {
 
     for (const exp of data.expenses) {
       ensureSpace(doc, 18)
-      const detail =
-        exp.mealType
-          ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
-          : exp.location || exp.description || "—"
+      const detail = exp.mealType
+        ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
+        : exp.location || exp.description || "—"
       drawTableRow(
         doc,
         [
@@ -530,13 +529,7 @@ function renderTravel(doc, data) {
       expTotal += exp.amount || 0
     }
     ensureSpace(doc, 18)
-    drawTableRow(
-      doc,
-      ["", "", "Total", currency(expTotal)],
-      expCols,
-      50,
-      true
-    )
+    drawTableRow(doc, ["", "", "Total", currency(expTotal)], expCols, 50, true)
   } else {
     // Legacy format: actuals + meals
     doc.moveDown(0.5)
@@ -686,7 +679,12 @@ async function generatePdf(submission) {
     .filter((e) => e.receipt?.url)
     .map((e) => ({
       label: `Receipt: ${
-        { meal: "Meal", lodging: "Lodging", registration: "Registration", other_transport: "Other Transportation" }[e.category] || e.category
+        {
+          meal: "Meal",
+          lodging: "Lodging",
+          registration: "Registration",
+          other_transport: "Other Transportation",
+        }[e.category] || e.category
       } — ${formatDate(e.date)} — ${currency(e.amount)}`,
       url: e.receipt.url,
       mimeType: e.receipt.mimeType,

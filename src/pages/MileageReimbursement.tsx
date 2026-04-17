@@ -58,10 +58,18 @@ export default function MileageReimbursement() {
   const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
   const draft = useDraft<{
-    submitterName: string; routeRequestTo: string; employeeId: string
-    accountCode: string; trips: MileageTrip[]
+    submitterName: string
+    routeRequestTo: string
+    employeeId: string
+    accountCode: string
+    trips: MileageTrip[]
   }>("paperpal-draft-mileage", !!resubmitId)
-  const { save: saveDraft, load: loadDraft, clear: clearDraft, lastSaved: draftLastSaved } = draft
+  const {
+    save: saveDraft,
+    load: loadDraft,
+    clear: clearDraft,
+    lastSaved: draftLastSaved,
+  } = draft
 
   const draftLoaded = useRef(false)
   const saved = loadDraft()
@@ -72,7 +80,9 @@ export default function MileageReimbursement() {
   const [routeRequestTo, setRouteRequestTo] = useState(
     sandbox ? (user?.email ?? "") : (userProfile?.supervisorEmail ?? "")
   )
-  const [employeeId, setEmployeeId] = useState(saved?.employeeId ?? userProfile?.employeeId ?? "")
+  const [employeeId, setEmployeeId] = useState(
+    saved?.employeeId ?? userProfile?.employeeId ?? ""
+  )
   const [accountCode, setAccountCode] = useState(saved?.accountCode ?? "")
   const [trips, setTrips] = useState<MileageTrip[]>(
     saved?.trips?.length ? saved.trips : [emptyTrip()]
@@ -86,7 +96,13 @@ export default function MileageReimbursement() {
   // Auto-save draft
   useEffect(() => {
     if (draftLoaded.current) {
-      saveDraft({ submitterName, routeRequestTo, employeeId, accountCode, trips })
+      saveDraft({
+        submitterName,
+        routeRequestTo,
+        employeeId,
+        accountCode,
+        trips,
+      })
     }
     draftLoaded.current = true
   }, [saveDraft, submitterName, routeRequestTo, employeeId, accountCode, trips])
@@ -185,7 +201,9 @@ export default function MileageReimbursement() {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
+          supervisorEmail: sandbox
+            ? (user.email ?? "")
+            : routeRequestTo || userProfile.supervisorEmail || "",
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
@@ -214,7 +232,9 @@ export default function MileageReimbursement() {
           submitterUid: user.uid,
           submitterEmail: user.email ?? "",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
+          supervisorEmail: sandbox
+            ? (user.email ?? "")
+            : routeRequestTo || userProfile.supervisorEmail || "",
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: [],
@@ -299,7 +319,10 @@ export default function MileageReimbursement() {
         </p>
         {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <span
+              className="text-[11px]"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+            >
               Draft saved {draftLastSaved.toLocaleTimeString()}
             </span>
             <button

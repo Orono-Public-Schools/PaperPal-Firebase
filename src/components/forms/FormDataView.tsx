@@ -214,7 +214,11 @@ const EXPENSE_CATEGORY_LABELS: Record<TravelExpenseItem["category"], string> = {
   other_transport: "Other Transportation",
 }
 
-function ExpenseReceiptThumb({ receipt }: { receipt?: { url: string; name: string; mimeType: string } }) {
+function ExpenseReceiptThumb({
+  receipt,
+}: {
+  receipt?: { url: string; name: string; mimeType: string }
+}) {
   if (!receipt) return null
   const isImage = receipt.mimeType.startsWith("image/")
   return (
@@ -226,9 +230,16 @@ function ExpenseReceiptThumb({ receipt }: { receipt?: { url: string; name: strin
       title={receipt.name}
     >
       {isImage ? (
-        <img src={receipt.url} alt="Receipt" className="h-8 w-8 rounded object-cover" />
+        <img
+          src={receipt.url}
+          alt="Receipt"
+          className="h-8 w-8 rounded object-cover"
+        />
       ) : (
-        <span className="text-[10px] font-medium underline" style={{ color: "#4356a9" }}>
+        <span
+          className="text-[10px] font-medium underline"
+          style={{ color: "#4356a9" }}
+        >
           PDF
         </span>
       )}
@@ -304,7 +315,8 @@ export function TravelView({ data }: { data: TravelData }) {
                 <td className="py-2 pr-4">—</td>
                 <td className="py-2 pr-4">Mileage</td>
                 <td className="py-2 pr-4">
-                  {data.actuals.miles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(2)}
+                  {data.actuals.miles.toFixed(1)} mi × $
+                  {MILEAGE_RATE.toFixed(2)}
                 </td>
                 <td className="py-2 pr-4">
                   {currency(data.actuals.miles * MILEAGE_RATE)}
@@ -326,7 +338,8 @@ export function TravelView({ data }: { data: TravelData }) {
                 </td>
                 <td className="py-2 pr-4">
                   {exp.mealType
-                    ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
+                    ? exp.mealType.charAt(0).toUpperCase() +
+                      exp.mealType.slice(1)
                     : exp.location || exp.description || "—"}
                 </td>
                 <td className="py-2 pr-4">{currency(exp.amount)}</td>
@@ -348,14 +361,17 @@ export function TravelView({ data }: { data: TravelData }) {
               <td className="py-2 pr-4">
                 {currency(
                   data.expenses!.reduce((s, e) => s + (e.amount || 0), 0) +
-                  data.actuals.miles * MILEAGE_RATE
+                    data.actuals.miles * MILEAGE_RATE
                 )}
               </td>
               <td />
             </tr>
           </Table>
           {data.taxExemptAcknowledged && (
-            <p className="mt-2 text-[11px] font-medium" style={{ color: "#64748b" }}>
+            <p
+              className="mt-2 text-[11px] font-medium"
+              style={{ color: "#64748b" }}
+            >
               Tax-exempt acknowledgment confirmed
             </p>
           )}
@@ -438,17 +454,10 @@ export function TravelView({ data }: { data: TravelData }) {
             <div>
               <SectionHeading>Meals</SectionHeading>
               <Table
-                headers={[
-                  "Date",
-                  "Breakfast",
-                  "Lunch",
-                  "Dinner",
-                  "Day Total",
-                ]}
+                headers={["Date", "Breakfast", "Lunch", "Dinner", "Day Total"]}
               >
                 {data.meals.map((meal, i) => {
-                  const dayTotal =
-                    meal.breakfast + meal.lunch + meal.dinner
+                  const dayTotal = meal.breakfast + meal.lunch + meal.dinner
                   return (
                     <tr
                       key={i}
@@ -458,9 +467,7 @@ export function TravelView({ data }: { data: TravelData }) {
                       <td className="py-2 pr-4 whitespace-nowrap">
                         {formatDate(meal.date)}
                       </td>
-                      <td className="py-2 pr-4">
-                        {currency(meal.breakfast)}
-                      </td>
+                      <td className="py-2 pr-4">{currency(meal.breakfast)}</td>
                       <td className="py-2 pr-4">{currency(meal.lunch)}</td>
                       <td className="py-2 pr-4">{currency(meal.dinner)}</td>
                       <td className="py-2 pr-4 font-semibold">

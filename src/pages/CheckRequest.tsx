@@ -37,7 +37,11 @@ import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import type { CheckRequestExpense } from "@/lib/types"
 
-async function compressImage(file: File, maxDim = 1200, quality = 0.7): Promise<Blob> {
+async function compressImage(
+  file: File,
+  maxDim = 1200,
+  quality = 0.7
+): Promise<Blob> {
   if (!file.type.startsWith("image/")) return file
   return new Promise((resolve) => {
     const img = new window.Image()
@@ -53,11 +57,7 @@ async function compressImage(file: File, maxDim = 1200, quality = 0.7): Promise<
       canvas.height = height
       const ctx = canvas.getContext("2d")!
       ctx.drawImage(img, 0, 0, width, height)
-      canvas.toBlob(
-        (blob) => resolve(blob ?? file),
-        "image/jpeg",
-        quality
-      )
+      canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", quality)
     }
     img.onerror = () => resolve(file)
     img.src = URL.createObjectURL(file)
@@ -77,18 +77,34 @@ export default function CheckRequest() {
   const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
   const draft = useDraft<{
-    submitterName: string; routeRequestTo: string; dateRequest: string; dateNeeded: string
-    payee: string; street: string; city: string; state: string; zip: string
-    expenses: CheckRequestExpense[]; receipts: Attachment[]
+    submitterName: string
+    routeRequestTo: string
+    dateRequest: string
+    dateNeeded: string
+    payee: string
+    street: string
+    city: string
+    state: string
+    zip: string
+    expenses: CheckRequestExpense[]
+    receipts: Attachment[]
   }>("paperpal-draft-check", !!resubmitId)
-  const { save: saveDraft, load: loadDraft, clear: clearDraft, lastSaved: draftLastSaved } = draft
+  const {
+    save: saveDraft,
+    load: loadDraft,
+    clear: clearDraft,
+    lastSaved: draftLastSaved,
+  } = draft
 
   // Load draft on mount
   const draftLoaded = useRef(false)
   const saved = loadDraft()
   const initName = saved?.submitterName ?? userProfile?.fullName ?? ""
-  const initRoute = sandbox ? (user?.email ?? "") : (userProfile?.supervisorEmail ?? "")
-  const initDateReq = saved?.dateRequest ?? new Date().toISOString().split("T")[0]
+  const initRoute = sandbox
+    ? (user?.email ?? "")
+    : (userProfile?.supervisorEmail ?? "")
+  const initDateReq =
+    saved?.dateRequest ?? new Date().toISOString().split("T")[0]
 
   const [submitterName, setSubmitterName] = useState(initName)
   const [routeRequestTo, setRouteRequestTo] = useState(initRoute)
@@ -120,10 +136,35 @@ export default function CheckRequest() {
   // Auto-save draft on changes
   useEffect(() => {
     if (draftLoaded.current) {
-      saveDraft({ submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts })
+      saveDraft({
+        submitterName,
+        routeRequestTo,
+        dateRequest,
+        dateNeeded,
+        payee,
+        street,
+        city,
+        state,
+        zip,
+        expenses,
+        receipts,
+      })
     }
     draftLoaded.current = true
-  }, [saveDraft, submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts])
+  }, [
+    saveDraft,
+    submitterName,
+    routeRequestTo,
+    dateRequest,
+    dateNeeded,
+    payee,
+    street,
+    city,
+    state,
+    zip,
+    expenses,
+    receipts,
+  ])
 
   // Load existing submission for resubmit
   useEffect(() => {
@@ -205,7 +246,9 @@ export default function CheckRequest() {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
+          supervisorEmail: sandbox
+            ? (user.email ?? "")
+            : routeRequestTo || userProfile.supervisorEmail || "",
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           summary: `Check Request — ${payee}`,
@@ -234,7 +277,9 @@ export default function CheckRequest() {
           submitterUid: user.uid,
           submitterEmail: user.email ?? "",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
+          supervisorEmail: sandbox
+            ? (user.email ?? "")
+            : routeRequestTo || userProfile.supervisorEmail || "",
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: receipts,
@@ -318,7 +363,10 @@ export default function CheckRequest() {
         </p>
         {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <span
+              className="text-[11px]"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+            >
               Draft saved {draftLastSaved.toLocaleTimeString()}
             </span>
             <button
@@ -504,7 +552,7 @@ export default function CheckRequest() {
               />
             </label>
             <label
-              className="flex cursor-pointer flex-col items-center gap-2 w-full rounded-xl border-2 border-dashed p-6 transition-colors"
+              className="flex w-full cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 transition-colors"
               style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = "#4356a9"
@@ -595,10 +643,7 @@ export default function CheckRequest() {
                     >
                       {f.name}
                     </a>
-                    <span
-                      className="text-[11px]"
-                      style={{ color: "#94a3b8" }}
-                    >
+                    <span className="text-[11px]" style={{ color: "#94a3b8" }}>
                       {(f.size / 1024).toFixed(0)} KB
                     </span>
                     <button

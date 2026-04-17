@@ -8,14 +8,15 @@ Replace the three separate sections (Actual Costs, Meal Expenses, Summary) with 
 
 **Categories and fields:**
 
-| Category | Fields |
-|---|---|
-| Meal | Date, Meal Type (Breakfast/Lunch/Dinner), Amount, Receipt |
-| Lodging | Date, Location, Amount, Receipt |
-| Registration | Date, Amount, Receipt |
-| Other Transportation | Date, Description, Amount, Receipt |
+| Category             | Fields                                                    |
+| -------------------- | --------------------------------------------------------- |
+| Meal                 | Date, Meal Type (Breakfast/Lunch/Dinner), Amount, Receipt |
+| Lodging              | Date, Location, Amount, Receipt                           |
+| Registration         | Date, Amount, Receipt                                     |
+| Other Transportation | Date, Description, Amount, Receipt                        |
 
 **Key design decisions:**
+
 - Transportation by Car (mileage calculator) stays separate — it's mileage-based, not receipt-based
 - "+ Add Expense" button with category picker dropdown
 - Expenses grouped visually by category with subtotals
@@ -23,6 +24,7 @@ Replace the three separate sections (Actual Costs, Meal Expenses, Summary) with 
 - Tax acknowledgment checkbox: "I confirm all amounts are pre-tax (Orono Public Schools is tax-exempt)"
 
 **Data model change:**
+
 ```ts
 interface TravelExpenseItem {
   category: "meal" | "lodging" | "registration" | "other_transport"
@@ -44,6 +46,7 @@ Replace `actuals.otherTransport`, `actuals.lodging`, `actuals.registration`, `ac
 Per-expense-item receipt attachment with camera scanning support.
 
 **Implementation:**
+
 - `<input type="file" accept="image/*" capture="environment">` for camera scanning (opens camera on mobile, file picker on desktop)
 - Separate "Upload" button for file picker (PDF, image)
 - Image compression before upload (phone camera images can be large)
@@ -56,6 +59,7 @@ Per-expense-item receipt attachment with camera scanning support.
 Auto-extract the total amount from scanned/uploaded receipt images.
 
 **Implementation:**
+
 - Callable Cloud Function sends receipt image to Google Cloud Vision API (TEXT_DETECTION)
 - Parse OCR text for dollar amounts — heuristics: look for "total", "amount due", "balance", or fall back to largest dollar value
 - Auto-fill the amount field, user confirms or adjusts
@@ -69,6 +73,7 @@ Auto-extract the total amount from scanned/uploaded receipt images.
 Append receipt images/PDFs to the generated form PDF.
 
 **Implementation:**
+
 - After generating the form data pages, append each receipt as an additional page
 - Images: embed with PDFKit (already in use), scale to fit page
 - Uploaded PDFs: use `pdf-lib` to merge pages
@@ -76,6 +81,7 @@ Append receipt images/PDFs to the generated form PDF.
 - Receipts appear in the same order as the expenses on the form
 
 ### Files affected:
+
 - `src/lib/types.ts` — new `TravelExpenseItem` type, update `TravelData`
 - `src/pages/TravelReimbursement.tsx` — rebuild expenses UI, add scan/upload per item
 - `src/components/forms/FormDataView.tsx` — update TravelView for new + old format

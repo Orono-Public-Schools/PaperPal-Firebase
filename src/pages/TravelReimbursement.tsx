@@ -51,7 +51,6 @@ function todayStr() {
   return new Date().toISOString().split("T")[0]
 }
 
-
 type ExpenseCategory = TravelExpenseItem["category"]
 
 const EXPENSE_CATEGORIES: {
@@ -69,7 +68,11 @@ function emptyExpense(category: ExpenseCategory): TravelExpenseItem {
   return { category, date: todayStr(), amount: 0 }
 }
 
-async function compressImage(file: File, maxDim = 1200, quality = 0.7): Promise<Blob> {
+async function compressImage(
+  file: File,
+  maxDim = 1200,
+  quality = 0.7
+): Promise<Blob> {
   if (!file.type.startsWith("image/")) return file
   return new Promise((resolve) => {
     const img = new window.Image()
@@ -85,11 +88,7 @@ async function compressImage(file: File, maxDim = 1200, quality = 0.7): Promise<
       canvas.height = height
       const ctx = canvas.getContext("2d")!
       ctx.drawImage(img, 0, 0, width, height)
-      canvas.toBlob(
-        (blob) => resolve(blob ?? file),
-        "image/jpeg",
-        quality
-      )
+      canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", quality)
     }
     img.onerror = () => resolve(file)
     img.src = URL.createObjectURL(file)
@@ -107,24 +106,51 @@ export default function TravelReimbursement() {
   const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
   const draft = useDraft<{
-    submitterName: string; employeeId: string; formDate: string; address: string
-    budgetYear: string; accountCode: string; meetingTitle: string; location: string
-    dateStart: string; dateEnd: string; timeAwayStart: string; timeAwayEnd: string
-    justification: string; routeRequestTo: string; advanceRequested: number
-    mileageFrom: string; mileageTo: string; actMiles: number
-    justificationFiles: Attachment[]; expenses: TravelExpenseItem[]
+    submitterName: string
+    employeeId: string
+    formDate: string
+    address: string
+    budgetYear: string
+    accountCode: string
+    meetingTitle: string
+    location: string
+    dateStart: string
+    dateEnd: string
+    timeAwayStart: string
+    timeAwayEnd: string
+    justification: string
+    routeRequestTo: string
+    advanceRequested: number
+    mileageFrom: string
+    mileageTo: string
+    actMiles: number
+    justificationFiles: Attachment[]
+    expenses: TravelExpenseItem[]
     taxExemptAcknowledged: boolean
-    estTransport: number; estLodging: number; estMeals: number
-    estRegistration: number; estSubstitute: number; estOther: number
+    estTransport: number
+    estLodging: number
+    estMeals: number
+    estRegistration: number
+    estSubstitute: number
+    estOther: number
   }>("paperpal-draft-travel", !!resubmitId)
-  const { save: saveDraft, load: loadDraft, clear: clearDraft, lastSaved: draftLastSaved } = draft
+  const {
+    save: saveDraft,
+    load: loadDraft,
+    clear: clearDraft,
+    lastSaved: draftLastSaved,
+  } = draft
 
   const draftLoaded = useRef(false)
   const saved = loadDraft()
 
   // Employee / trip header
-  const [submitterName, setSubmitterName] = useState(saved?.submitterName ?? userProfile?.fullName ?? "")
-  const [employeeId, setEmployeeId] = useState(saved?.employeeId ?? userProfile?.employeeId ?? "")
+  const [submitterName, setSubmitterName] = useState(
+    saved?.submitterName ?? userProfile?.fullName ?? ""
+  )
+  const [employeeId, setEmployeeId] = useState(
+    saved?.employeeId ?? userProfile?.employeeId ?? ""
+  )
   const [formDate, setFormDate] = useState(saved?.formDate ?? todayStr())
   const [address, setAddress] = useState(saved?.address ?? "")
   const [budgetYear, setBudgetYear] = useState(saved?.budgetYear ?? "")
@@ -139,7 +165,9 @@ export default function TravelReimbursement() {
   const [routeRequestTo, setRouteRequestTo] = useState(
     sandbox ? (user?.email ?? "") : (userProfile?.supervisorEmail ?? "")
   )
-  const [advanceRequested, setAdvanceRequested] = useState(saved?.advanceRequested ?? 0)
+  const [advanceRequested, setAdvanceRequested] = useState(
+    saved?.advanceRequested ?? 0
+  )
 
   // Mileage within travel
   const [mileageFrom, setMileageFrom] = useState(saved?.mileageFrom ?? "")
@@ -148,14 +176,18 @@ export default function TravelReimbursement() {
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
 
   // File uploads
-  const [justificationFiles, setJustificationFiles] = useState<Attachment[]>(saved?.justificationFiles ?? [])
+  const [justificationFiles, setJustificationFiles] = useState<Attachment[]>(
+    saved?.justificationFiles ?? []
+  )
   const [uploading, setUploading] = useState(false)
 
   // Estimated costs
   const [estTransport, setEstTransport] = useState(saved?.estTransport ?? 0)
   const [estLodging, setEstLodging] = useState(saved?.estLodging ?? 0)
   const [estMeals, setEstMeals] = useState(saved?.estMeals ?? 0)
-  const [estRegistration, setEstRegistration] = useState(saved?.estRegistration ?? 0)
+  const [estRegistration, setEstRegistration] = useState(
+    saved?.estRegistration ?? 0
+  )
   const [estSubstitute, setEstSubstitute] = useState(saved?.estSubstitute ?? 0)
   const [estOther, setEstOther] = useState(saved?.estOther ?? 0)
 
@@ -163,32 +195,82 @@ export default function TravelReimbursement() {
   const [actMiles, setActMiles] = useState(saved?.actMiles ?? 0)
 
   // Unified expenses
-  const [expenses, setExpenses] = useState<TravelExpenseItem[]>(saved?.expenses ?? [])
+  const [expenses, setExpenses] = useState<TravelExpenseItem[]>(
+    saved?.expenses ?? []
+  )
   const [showCategoryPicker, setShowCategoryPicker] = useState(false)
-  const [uploadingExpenseIdx, setUploadingExpenseIdx] = useState<number | null>(null)
+  const [uploadingExpenseIdx, setUploadingExpenseIdx] = useState<number | null>(
+    null
+  )
   const [ocrLoadingIdx, setOcrLoadingIdx] = useState<number | null>(null)
-  const [taxExemptAcknowledged, setTaxExemptAcknowledged] = useState(saved?.taxExemptAcknowledged ?? false)
+  const [taxExemptAcknowledged, setTaxExemptAcknowledged] = useState(
+    saved?.taxExemptAcknowledged ?? false
+  )
 
   // Auto-save draft
   useEffect(() => {
     if (draftLoaded.current) {
       saveDraft({
-        submitterName, employeeId, formDate, address, budgetYear, accountCode,
-        meetingTitle, location, dateStart, dateEnd, timeAwayStart, timeAwayEnd,
-        justification, routeRequestTo, advanceRequested, mileageFrom, mileageTo,
-        actMiles, justificationFiles, expenses, taxExemptAcknowledged,
-        estTransport, estLodging, estMeals, estRegistration, estSubstitute, estOther,
+        submitterName,
+        employeeId,
+        formDate,
+        address,
+        budgetYear,
+        accountCode,
+        meetingTitle,
+        location,
+        dateStart,
+        dateEnd,
+        timeAwayStart,
+        timeAwayEnd,
+        justification,
+        routeRequestTo,
+        advanceRequested,
+        mileageFrom,
+        mileageTo,
+        actMiles,
+        justificationFiles,
+        expenses,
+        taxExemptAcknowledged,
+        estTransport,
+        estLodging,
+        estMeals,
+        estRegistration,
+        estSubstitute,
+        estOther,
       })
     }
     draftLoaded.current = true
   }, [
-    saveDraft, submitterName, employeeId, formDate, address, budgetYear, accountCode,
-    meetingTitle, location, dateStart, dateEnd, timeAwayStart, timeAwayEnd,
-    justification, routeRequestTo, advanceRequested, mileageFrom, mileageTo,
-    actMiles, justificationFiles, expenses, taxExemptAcknowledged,
-    estTransport, estLodging, estMeals, estRegistration, estSubstitute, estOther,
+    saveDraft,
+    submitterName,
+    employeeId,
+    formDate,
+    address,
+    budgetYear,
+    accountCode,
+    meetingTitle,
+    location,
+    dateStart,
+    dateEnd,
+    timeAwayStart,
+    timeAwayEnd,
+    justification,
+    routeRequestTo,
+    advanceRequested,
+    mileageFrom,
+    mileageTo,
+    actMiles,
+    justificationFiles,
+    expenses,
+    taxExemptAcknowledged,
+    estTransport,
+    estLodging,
+    estMeals,
+    estRegistration,
+    estSubstitute,
+    estOther,
   ])
-
 
   // Build quick-fill options for mileage addresses
   useEffect(() => {
@@ -258,21 +340,56 @@ export default function TravelReimbursement() {
         // Convert legacy format to new expenses array
         const converted: TravelExpenseItem[] = []
         if (fd.actuals.otherTransport > 0) {
-          converted.push({ category: "other_transport", date: fd.dateStart, amount: fd.actuals.otherTransport })
+          converted.push({
+            category: "other_transport",
+            date: fd.dateStart,
+            amount: fd.actuals.otherTransport,
+          })
         }
         if (fd.actuals.lodging > 0) {
-          converted.push({ category: "lodging", date: fd.dateStart, amount: fd.actuals.lodging })
+          converted.push({
+            category: "lodging",
+            date: fd.dateStart,
+            amount: fd.actuals.lodging,
+          })
         }
         if (fd.actuals.registration > 0) {
-          converted.push({ category: "registration", date: fd.dateStart, amount: fd.actuals.registration })
+          converted.push({
+            category: "registration",
+            date: fd.dateStart,
+            amount: fd.actuals.registration,
+          })
         }
         for (const o of fd.actuals.others) {
-          converted.push({ category: "other_transport", date: fd.dateStart, amount: o.amount, description: o.desc })
+          converted.push({
+            category: "other_transport",
+            date: fd.dateStart,
+            amount: o.amount,
+            description: o.desc,
+          })
         }
         for (const m of fd.meals) {
-          if (m.breakfast > 0) converted.push({ category: "meal", date: m.date, amount: m.breakfast, mealType: "breakfast" })
-          if (m.lunch > 0) converted.push({ category: "meal", date: m.date, amount: m.lunch, mealType: "lunch" })
-          if (m.dinner > 0) converted.push({ category: "meal", date: m.date, amount: m.dinner, mealType: "dinner" })
+          if (m.breakfast > 0)
+            converted.push({
+              category: "meal",
+              date: m.date,
+              amount: m.breakfast,
+              mealType: "breakfast",
+            })
+          if (m.lunch > 0)
+            converted.push({
+              category: "meal",
+              date: m.date,
+              amount: m.lunch,
+              mealType: "lunch",
+            })
+          if (m.dinner > 0)
+            converted.push({
+              category: "meal",
+              date: m.date,
+              amount: m.dinner,
+              mealType: "dinner",
+            })
         }
         if (converted.length > 0) setExpenses(converted)
       }
@@ -325,7 +442,9 @@ export default function TravelReimbursement() {
         size: toUpload.size,
       }
       setExpenses((prev) =>
-        prev.map((e, i) => (i === expenseIdx ? { ...e, receipt: attachment } : e))
+        prev.map((e, i) =>
+          i === expenseIdx ? { ...e, receipt: attachment } : e
+        )
       )
       // Auto-run OCR for images
       if (isImage) {
@@ -339,10 +458,10 @@ export default function TravelReimbursement() {
   async function runOcr(expenseIdx: number, imageUrl: string) {
     setOcrLoadingIdx(expenseIdx)
     try {
-      const extractTotal = httpsCallable<{ imageUrl: string }, { amount: number | null }>(
-        functions,
-        "extractReceiptTotal"
-      )
+      const extractTotal = httpsCallable<
+        { imageUrl: string },
+        { amount: number | null }
+      >(functions, "extractReceiptTotal")
       const result = await extractTotal({ imageUrl })
       if (result.data.amount !== null && result.data.amount > 0) {
         setExpenses((prev) =>
@@ -391,14 +510,26 @@ export default function TravelReimbursement() {
       // Build legacy actuals from new expenses for backward compat
       const mealExpenses = expenses.filter((e) => e.category === "meal")
       const mealTotal = mealExpenses.reduce((s, e) => s + (e.amount || 0), 0)
-      const lodgingTotal = expenses.filter((e) => e.category === "lodging").reduce((s, e) => s + (e.amount || 0), 0)
-      const registrationTotal = expenses.filter((e) => e.category === "registration").reduce((s, e) => s + (e.amount || 0), 0)
-      const otherTransportTotal = expenses.filter((e) => e.category === "other_transport").reduce((s, e) => s + (e.amount || 0), 0)
+      const lodgingTotal = expenses
+        .filter((e) => e.category === "lodging")
+        .reduce((s, e) => s + (e.amount || 0), 0)
+      const registrationTotal = expenses
+        .filter((e) => e.category === "registration")
+        .reduce((s, e) => s + (e.amount || 0), 0)
+      const otherTransportTotal = expenses
+        .filter((e) => e.category === "other_transport")
+        .reduce((s, e) => s + (e.amount || 0), 0)
 
       // Build legacy meals array grouped by date
       const mealsByDate = new Map<string, TravelMeal>()
       for (const e of mealExpenses) {
-        if (!mealsByDate.has(e.date)) mealsByDate.set(e.date, { date: e.date, breakfast: 0, lunch: 0, dinner: 0 })
+        if (!mealsByDate.has(e.date))
+          mealsByDate.set(e.date, {
+            date: e.date,
+            breakfast: 0,
+            lunch: 0,
+            dinner: 0,
+          })
         const m = mealsByDate.get(e.date)!
         if (e.mealType === "breakfast") m.breakfast += e.amount || 0
         else if (e.mealType === "lunch") m.lunch += e.amount || 0
@@ -448,7 +579,9 @@ export default function TravelReimbursement() {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
+          supervisorEmail: sandbox
+            ? (user.email ?? "")
+            : routeRequestTo || userProfile.supervisorEmail || "",
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: justificationFiles,
@@ -478,7 +611,9 @@ export default function TravelReimbursement() {
           submitterUid: user.uid,
           submitterEmail: user.email ?? "",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
+          supervisorEmail: sandbox
+            ? (user.email ?? "")
+            : routeRequestTo || userProfile.supervisorEmail || "",
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: justificationFiles,
@@ -562,7 +697,10 @@ export default function TravelReimbursement() {
         </p>
         {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <span
+              className="text-[11px]"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+            >
               Draft saved {draftLastSaved.toLocaleTimeString()}
             </span>
             <button
@@ -972,9 +1110,7 @@ export default function TravelReimbursement() {
                   min={0}
                   step="0.1"
                   placeholder="0.0"
-                  onChange={(e) =>
-                    setActMiles(parseFloat(e.target.value) || 0)
-                  }
+                  onChange={(e) => setActMiles(parseFloat(e.target.value) || 0)}
                   className="input-neu w-full"
                 />
                 <button
@@ -1013,10 +1149,7 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Unified Expenses */}
-        <Section
-          title="Expenses"
-          style={{ order: getOrder("meals") }}
-        >
+        <Section title="Expenses" style={{ order: getOrder("meals") }}>
           {expenses.length === 0 && (
             <p className="mb-3 text-sm" style={{ color: "#94a3b8" }}>
               Add your actual travel expenses here — meals, lodging,
@@ -1043,18 +1176,32 @@ export default function TravelReimbursement() {
                   >
                     {group.icon} {group.label}
                   </p>
-                  <span className="text-xs font-semibold" style={{ color: "#4356a9" }}>
-                    ${group.items.reduce((s, e) => s + (e.amount || 0), 0).toFixed(2)}
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: "#4356a9" }}
+                  >
+                    $
+                    {group.items
+                      .reduce((s, e) => s + (e.amount || 0), 0)
+                      .toFixed(2)}
                   </span>
                 </div>
-                <div className="divide-y" style={{ borderColor: "rgba(180,185,195,0.25)" }}>
+                <div
+                  className="divide-y"
+                  style={{ borderColor: "rgba(180,185,195,0.25)" }}
+                >
                   {group.items.map((expense) => (
-                    <div key={expense._idx} className="py-3 first:pt-0 last:pb-0">
+                    <div
+                      key={expense._idx}
+                      className="py-3 first:pt-0 last:pb-0"
+                    >
                       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
                         <Field label="Date">
                           <DatePicker
                             value={expense.date}
-                            onChange={(v) => updateExpense(expense._idx, { date: v })}
+                            onChange={(v) =>
+                              updateExpense(expense._idx, { date: v })
+                            }
                           />
                         </Field>
                         {expense.category === "meal" && (
@@ -1064,7 +1211,8 @@ export default function TravelReimbursement() {
                               required
                               onChange={(e) =>
                                 updateExpense(expense._idx, {
-                                  mealType: e.target.value as TravelExpenseItem["mealType"],
+                                  mealType: e.target
+                                    .value as TravelExpenseItem["mealType"],
                                 })
                               }
                               className="input-neu"
@@ -1083,7 +1231,9 @@ export default function TravelReimbursement() {
                               value={expense.location || ""}
                               placeholder="Hotel name / city"
                               onChange={(e) =>
-                                updateExpense(expense._idx, { location: e.target.value })
+                                updateExpense(expense._idx, {
+                                  location: e.target.value,
+                                })
                               }
                               className="input-neu"
                             />
@@ -1097,7 +1247,9 @@ export default function TravelReimbursement() {
                               required
                               placeholder="e.g. Taxi, Parking"
                               onChange={(e) =>
-                                updateExpense(expense._idx, { description: e.target.value })
+                                updateExpense(expense._idx, {
+                                  description: e.target.value,
+                                })
                               }
                               className="input-neu"
                             />
@@ -1123,7 +1275,11 @@ export default function TravelReimbursement() {
                               style={{ maxWidth: "110px" }}
                             />
                             {ocrLoadingIdx === expense._idx && (
-                              <Loader2 size={14} className="animate-spin" style={{ color: "#4356a9" }} />
+                              <Loader2
+                                size={14}
+                                className="animate-spin"
+                                style={{ color: "#4356a9" }}
+                              />
                             )}
                           </div>
                         </Field>
@@ -1131,7 +1287,9 @@ export default function TravelReimbursement() {
                           <button
                             type="button"
                             onClick={() =>
-                              setExpenses((prev) => prev.filter((_, j) => j !== expense._idx))
+                              setExpenses((prev) =>
+                                prev.filter((_, j) => j !== expense._idx)
+                              )
                             }
                             className="cursor-pointer rounded-lg p-1.5"
                             style={{ color: "#94a3b8" }}
@@ -1151,7 +1309,10 @@ export default function TravelReimbursement() {
                         {expense.receipt ? (
                           <div
                             className="flex items-center gap-3 rounded-lg px-3 py-1.5"
-                            style={{ background: "#f8f9fb", border: "1px solid #e2e5ea" }}
+                            style={{
+                              background: "#f8f9fb",
+                              border: "1px solid #e2e5ea",
+                            }}
                           >
                             {expense.receipt.mimeType.startsWith("image/") ? (
                               <img
@@ -1160,7 +1321,10 @@ export default function TravelReimbursement() {
                                 className="h-10 w-10 rounded object-cover"
                               />
                             ) : (
-                              <FileText size={14} style={{ color: "#4356a9", flexShrink: 0 }} />
+                              <FileText
+                                size={14}
+                                style={{ color: "#4356a9", flexShrink: 0 }}
+                              />
                             )}
                             <a
                               href={expense.receipt.url}
@@ -1171,16 +1335,27 @@ export default function TravelReimbursement() {
                             >
                               {expense.receipt.name}
                             </a>
-                            <span className="text-[10px]" style={{ color: "#94a3b8" }}>
+                            <span
+                              className="text-[10px]"
+                              style={{ color: "#94a3b8" }}
+                            >
                               {(expense.receipt.size / 1024).toFixed(0)} KB
                             </span>
                             <button
                               type="button"
-                              onClick={() => updateExpense(expense._idx, { receipt: undefined })}
+                              onClick={() =>
+                                updateExpense(expense._idx, {
+                                  receipt: undefined,
+                                })
+                              }
                               className="cursor-pointer rounded p-0.5 transition-colors"
                               style={{ color: "#94a3b8" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.color = "#ad2122")
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.color = "#94a3b8")
+                              }
                             >
                               <Trash2 size={13} />
                             </button>
@@ -1188,7 +1363,10 @@ export default function TravelReimbursement() {
                         ) : (
                           <div className="flex items-center gap-2">
                             {uploadingExpenseIdx === expense._idx ? (
-                              <div className="flex items-center gap-2 text-xs" style={{ color: "#4356a9" }}>
+                              <div
+                                className="flex items-center gap-2 text-xs"
+                                style={{ color: "#4356a9" }}
+                              >
                                 <Loader2 size={14} className="animate-spin" />
                                 Uploading…
                               </div>
@@ -1196,7 +1374,10 @@ export default function TravelReimbursement() {
                               <>
                                 <label
                                   className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:hidden"
-                                  style={{ color: "#4356a9", background: "rgba(67,86,169,0.06)" }}
+                                  style={{
+                                    color: "#4356a9",
+                                    background: "rgba(67,86,169,0.06)",
+                                  }}
                                 >
                                   <Camera size={14} />
                                   Scan Receipt
@@ -1207,13 +1388,17 @@ export default function TravelReimbursement() {
                                     className="hidden"
                                     onChange={(e) => {
                                       const f = e.target.files?.[0]
-                                      if (f) handleExpenseReceipt(expense._idx, f)
+                                      if (f)
+                                        handleExpenseReceipt(expense._idx, f)
                                     }}
                                   />
                                 </label>
                                 <label
                                   className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
-                                  style={{ color: "#4356a9", background: "rgba(67,86,169,0.06)" }}
+                                  style={{
+                                    color: "#4356a9",
+                                    background: "rgba(67,86,169,0.06)",
+                                  }}
                                 >
                                   <Upload size={14} />
                                   Upload
@@ -1223,7 +1408,8 @@ export default function TravelReimbursement() {
                                     className="hidden"
                                     onChange={(e) => {
                                       const f = e.target.files?.[0]
-                                      if (f) handleExpenseReceipt(expense._idx, f)
+                                      if (f)
+                                        handleExpenseReceipt(expense._idx, f)
                                     }}
                                   />
                                 </label>
@@ -1305,8 +1491,12 @@ export default function TravelReimbursement() {
                 className="mt-0.5"
                 required
               />
-              <span className="text-xs font-medium" style={{ color: "#ad2122" }}>
-                I confirm all amounts are pre-tax (Orono Public Schools is tax-exempt)
+              <span
+                className="text-xs font-medium"
+                style={{ color: "#ad2122" }}
+              >
+                I confirm all amounts are pre-tax (Orono Public Schools is
+                tax-exempt)
               </span>
             </label>
           )}
