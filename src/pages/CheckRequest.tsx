@@ -1,6 +1,18 @@
 import { useState, useRef, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router"
-import { Plus, Trash2, CheckCircle, Send, X } from "lucide-react"
+import {
+  Plus,
+  Trash2,
+  CheckCircle,
+  Send,
+  X,
+  Upload,
+  Loader2,
+  Image,
+  FileText,
+  File,
+  Camera,
+} from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import SignatureField, {
@@ -12,15 +24,45 @@ import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
 import { useAuth } from "@/hooks/useAuth"
 import { useSandbox } from "@/hooks/useSandbox"
 import { useFormFields } from "@/hooks/useFormFields"
+import { useDraft } from "@/hooks/useDraft"
 import {
   createSubmission,
   getSubmission,
   updateSubmission,
   createOrUpdateUserProfile,
 } from "@/lib/firestore"
-import type { CheckRequestData } from "@/lib/types"
+import type { CheckRequestData, Attachment } from "@/lib/types"
 import { formatBudgetCode } from "@/lib/utils"
+import { storage } from "@/lib/firebase"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import type { CheckRequestExpense } from "@/lib/types"
+
+async function compressImage(file: File, maxDim = 1200, quality = 0.7): Promise<Blob> {
+  if (!file.type.startsWith("image/")) return file
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext("2d")!
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => resolve(blob ?? file),
+        "image/jpeg",
+        quality
+      )
+    }
+    img.onerror = () => resolve(file)
+    img.src = URL.createObjectURL(file)
+  })
+}
 
 function emptyExpense(): CheckRequestExpense {
   return { code: "", description: "", amount: 0 }
@@ -34,35 +76,53 @@ export default function CheckRequest() {
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
+  const draft = useDraft<{
+    submitterName: string; routeRequestTo: string; dateRequest: string; dateNeeded: string
+    payee: string; street: string; city: string; state: string; zip: string
+    expenses: CheckRequestExpense[]; receipts: Attachment[]
+  }>("paperpal-draft-check", !!resubmitId)
 
-  const [submitterName, setSubmitterName] = useState(
-    userProfile?.fullName ?? ""
-  )
-  const [routeRequestTo, setRouteRequestTo] = useState(
-    userProfile?.supervisorEmail ?? ""
-  )
+  // Load draft on mount
+  const draftLoaded = useRef(false)
+  const saved = draft.load()
+  const initName = saved?.submitterName ?? userProfile?.fullName ?? ""
+  const initRoute = sandbox ? (user?.email ?? "") : (userProfile?.supervisorEmail ?? "")
+  const initDateReq = saved?.dateRequest ?? new Date().toISOString().split("T")[0]
+
+  const [submitterName, setSubmitterName] = useState(initName)
+  const [routeRequestTo, setRouteRequestTo] = useState(initRoute)
 
   // Header fields
-  const [dateRequest, setDateRequest] = useState(
-    new Date().toISOString().split("T")[0]
-  )
-  const [dateNeeded, setDateNeeded] = useState("")
+  const [dateRequest, setDateRequest] = useState(initDateReq)
+  const [dateNeeded, setDateNeeded] = useState(saved?.dateNeeded ?? "")
 
   // Payee fields
-  const [payee, setPayee] = useState("")
-  const [street, setStreet] = useState("")
-  const [city, setCity] = useState("")
-  const [state, setState] = useState("")
-  const [zip, setZip] = useState("")
+  const [payee, setPayee] = useState(saved?.payee ?? "")
+  const [street, setStreet] = useState(saved?.street ?? "")
+  const [city, setCity] = useState(saved?.city ?? "")
+  const [state, setState] = useState(saved?.state ?? "")
+  const [zip, setZip] = useState(saved?.zip ?? "")
 
   // Expense rows
-  const [expenses, setExpenses] = useState<CheckRequestExpense[]>([
-    emptyExpense(),
-  ])
+  const [expenses, setExpenses] = useState<CheckRequestExpense[]>(
+    saved?.expenses?.length ? saved.expenses : [emptyExpense()]
+  )
+
+  // Receipts
+  const [receipts, setReceipts] = useState<Attachment[]>(saved?.receipts ?? [])
+  const [uploadingReceipts, setUploadingReceipts] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
+
+  // Auto-save draft on changes
+  useEffect(() => {
+    if (draftLoaded.current) {
+      draft.save({ submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts })
+    }
+    draftLoaded.current = true
+  }, [submitterName, routeRequestTo, dateRequest, dateNeeded, payee, street, city, state, zip, expenses, receipts])
 
   // Load existing submission for resubmit
   useEffect(() => {
@@ -103,6 +163,29 @@ export default function CheckRequest() {
     setExpenses((prev) => prev.filter((_, i) => i !== index))
   }
 
+  async function handleReceiptUpload(files: FileList | null) {
+    if (!files || !user) return
+    setUploadingReceipts(true)
+    const newAttachments: Attachment[] = []
+    for (const file of Array.from(files)) {
+      const isImage = file.type.startsWith("image/")
+      const toUpload = isImage ? await compressImage(file) : file
+      const ext = isImage ? "jpg" : file.name.split(".").pop() || "pdf"
+      const path = `check-receipts/${user.uid}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.${ext}`
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, toUpload)
+      const url = await getDownloadURL(storageRef)
+      newAttachments.push({
+        name: file.name,
+        url,
+        mimeType: isImage ? "image/jpeg" : file.type,
+        size: toUpload.size,
+      })
+    }
+    setReceipts((prev) => [...prev, ...newAttachments])
+    setUploadingReceipts(false)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
@@ -121,7 +204,7 @@ export default function CheckRequest() {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
-          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           summary: `Check Request — ${payee}`,
@@ -150,10 +233,10 @@ export default function CheckRequest() {
           submitterUid: user.uid,
           submitterEmail: user.email ?? "",
           submitterName: userProfile.fullName,
-          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
-          attachments: [],
+          attachments: receipts,
           revisionHistory: [],
           activityLog: [
             {
@@ -168,6 +251,7 @@ export default function CheckRequest() {
         })
         setSubmissionId(id)
       }
+      draft.clear()
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -231,6 +315,24 @@ export default function CheckRequest() {
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
           Submit a payment request for a vendor or service.
         </p>
+        {draft.lastSaved && (
+          <div className="mt-2 flex items-center gap-3">
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Draft saved {draft.lastSaved.toLocaleTimeString()}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                draft.clear()
+                window.location.reload()
+              }}
+              className="cursor-pointer text-[11px] font-medium underline"
+              style={{ color: "rgba(255,255,255,0.5)" }}
+            >
+              Clear draft
+            </button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -380,11 +482,152 @@ export default function CheckRequest() {
           </button>
         </Section>
 
+        {/* Receipts */}
+        <Section title="Receipts" style={{ order: getOrder("expenses") + 1 }}>
+          <p className="mb-3 text-sm" style={{ color: "#94a3b8" }}>
+            Attach invoices, receipts, or other supporting documents.
+          </p>
+          <div className="flex items-center gap-2">
+            <label
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:hidden"
+              style={{ color: "#4356a9", background: "rgba(67,86,169,0.06)" }}
+            >
+              <Camera size={14} />
+              Scan Receipt
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => handleReceiptUpload(e.target.files)}
+              />
+            </label>
+            <label
+              className="flex cursor-pointer flex-col items-center gap-2 w-full rounded-xl border-2 border-dashed p-6 transition-colors"
+              style={{ borderColor: "#d1d5db", color: "#94a3b8" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#4356a9"
+                e.currentTarget.style.background = "rgba(67,86,169,0.03)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = "#4356a9"
+                e.currentTarget.style.background = "rgba(67,86,169,0.06)"
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = "#d1d5db"
+                e.currentTarget.style.background = "transparent"
+                handleReceiptUpload(e.dataTransfer.files)
+              }}
+            >
+              <Upload size={24} style={{ color: "#4356a9" }} />
+              <p className="text-sm">
+                <span
+                  className="font-semibold underline"
+                  style={{ color: "#4356a9" }}
+                >
+                  Click to upload
+                </span>{" "}
+                or drag and drop
+              </p>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg"
+                className="hidden"
+                onChange={(e) => handleReceiptUpload(e.target.files)}
+              />
+            </label>
+          </div>
+          {uploadingReceipts && (
+            <div
+              className="mt-2 flex items-center gap-2 text-sm"
+              style={{ color: "#4356a9" }}
+            >
+              <Loader2 size={14} className="animate-spin" />
+              Uploading…
+            </div>
+          )}
+          {receipts.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {receipts.map((f, i) => {
+                const isImage = f.mimeType.startsWith("image/")
+                const isPdf = f.mimeType === "application/pdf"
+                const Icon = isImage ? Image : isPdf ? FileText : File
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2"
+                    style={{
+                      background: "#f8f9fb",
+                      border: "1px solid #e2e5ea",
+                    }}
+                  >
+                    {isImage ? (
+                      <img
+                        src={f.url}
+                        alt="Receipt"
+                        className="h-10 w-10 rounded object-cover"
+                        style={{ flexShrink: 0 }}
+                      />
+                    ) : (
+                      <Icon
+                        size={16}
+                        style={{ color: "#4356a9", flexShrink: 0 }}
+                      />
+                    )}
+                    <a
+                      href={f.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 flex-1 truncate text-sm font-medium underline"
+                      style={{ color: "#1d2a5d" }}
+                    >
+                      {f.name}
+                    </a>
+                    <span
+                      className="text-[11px]"
+                      style={{ color: "#94a3b8" }}
+                    >
+                      {(f.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReceipts((prev) => prev.filter((_, j) => j !== i))
+                      }
+                      className="cursor-pointer rounded p-1 transition-colors"
+                      style={{ color: "#94a3b8" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "#ad2122")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = "#94a3b8")
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Section>
+
         {/* Total */}
         <div
           className="rounded-xl p-5"
           style={{
-            order: getOrder("signature") - 0.5,
+            order: 90,
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
@@ -399,10 +642,7 @@ export default function CheckRequest() {
           </div>
         </div>
 
-        <Section
-          title="Employee Signature"
-          style={{ order: getOrder("signature") }}
-        >
+        <Section title="Employee Signature" style={{ order: 91 }}>
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}

@@ -294,8 +294,16 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
       after.status === "pending" &&
       before.supervisorEmail !== after.supervisorEmail
 
-    // Only fire on actual status transitions or redirects
-    if (before.status === after.status && !isRedirect) return
+    // Detect resubmit from pending (edit & resubmit without status change)
+    const isResubmitFromPending =
+      before.status === "pending" &&
+      after.status === "pending" &&
+      (after.activityLog || []).length > (before.activityLog || []).length &&
+      !isRedirect
+
+    // Only fire on actual status transitions, redirects, or resubmits
+    if (before.status === after.status && !isRedirect && !isResubmitFromPending)
+      return
 
     try {
       const settingsSnap = await db.doc("settings/app").get()
@@ -321,8 +329,11 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
 
       switch (after.status) {
         case "pending":
-          // Resubmit: revisions_requested → pending
-          if (before.status === "revisions_requested") {
+          // Resubmit: revisions_requested → pending, or pending → pending (edit & resubmit)
+          if (
+            before.status === "revisions_requested" ||
+            isResubmitFromPending
+          ) {
             await sendResubmittedEmails(after, settings, pdfBuffer)
             console.log(`Resubmit emails sent for ${after.id}`)
           }
@@ -380,7 +391,68 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
   }
 )
 
-// ─── On-Demand PDF Generation (callable) ─────────��────────────────────────
+// ─── Receipt OCR (callable) ─────────────────────────────────────────────────
+
+exports.extractReceiptTotal = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in")
+    }
+
+    const { imageUrl } = request.data
+    if (!imageUrl) {
+      throw new HttpsError("invalid-argument", "imageUrl is required")
+    }
+
+    try {
+      const vision = require("@google-cloud/vision")
+      const client = new vision.ImageAnnotatorClient()
+
+      const [result] = await client.textDetection(imageUrl)
+      const detections = result.textAnnotations
+      if (!detections || detections.length === 0) {
+        return { amount: null }
+      }
+
+      const fullText = detections[0].description || ""
+
+      // Look for total-like patterns
+      const totalPatterns = [
+        /total[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
+        /amount\s*due[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
+        /balance\s*due[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
+        /grand\s*total[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
+      ]
+
+      for (const pattern of totalPatterns) {
+        const match = fullText.match(pattern)
+        if (match) {
+          const amount = parseFloat(match[1].replace(",", ""))
+          if (amount > 0 && amount < 10000) {
+            return { amount }
+          }
+        }
+      }
+
+      // Fallback: find the largest dollar amount on the receipt
+      const dollarPattern = /\$\s*([\d,]+\.\d{2})/g
+      let largest = 0
+      let m
+      while ((m = dollarPattern.exec(fullText)) !== null) {
+        const val = parseFloat(m[1].replace(",", ""))
+        if (val > largest && val < 10000) largest = val
+      }
+
+      return { amount: largest > 0 ? largest : null }
+    } catch (err) {
+      console.error("OCR error:", err)
+      return { amount: null }
+    }
+  }
+)
+
+// ─── On-Demand PDF Generation (callable) ────────────────────────────────────
 
 exports.generateSubmissionPdf = onCall(
   { region: "us-central1" },

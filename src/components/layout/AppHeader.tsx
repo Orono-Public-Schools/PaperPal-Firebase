@@ -100,6 +100,7 @@ export default function AppHeader() {
 
   return (
     <>
+      <div className="sticky top-0 z-50">
       {sandbox && (
         <div
           className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold"
@@ -107,10 +108,19 @@ export default function AppHeader() {
         >
           <FlaskConical size={12} />
           Sandbox Mode — emails go to you only, no Drive uploads
+          <button
+            onClick={() => { setSandbox(false); window.location.reload() }}
+            className="ml-2 cursor-pointer rounded px-2 py-0.5 text-[11px] font-bold transition-colors"
+            style={{ background: "rgba(66,32,6,0.15)", color: "#422006" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(66,32,6,0.25)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(66,32,6,0.15)")}
+          >
+            Turn Off
+          </button>
         </div>
       )}
       <header
-        className="sticky top-0 z-50 flex items-center justify-between px-6 py-3"
+        className="flex items-center justify-between px-6 py-3"
         style={{
           background: "#1d2a5d",
           boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
@@ -208,6 +218,7 @@ export default function AppHeader() {
           )}
         </div>
       </header>
+      </div>
 
       {/* Backdrop */}
       {sidebarOpen && (
@@ -320,7 +331,7 @@ export default function AppHeader() {
                 style={{
                   background: sandbox ? "#eab308" : "rgba(255,255,255,0.2)",
                 }}
-                onClick={() => setSandbox(!sandbox)}
+                onClick={() => { setSandbox(!sandbox); window.location.reload() }}
               >
                 <div
                   className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"

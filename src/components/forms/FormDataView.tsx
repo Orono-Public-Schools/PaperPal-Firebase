@@ -1,4 +1,9 @@
-import type { CheckRequestData, MileageData, TravelData } from "@/lib/types"
+import type {
+  CheckRequestData,
+  MileageData,
+  TravelData,
+  TravelExpenseItem,
+} from "@/lib/types"
 
 const MILEAGE_RATE = 0.72
 
@@ -202,11 +207,37 @@ export function MileageView({ data }: { data: MileageData }) {
   )
 }
 
-export function TravelView({ data }: { data: TravelData }) {
-  const mealGrandTotal = data.meals.reduce(
-    (sum, m) => sum + m.breakfast + m.lunch + m.dinner,
-    0
+const EXPENSE_CATEGORY_LABELS: Record<TravelExpenseItem["category"], string> = {
+  meal: "Meal",
+  lodging: "Lodging",
+  registration: "Registration",
+  other_transport: "Other Transportation",
+}
+
+function ExpenseReceiptThumb({ receipt }: { receipt?: { url: string; name: string; mimeType: string } }) {
+  if (!receipt) return null
+  const isImage = receipt.mimeType.startsWith("image/")
+  return (
+    <a
+      href={receipt.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block"
+      title={receipt.name}
+    >
+      {isImage ? (
+        <img src={receipt.url} alt="Receipt" className="h-8 w-8 rounded object-cover" />
+      ) : (
+        <span className="text-[10px] font-medium underline" style={{ color: "#4356a9" }}>
+          PDF
+        </span>
+      )}
+    </a>
   )
+}
+
+export function TravelView({ data }: { data: TravelData }) {
+  const hasNewExpenses = data.expenses && data.expenses.length > 0
 
   return (
     <div className="space-y-6">
@@ -260,128 +291,50 @@ export function TravelView({ data }: { data: TravelData }) {
         </div>
       )}
 
-      <div>
-        <SectionHeading>Estimated Expenses</SectionHeading>
-        <Table headers={["Category", "Amount"]}>
-          {(
-            [
-              ["Transport", data.estimated.transport],
-              ["Lodging", data.estimated.lodging],
-              ["Meals", data.estimated.meals],
-              ["Registration", data.estimated.registration],
-              ["Substitute", data.estimated.substitute],
-              ["Other", data.estimated.other],
-            ] as [string, number][]
-          ).map(([label, amount]) => (
-            <tr
-              key={label}
-              className="border-t"
-              style={{ borderColor: "rgba(180,185,195,0.25)" }}
-            >
-              <td className="py-2 pr-4">{label}</td>
-              <td className="py-2 pr-4">{currency(amount)}</td>
-            </tr>
-          ))}
-          <tr
-            className="border-t font-bold"
-            style={{ color: "#1d2a5d", borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">Total</td>
-            <td className="py-2 pr-4">{currency(data.estimated.total)}</td>
-          </tr>
-        </Table>
-      </div>
-
-      <div>
-        <SectionHeading>Actual Expenses</SectionHeading>
-        <Table headers={["Category", "Amount"]}>
-          <tr
-            className="border-t"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">
-              Miles ({data.actuals.miles} × ${MILEAGE_RATE.toFixed(2)})
-            </td>
-            <td className="py-2 pr-4">
-              {currency(data.actuals.miles * MILEAGE_RATE)}
-            </td>
-          </tr>
-          <tr
-            className="border-t"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">Other Transport</td>
-            <td className="py-2 pr-4">
-              {currency(data.actuals.otherTransport)}
-            </td>
-          </tr>
-          <tr
-            className="border-t"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">Lodging</td>
-            <td className="py-2 pr-4">{currency(data.actuals.lodging)}</td>
-          </tr>
-          <tr
-            className="border-t"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">Registration</td>
-            <td className="py-2 pr-4">{currency(data.actuals.registration)}</td>
-          </tr>
-          {data.actuals.others.map((item, i) => (
-            <tr
-              key={i}
-              className="border-t"
-              style={{ borderColor: "rgba(180,185,195,0.25)" }}
-            >
-              <td className="py-2 pr-4">{item.desc || "Other"}</td>
-              <td className="py-2 pr-4">{currency(item.amount)}</td>
-            </tr>
-          ))}
-          <tr
-            className="border-t"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">Meals</td>
-            <td className="py-2 pr-4">{currency(data.actuals.mealTotal)}</td>
-          </tr>
-          <tr
-            className="border-t font-bold"
-            style={{ color: "#1d2a5d", borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            <td className="py-2 pr-4">Total</td>
-            <td className="py-2 pr-4">{currency(data.actuals.total)}</td>
-          </tr>
-        </Table>
-      </div>
-
-      {data.meals.length > 0 && (
+      {/* New format: unified expenses (with mileage as a row) */}
+      {hasNewExpenses ? (
         <div>
-          <SectionHeading>Meals</SectionHeading>
-          <Table
-            headers={["Date", "Breakfast", "Lunch", "Dinner", "Day Total"]}
-          >
-            {data.meals.map((meal, i) => {
-              const dayTotal = meal.breakfast + meal.lunch + meal.dinner
-              return (
-                <tr
-                  key={i}
-                  className="border-t"
-                  style={{ borderColor: "rgba(180,185,195,0.25)" }}
-                >
-                  <td className="py-2 pr-4 whitespace-nowrap">
-                    {formatDate(meal.date)}
-                  </td>
-                  <td className="py-2 pr-4">{currency(meal.breakfast)}</td>
-                  <td className="py-2 pr-4">{currency(meal.lunch)}</td>
-                  <td className="py-2 pr-4">{currency(meal.dinner)}</td>
-                  <td className="py-2 pr-4 font-semibold">
-                    {currency(dayTotal)}
-                  </td>
-                </tr>
-              )
-            })}
+          <SectionHeading>Expenses</SectionHeading>
+          <Table headers={["Date", "Category", "Detail", "Amount", "Receipt"]}>
+            {data.actuals.miles > 0 && (
+              <tr
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4">—</td>
+                <td className="py-2 pr-4">Mileage</td>
+                <td className="py-2 pr-4">
+                  {data.actuals.miles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(2)}
+                </td>
+                <td className="py-2 pr-4">
+                  {currency(data.actuals.miles * MILEAGE_RATE)}
+                </td>
+                <td />
+              </tr>
+            )}
+            {data.expenses!.map((exp, i) => (
+              <tr
+                key={i}
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4 whitespace-nowrap">
+                  {formatDate(exp.date)}
+                </td>
+                <td className="py-2 pr-4">
+                  {EXPENSE_CATEGORY_LABELS[exp.category]}
+                </td>
+                <td className="py-2 pr-4">
+                  {exp.mealType
+                    ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
+                    : exp.location || exp.description || "—"}
+                </td>
+                <td className="py-2 pr-4">{currency(exp.amount)}</td>
+                <td className="py-2 pr-4">
+                  <ExpenseReceiptThumb receipt={exp.receipt} />
+                </td>
+              </tr>
+            ))}
             <tr
               className="border-t font-bold"
               style={{
@@ -389,13 +342,156 @@ export function TravelView({ data }: { data: TravelData }) {
                 borderColor: "rgba(180,185,195,0.25)",
               }}
             >
-              <td className="py-2 pr-4" colSpan={4}>
-                Meal Total
+              <td className="py-2 pr-4" colSpan={3}>
+                Total
               </td>
-              <td className="py-2 pr-4">{currency(mealGrandTotal)}</td>
+              <td className="py-2 pr-4">
+                {currency(
+                  data.expenses!.reduce((s, e) => s + (e.amount || 0), 0) +
+                  data.actuals.miles * MILEAGE_RATE
+                )}
+              </td>
+              <td />
             </tr>
           </Table>
+          {data.taxExemptAcknowledged && (
+            <p className="mt-2 text-[11px] font-medium" style={{ color: "#64748b" }}>
+              Tax-exempt acknowledgment confirmed
+            </p>
+          )}
         </div>
+      ) : (
+        /* Legacy format: actuals + meals tables */
+        <>
+          <div>
+            <SectionHeading>Actual Expenses</SectionHeading>
+            <Table headers={["Category", "Amount"]}>
+              <tr
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4">
+                  Miles ({data.actuals.miles} × ${MILEAGE_RATE.toFixed(2)})
+                </td>
+                <td className="py-2 pr-4">
+                  {currency(data.actuals.miles * MILEAGE_RATE)}
+                </td>
+              </tr>
+              <tr
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4">Other Transport</td>
+                <td className="py-2 pr-4">
+                  {currency(data.actuals.otherTransport)}
+                </td>
+              </tr>
+              <tr
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4">Lodging</td>
+                <td className="py-2 pr-4">{currency(data.actuals.lodging)}</td>
+              </tr>
+              <tr
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4">Registration</td>
+                <td className="py-2 pr-4">
+                  {currency(data.actuals.registration)}
+                </td>
+              </tr>
+              {data.actuals.others.map((item, i) => (
+                <tr
+                  key={i}
+                  className="border-t"
+                  style={{ borderColor: "rgba(180,185,195,0.25)" }}
+                >
+                  <td className="py-2 pr-4">{item.desc || "Other"}</td>
+                  <td className="py-2 pr-4">{currency(item.amount)}</td>
+                </tr>
+              ))}
+              <tr
+                className="border-t"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                <td className="py-2 pr-4">Meals</td>
+                <td className="py-2 pr-4">
+                  {currency(data.actuals.mealTotal)}
+                </td>
+              </tr>
+              <tr
+                className="border-t font-bold"
+                style={{
+                  color: "#1d2a5d",
+                  borderColor: "rgba(180,185,195,0.25)",
+                }}
+              >
+                <td className="py-2 pr-4">Total</td>
+                <td className="py-2 pr-4">{currency(data.actuals.total)}</td>
+              </tr>
+            </Table>
+          </div>
+
+          {data.meals.length > 0 && (
+            <div>
+              <SectionHeading>Meals</SectionHeading>
+              <Table
+                headers={[
+                  "Date",
+                  "Breakfast",
+                  "Lunch",
+                  "Dinner",
+                  "Day Total",
+                ]}
+              >
+                {data.meals.map((meal, i) => {
+                  const dayTotal =
+                    meal.breakfast + meal.lunch + meal.dinner
+                  return (
+                    <tr
+                      key={i}
+                      className="border-t"
+                      style={{ borderColor: "rgba(180,185,195,0.25)" }}
+                    >
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        {formatDate(meal.date)}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {currency(meal.breakfast)}
+                      </td>
+                      <td className="py-2 pr-4">{currency(meal.lunch)}</td>
+                      <td className="py-2 pr-4">{currency(meal.dinner)}</td>
+                      <td className="py-2 pr-4 font-semibold">
+                        {currency(dayTotal)}
+                      </td>
+                    </tr>
+                  )
+                })}
+                <tr
+                  className="border-t font-bold"
+                  style={{
+                    color: "#1d2a5d",
+                    borderColor: "rgba(180,185,195,0.25)",
+                  }}
+                >
+                  <td className="py-2 pr-4" colSpan={4}>
+                    Meal Total
+                  </td>
+                  <td className="py-2 pr-4">
+                    {currency(
+                      data.meals.reduce(
+                        (s, m) => s + m.breakfast + m.lunch + m.dinner,
+                        0
+                      )
+                    )}
+                  </td>
+                </tr>
+              </Table>
+            </div>
+          )}
+        </>
       )}
 
       {(data.advanceRequested > 0 || data.finalClaim > 0) && (

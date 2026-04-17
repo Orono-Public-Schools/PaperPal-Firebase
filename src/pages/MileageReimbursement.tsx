@@ -23,6 +23,7 @@ import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
 import { useAuth } from "@/hooks/useAuth"
 import { useSandbox } from "@/hooks/useSandbox"
 import { useFormFields } from "@/hooks/useFormFields"
+import { useDraft } from "@/hooks/useDraft"
 import {
   createSubmission,
   getSubmission,
@@ -56,21 +57,38 @@ export default function MileageReimbursement() {
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
   const signatureRef = useRef<SignatureFieldRef>(null)
+  const draft = useDraft<{
+    submitterName: string; routeRequestTo: string; employeeId: string
+    accountCode: string; trips: MileageTrip[]
+  }>("paperpal-draft-mileage", !!resubmitId)
+
+  const draftLoaded = useRef(false)
+  const saved = draft.load()
 
   const [submitterName, setSubmitterName] = useState(
-    userProfile?.fullName ?? ""
+    saved?.submitterName ?? userProfile?.fullName ?? ""
   )
   const [routeRequestTo, setRouteRequestTo] = useState(
-    userProfile?.supervisorEmail ?? ""
+    sandbox ? (user?.email ?? "") : (userProfile?.supervisorEmail ?? "")
   )
-  const [employeeId, setEmployeeId] = useState(userProfile?.employeeId ?? "")
-  const [accountCode, setAccountCode] = useState("")
-  const [trips, setTrips] = useState<MileageTrip[]>([emptyTrip()])
+  const [employeeId, setEmployeeId] = useState(saved?.employeeId ?? userProfile?.employeeId ?? "")
+  const [accountCode, setAccountCode] = useState(saved?.accountCode ?? "")
+  const [trips, setTrips] = useState<MileageTrip[]>(
+    saved?.trips?.length ? saved.trips : [emptyTrip()]
+  )
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
   const [calculatingMiles, setCalculatingMiles] = useState<number | null>(null)
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+
+  // Auto-save draft
+  useEffect(() => {
+    if (draftLoaded.current) {
+      draft.save({ submitterName, routeRequestTo, employeeId, accountCode, trips })
+    }
+    draftLoaded.current = true
+  }, [submitterName, routeRequestTo, employeeId, accountCode, trips])
 
   // Build quick-fill options for From/To fields
   useEffect(() => {
@@ -166,7 +184,7 @@ export default function MileageReimbursement() {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
-          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
@@ -195,7 +213,7 @@ export default function MileageReimbursement() {
           submitterUid: user.uid,
           submitterEmail: user.email ?? "",
           submitterName: userProfile.fullName,
-          supervisorEmail: routeRequestTo || userProfile.supervisorEmail || "",
+          supervisorEmail: sandbox ? (user.email ?? "") : (routeRequestTo || userProfile.supervisorEmail || ""),
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: [],
@@ -213,6 +231,7 @@ export default function MileageReimbursement() {
         })
         setSubmissionId(id)
       }
+      draft.clear()
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -277,6 +296,24 @@ export default function MileageReimbursement() {
           Reimbursed at <span className="font-semibold">$0.72 per mile</span>.
           Enter each trip below and submit for supervisor approval.
         </p>
+        {draft.lastSaved && (
+          <div className="mt-2 flex items-center gap-3">
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Draft saved {draft.lastSaved.toLocaleTimeString()}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                draft.clear()
+                window.location.reload()
+              }}
+              className="cursor-pointer text-[11px] font-medium underline"
+              style={{ color: "rgba(255,255,255,0.5)" }}
+            >
+              Clear draft
+            </button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -394,7 +431,7 @@ export default function MileageReimbursement() {
         <div
           className="rounded-xl p-5"
           style={{
-            order: getOrder("signature") - 0.5,
+            order: 90,
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
@@ -428,10 +465,7 @@ export default function MileageReimbursement() {
           </div>
         </div>
 
-        <Section
-          title="Employee Signature"
-          style={{ order: getOrder("signature") }}
-        >
+        <Section title="Employee Signature" style={{ order: 91 }}>
           <SignatureField
             ref={signatureRef}
             savedSignatureUrl={userProfile?.savedSignatureUrl}
