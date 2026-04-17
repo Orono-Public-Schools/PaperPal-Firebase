@@ -90,15 +90,59 @@ Append receipt images/PDFs to the generated form PDF.
 - `functions/index.js` — new `extractReceiptTotal` callable Cloud Function
 - `functions/package.json` — add `@google-cloud/vision` and `pdf-lib` dependencies
 
-## Up Next (after expenses redesign)
+## Current Phase: Mobile Optimization
 
-- Mobile responsiveness
-  - Dashboard cards layout on small screens
-  - Submission rows — readable on phone
-  - Form pages — input grids, signature field, file upload
-  - Admin panel — tabs, accordion sections, form field editor
-  - FormView — header, timeline, approval actions
-  - Sidebar nav — already slides in, verify touch targets
+Make PaperPal fully usable on phones and tablets. Currently designed desktop-first — many layouts break or are awkward on small screens.
+
+### Pages to audit and fix:
+
+**1. Dashboard**
+
+- New Request cards: 3-column grid → stack to 1 column on mobile
+- Submission rows in Pending/History tabs: too wide, text truncates badly
+- Tab bar: ensure touch-friendly sizing
+- Rotate-reveal card animations: verify they work on touch
+
+**2. Form Pages (Check Request, Mileage, Travel)**
+
+- Input grids (2-3 col) → stack to single column on small screens
+- Budget Code Builder modal: already full-screen, verify scroll behavior
+- Signature field: ensure canvas works well on touch, adequate size
+- File upload / receipt buttons: touch targets ≥ 44px
+- Travel expenses: category picker dropdown, expense item layout
+- DatePicker: verify calendar dropdown doesn't overflow viewport
+- Address autocomplete dropdown: position relative to viewport
+
+**3. FormView (read-only submission view)**
+
+- Header info (submitter, status badge, actions) — currently side-by-side, needs stacking
+- Activity timeline: verify vertical layout works on narrow screens
+- Approval action buttons: full-width on mobile
+- Receipt thumbnails: tap to enlarge
+
+**4. Admin Panel**
+
+- Tab navigation: horizontal tabs may overflow, consider scrollable or dropdown
+- Accordion sections: verify tap targets, content doesn't overflow
+- Form field editor: drag-to-reorder may need touch handling
+- Users & Roles table: horizontal scroll or card layout
+- Staff dropdown: ensure autocomplete works on mobile keyboard
+
+**5. Global / Layout**
+
+- AppHeader: already responsive (hamburger sidebar)
+- Sidebar nav: verify touch targets ≥ 44px, smooth slide on mobile
+- Sandbox banner: text may wrap on very small screens
+- Footer: check spacing on small screens
+- Page padding: reduce horizontal padding on mobile (px-4 → px-3?)
+
+### Approach:
+
+- Tailwind responsive utilities (`sm:`, `md:`, `lg:`) — no custom breakpoints
+- Test at 375px (iPhone SE), 390px (iPhone 14), 768px (iPad)
+- Touch targets: minimum 44×44px for all interactive elements
+- No horizontal scroll on any page
+- Prioritize forms and FormView — that's what staff use most on the go
 
 ## Future (post business office meeting)
 
@@ -109,6 +153,7 @@ Append receipt images/PDFs to the generated form PDF.
 
 ## Done
 
+- Travel expenses redesign (unified expenses, receipt upload, OCR, PDF receipts, auto-save drafts)
 - Testing & polish phase (totals positioning, form field cache fix, dead code cleanup)
 - Resubmit bug fix (deleteField instead of undefined)
 - Supervisor redirect (reassign + email notifications)

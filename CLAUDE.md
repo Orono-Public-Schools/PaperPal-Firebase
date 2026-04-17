@@ -202,13 +202,25 @@ Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()
 ```bash
 npm run dev          # Local dev server (Vite)
 npm run build        # Production build
-npm run typecheck    # tsc --noEmit
+npm run typecheck    # tsc -b
+npm run lint         # eslint . --max-warnings=0
+npm run format:check # prettier --check .
 
 # Firebase
 firebase emulators:start
 firebase hosting:channel:deploy dev-joel   # Preview deploy
 firebase deploy                            # Production deploy
 ```
+
+### Before pushing / PR
+
+Always run all three checks before pushing — CI will fail otherwise:
+
+```bash
+npm run typecheck && npm run lint && npm run format:check
+```
+
+If formatting fails, fix with `npx prettier --write .` and commit separately.
 
 ---
 
