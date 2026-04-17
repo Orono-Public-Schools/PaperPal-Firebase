@@ -9,9 +9,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer
-        className="py-5 text-center text-xs"
+        className="flex items-center justify-center gap-2 py-5 text-xs"
         style={{ color: "rgba(255,255,255,0.3)" }}
       >
+        <img src="/OronoIcon256.png" alt="Orono" className="h-7 w-7 object-contain" style={{ opacity: 0.4 }} />
         Orono Public Schools &mdash; PaperPal &copy; {new Date().getFullYear()}
       </footer>
     </div>

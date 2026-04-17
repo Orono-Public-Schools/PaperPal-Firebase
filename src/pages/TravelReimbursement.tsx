@@ -69,10 +69,6 @@ function emptyExpense(category: ExpenseCategory): TravelExpenseItem {
   return { category, date: todayStr(), amount: 0 }
 }
 
-function categoryLabel(cat: ExpenseCategory): string {
-  return EXPENSE_CATEGORIES.find((c) => c.value === cat)?.label ?? cat
-}
-
 async function compressImage(file: File, maxDim = 1200, quality = 0.7): Promise<Blob> {
   if (!file.type.startsWith("image/")) return file
   return new Promise((resolve) => {
