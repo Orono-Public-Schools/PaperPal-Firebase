@@ -242,6 +242,18 @@ export default function Dashboard() {
                     }
                   : { color: "rgba(255,255,255,0.5)" }
               }
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.9)"
+                  e.currentTarget.style.background = "rgba(255,255,255,0.08)"
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.5)"
+                  e.currentTarget.style.background = "transparent"
+                }
+              }}
             >
               <Icon size={15} />
               {label}

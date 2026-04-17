@@ -136,13 +136,13 @@ export default function AppHeader() {
           {/* Left: branding */}
           <button
             onClick={() => navigate("/")}
-            className="flex cursor-pointer items-center"
+            className="group flex cursor-pointer items-center"
             style={{ gap: "2px" }}
           >
             <img
               src="/orono-paperpal.png"
               alt="PaperPal"
-              className="h-12 w-12 object-contain"
+              className="h-12 w-12 object-contain transition-transform duration-200 group-hover:scale-110"
             />
             <div className="text-xl font-bold tracking-tight text-white">
               PaperPal
