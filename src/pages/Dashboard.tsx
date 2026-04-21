@@ -18,6 +18,7 @@ import { useSandbox } from "@/hooks/useSandbox"
 import {
   getUserSubmissions,
   getPendingApprovals,
+  getPendingApproverApprovals,
   getReviewedSubmissions,
   getAppSettings,
   updateSubmission,
@@ -77,6 +78,14 @@ const STATUS_STYLES: Record<
     cardBg: "linear-gradient(135deg, #4356a9 0%, #5a6fbf 100%)",
     cardBorder: "#4356a9",
     cardGlow: "rgba(67,86,169,0.3)",
+  },
+  approved_by_approver: {
+    label: "Approver Approved",
+    bg: "rgba(56,74,151,0.12)",
+    color: "#384a97",
+    cardBg: "linear-gradient(135deg, #384a97 0%, #4d62b5 100%)",
+    cardBorder: "#384a97",
+    cardGlow: "rgba(56,74,151,0.3)",
   },
   reviewed: {
     label: "Awaiting Final Approval",
@@ -173,9 +182,14 @@ export default function Dashboard() {
     (activeTab === "pending" || activeTab === "history") &&
     submissionData?.uid !== user?.uid
 
-  const pendingSubmissions = submissions.filter((s) => s.status === "pending")
+  const pendingSubmissions = submissions.filter(
+    (s) => s.status === "pending" || s.status === "approved_by_approver"
+  )
   const historySubmissions = submissions.filter(
-    (s) => s.status !== "pending" && !s.hiddenBySubmitter
+    (s) =>
+      s.status !== "pending" &&
+      s.status !== "approved_by_approver" &&
+      !s.hiddenBySubmitter
   )
 
   // Approvals — submissions assigned to this user for review
@@ -187,14 +201,16 @@ export default function Dashboard() {
     const email = userProfile.email.toLowerCase()
     Promise.all([
       getPendingApprovals(email),
+      getPendingApproverApprovals(email),
       getAppSettings().then((s) =>
         s.finalApproverEmail?.toLowerCase() === email
           ? getReviewedSubmissions()
           : []
       ),
     ])
-      .then(([pending, reviewed]) => {
-        if (!cancelled) setApprovalData([...pending, ...reviewed])
+      .then(([pending, approverPending, reviewed]) => {
+        if (!cancelled)
+          setApprovalData([...pending, ...approverPending, ...reviewed])
       })
       .catch(console.error)
     return () => {

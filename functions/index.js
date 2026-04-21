@@ -18,6 +18,7 @@ const {
   sendRevisionsEmails,
   sendResubmittedEmails,
   sendRedirectedEmails,
+  sendApproverApprovedEmails,
 } = require("./helpers/email")
 
 initializeApp()
@@ -337,6 +338,11 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
             await sendResubmittedEmails(after, settings, pdfBuffer)
             console.log(`Resubmit emails sent for ${after.id}`)
           }
+          break
+
+        case "approved_by_approver":
+          await sendApproverApprovedEmails(after, settings, pdfBuffer)
+          console.log(`Approver-approved emails sent for ${after.id}`)
           break
 
         case "reviewed":

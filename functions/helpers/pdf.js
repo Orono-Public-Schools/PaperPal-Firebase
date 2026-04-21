@@ -203,6 +203,16 @@ async function drawSignatures(doc, submission) {
       name: submission.submitterName,
       date: submission.createdAt,
     },
+    ...(submission.approverEmail
+      ? [
+          {
+            label: "Approver",
+            url: submission.approverSignatureUrl,
+            name: submission.approverName,
+            date: undefined,
+          },
+        ]
+      : []),
     {
       label: "Supervisor",
       url: submission.supervisorSignatureUrl,
@@ -218,7 +228,8 @@ async function drawSignatures(doc, submission) {
   ]
 
   const startY = doc.y
-  const colWidth = (doc.page.width - 100) / 3
+  const cols = sigs.length
+  const colWidth = (doc.page.width - 100) / cols
   const margin = 50
 
   for (let i = 0; i < sigs.length; i++) {

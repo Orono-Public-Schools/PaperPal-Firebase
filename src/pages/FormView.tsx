@@ -54,6 +54,12 @@ const STATUS_CONFIG: Record<
     color: "#4356a9",
     icon: Clock,
   },
+  approved_by_approver: {
+    label: "Approver Approved",
+    bg: "rgba(56,74,151,0.12)",
+    color: "#384a97",
+    icon: Shield,
+  },
   reviewed: {
     label: "Awaiting Final Approval",
     bg: "rgba(45,63,137,0.12)",
@@ -163,11 +169,19 @@ export default function FormView() {
   }
 
   const email = userProfile?.email?.toLowerCase() ?? ""
+  const isApprover =
+    !!submission.approverEmail &&
+    email === submission.approverEmail.toLowerCase()
   const isSupervisor = email === submission.supervisorEmail?.toLowerCase()
   const isFinalApprover = email === settings?.finalApproverEmail?.toLowerCase()
   const isSubmitter = userProfile?.uid === submission.submitterUid
 
-  const canSupervisorAct = isSupervisor && submission.status === "pending"
+  const canApproverAct = isApprover && submission.status === "pending"
+  const canSupervisorAct =
+    isSupervisor &&
+    (submission.approverEmail
+      ? submission.status === "approved_by_approver"
+      : submission.status === "pending")
   const canFinalApproverAct =
     isFinalApprover && submission.status === "reviewed"
 
@@ -175,6 +189,46 @@ export default function FormView() {
   const StatusIcon = statusCfg.icon
   const FormIcon = FORM_ICONS[submission.formType] ?? FileText
   const formLabel = FORM_LABELS[submission.formType] ?? "Request"
+
+  async function handleApproveAsApprover() {
+    if (!submission || !settings) return
+    const sig = signatureRef.current?.getDataUrl() ?? ""
+    setActing(true)
+
+    const update: Record<string, unknown> = {
+      status: "approved_by_approver",
+      approverSignatureUrl: sig,
+      approverName: userProfile?.fullName ?? email,
+      activityLog: arrayUnion({
+        action: "approver_approved",
+        by: email,
+        at: Timestamp.now(),
+      }),
+    }
+
+    if (budgetCode.trim()) {
+      const fd = { ...submission.formData }
+      if (submission.formType === "check") {
+        const expenses = (fd as CheckRequestData).expenses.map((exp) => ({
+          ...exp,
+          code: exp.code || budgetCode.trim(),
+        }))
+        update["formData.expenses"] = expenses
+      } else {
+        update["formData.accountCode"] = budgetCode.trim()
+      }
+    }
+
+    await updateSubmission(submission.id, update)
+    const updated = {
+      ...submission,
+      status: "approved_by_approver" as SubmissionStatus,
+    }
+    setSubmission(updated)
+    setActionMode(null)
+    setActing(false)
+    setActionDone("Approved — sent to supervisor for review")
+  }
 
   async function handleApproveAsSupervisor() {
     if (!submission || !settings) return
@@ -546,6 +600,13 @@ export default function FormView() {
               url={submission.employeeSignatureUrl}
               name={submission.submitterName}
             />
+            {submission.approverEmail && (
+              <SigBlock
+                label="Approver"
+                url={submission.approverSignatureUrl}
+                name={submission.approverName}
+              />
+            )}
             <SigBlock
               label="Supervisor"
               url={submission.supervisorSignatureUrl}
@@ -599,257 +660,266 @@ export default function FormView() {
       )}
 
       {/* Approval actions */}
-      {(canSupervisorAct || canFinalApproverAct) && !actionDone && (
-        <div
-          className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
-          style={{
-            background: "#ffffff",
-            boxShadow:
-              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
-          }}
-        >
-          <p
-            className="mb-4 text-sm font-semibold tracking-widest uppercase"
-            style={{ color: "#1d2a5d" }}
+      {(canApproverAct || canSupervisorAct || canFinalApproverAct) &&
+        !actionDone && (
+          <div
+            className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
+            style={{
+              background: "#ffffff",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+            }}
           >
-            {canSupervisorAct ? "Supervisor Review" : "Final Approval"}
-          </p>
+            <p
+              className="mb-4 text-sm font-semibold tracking-widest uppercase"
+              style={{ color: "#1d2a5d" }}
+            >
+              {canApproverAct
+                ? "Approver Review"
+                : canSupervisorAct
+                  ? "Supervisor Review"
+                  : "Final Approval"}
+            </p>
 
-          {!actionMode && (
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => setActionMode("approve")}
-                className="btn-action-approve"
-              >
-                <CheckCircle size={16} />
-                Approve
-              </button>
-              {canSupervisorAct && (
-                <>
-                  <button
-                    onClick={() => setActionMode("revisions")}
-                    className="btn-action-revisions"
-                  >
-                    <RotateCcw size={16} />
-                    Request Revisions
-                  </button>
-                  <button
-                    onClick={() => setActionMode("redirect")}
-                    className="btn-action-revisions"
-                  >
-                    <ArrowRightLeft size={16} />
-                    Redirect
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setActionMode("deny")}
-                className="btn-action-deny"
-              >
-                <XCircle size={16} />
-                Deny
-              </button>
-            </div>
-          )}
-
-          {/* Approve mode — signature */}
-          {actionMode === "approve" && (
-            <div>
-              {canSupervisorAct && (
-                <div className="mb-4">
-                  <label
-                    className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Account / Budget Code
-                  </label>
-                  <input
-                    type="text"
-                    value={budgetCode}
-                    onChange={(e) =>
-                      setBudgetCode(formatBudgetCode(e.target.value))
-                    }
-                    placeholder="##-###-###-###-###-###"
-                    maxLength={20}
-                    className="input-neu w-full font-mono sm:w-72"
-                  />
-                  <BudgetCodeBuilder
-                    value={budgetCode}
-                    onChange={setBudgetCode}
-                  />
-                </div>
-              )}
-              <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
-                Sign below to{" "}
-                {canSupervisorAct
-                  ? "approve and forward to the final approver"
-                  : "give final approval"}
-                .
-              </p>
-              <SignatureField
-                ref={signatureRef}
-                savedSignatureUrl={userProfile?.savedSignatureUrl}
-                fullName={userProfile?.fullName}
-              />
-              <div className="mt-4 flex gap-3">
+            {!actionMode && (
+              <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={
-                    canSupervisorAct
-                      ? handleApproveAsSupervisor
-                      : handleApproveAsFinalApprover
-                  }
-                  disabled={acting}
+                  onClick={() => setActionMode("approve")}
                   className="btn-action-approve"
                 >
-                  {acting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <CheckCircle size={14} />
-                  )}
-                  {acting ? "Approving…" : "Confirm Approval"}
+                  <CheckCircle size={16} />
+                  Approve
                 </button>
+                {(canApproverAct || canSupervisorAct) && (
+                  <>
+                    <button
+                      onClick={() => setActionMode("revisions")}
+                      className="btn-action-revisions"
+                    >
+                      <RotateCcw size={16} />
+                      Request Revisions
+                    </button>
+                    <button
+                      onClick={() => setActionMode("redirect")}
+                      className="btn-action-revisions"
+                    >
+                      <ArrowRightLeft size={16} />
+                      Redirect
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={() => setActionMode(null)}
-                  className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
-                  style={{ color: "#64748b" }}
+                  onClick={() => setActionMode("deny")}
+                  className="btn-action-deny"
                 >
-                  Cancel
+                  <XCircle size={16} />
+                  Deny
                 </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Deny mode — comments */}
-          {actionMode === "deny" && (
-            <div>
-              <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
-                Explain why this request is being denied. The submitter will be
-                notified.
-              </p>
-              <textarea
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="Reason for denial…"
-                rows={3}
-                className="input-neu mb-3 w-full"
-                style={{ resize: "vertical" }}
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={handleDeny}
-                  disabled={acting || !comments.trim()}
-                  className="btn-action-deny-solid"
-                >
-                  {acting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <XCircle size={14} />
-                  )}
-                  {acting ? "Denying…" : "Confirm Denial"}
-                </button>
-                <button
-                  onClick={() => {
-                    setActionMode(null)
-                    setComments("")
-                  }}
-                  className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
-                  style={{ color: "#64748b" }}
-                >
-                  Cancel
-                </button>
+            {/* Approve mode — signature */}
+            {actionMode === "approve" && (
+              <div>
+                {(canApproverAct || canSupervisorAct) && (
+                  <div className="mb-4">
+                    <label
+                      className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                      style={{ color: "#64748b" }}
+                    >
+                      Account / Budget Code
+                    </label>
+                    <input
+                      type="text"
+                      value={budgetCode}
+                      onChange={(e) =>
+                        setBudgetCode(formatBudgetCode(e.target.value))
+                      }
+                      placeholder="##-###-###-###-###-###"
+                      maxLength={20}
+                      className="input-neu w-full font-mono sm:w-72"
+                    />
+                    <BudgetCodeBuilder
+                      value={budgetCode}
+                      onChange={setBudgetCode}
+                    />
+                  </div>
+                )}
+                <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
+                  Sign below to{" "}
+                  {canApproverAct
+                    ? "approve and forward to the supervisor"
+                    : canSupervisorAct
+                      ? "approve and forward to the final approver"
+                      : "give final approval"}
+                  .
+                </p>
+                <SignatureField
+                  ref={signatureRef}
+                  savedSignatureUrl={userProfile?.savedSignatureUrl}
+                  fullName={userProfile?.fullName}
+                />
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={
+                      canApproverAct
+                        ? handleApproveAsApprover
+                        : canSupervisorAct
+                          ? handleApproveAsSupervisor
+                          : handleApproveAsFinalApprover
+                    }
+                    disabled={acting}
+                    className="btn-action-approve"
+                  >
+                    {acting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <CheckCircle size={14} />
+                    )}
+                    {acting ? "Approving…" : "Confirm Approval"}
+                  </button>
+                  <button
+                    onClick={() => setActionMode(null)}
+                    className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+                    style={{ color: "#64748b" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Revisions mode — comments */}
-          {actionMode === "revisions" && (
-            <div>
-              <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
-                Describe what changes are needed. The submitter will be notified
-                and can edit and resubmit.
-              </p>
-              <textarea
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="What needs to be changed…"
-                rows={3}
-                className="input-neu mb-3 w-full"
-                style={{ resize: "vertical" }}
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={handleRequestRevisions}
-                  disabled={acting || !comments.trim()}
-                  className="btn-action-revisions-solid"
-                >
-                  {acting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <RotateCcw size={14} />
-                  )}
-                  {acting ? "Sending…" : "Request Revisions"}
-                </button>
-                <button
-                  onClick={() => {
-                    setActionMode(null)
-                    setComments("")
-                  }}
-                  className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
-                  style={{ color: "#64748b" }}
-                >
-                  Cancel
-                </button>
+            {/* Deny mode — comments */}
+            {actionMode === "deny" && (
+              <div>
+                <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
+                  Explain why this request is being denied. The submitter will
+                  be notified.
+                </p>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="Reason for denial…"
+                  rows={3}
+                  className="input-neu mb-3 w-full"
+                  style={{ resize: "vertical" }}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDeny}
+                    disabled={acting || !comments.trim()}
+                    className="btn-action-deny-solid"
+                  >
+                    {acting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <XCircle size={14} />
+                    )}
+                    {acting ? "Denying…" : "Confirm Denial"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActionMode(null)
+                      setComments("")
+                    }}
+                    className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+                    style={{ color: "#64748b" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Redirect mode — pick new supervisor */}
-          {actionMode === "redirect" && (
-            <div>
-              <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
-                Reassign this request to a different supervisor. They will be
-                notified and can approve, deny, or redirect further.
-              </p>
-              <label
-                className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                New Supervisor
-              </label>
-              <StaffEmailAutocomplete
-                value={redirectEmail}
-                onChange={setRedirectEmail}
-                placeholder="Search by name or email…"
-                className="input-neu w-full sm:w-80"
-              />
-              <div className="mt-4 flex gap-3">
-                <button
-                  onClick={handleRedirect}
-                  disabled={acting || !redirectEmail.trim()}
-                  className="btn-action-revisions-solid"
-                >
-                  {acting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <ArrowRightLeft size={14} />
-                  )}
-                  {acting ? "Redirecting…" : "Confirm Redirect"}
-                </button>
-                <button
-                  onClick={() => {
-                    setActionMode(null)
-                    setRedirectEmail("")
-                  }}
-                  className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+            {/* Revisions mode — comments */}
+            {actionMode === "revisions" && (
+              <div>
+                <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
+                  Describe what changes are needed. The submitter will be
+                  notified and can edit and resubmit.
+                </p>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="What needs to be changed…"
+                  rows={3}
+                  className="input-neu mb-3 w-full"
+                  style={{ resize: "vertical" }}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRequestRevisions}
+                    disabled={acting || !comments.trim()}
+                    className="btn-action-revisions-solid"
+                  >
+                    {acting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={14} />
+                    )}
+                    {acting ? "Sending…" : "Request Revisions"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActionMode(null)
+                      setComments("")
+                    }}
+                    className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+                    style={{ color: "#64748b" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Redirect mode — pick new supervisor */}
+            {actionMode === "redirect" && (
+              <div>
+                <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
+                  Reassign this request to a different supervisor. They will be
+                  notified and can approve, deny, or redirect further.
+                </p>
+                <label
+                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
                   style={{ color: "#64748b" }}
                 >
-                  Cancel
-                </button>
+                  New Supervisor
+                </label>
+                <StaffEmailAutocomplete
+                  value={redirectEmail}
+                  onChange={setRedirectEmail}
+                  placeholder="Search by name or email…"
+                  className="input-neu w-full sm:w-80"
+                />
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={handleRedirect}
+                    disabled={acting || !redirectEmail.trim()}
+                    className="btn-action-revisions-solid"
+                  >
+                    {acting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <ArrowRightLeft size={14} />
+                    )}
+                    {acting ? "Redirecting…" : "Confirm Redirect"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActionMode(null)
+                      setRedirectEmail("")
+                    }}
+                    className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+                    style={{ color: "#64748b" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
       {/* Submitter actions */}
       {isSubmitter &&
@@ -975,6 +1045,7 @@ function SigBlock({
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   submitted: { label: "Submitted", color: "#4356a9" },
   resubmitted: { label: "Resubmitted", color: "#4356a9" },
+  approver_approved: { label: "Approver Approved", color: "#384a97" },
   supervisor_approved: { label: "Supervisor Approved", color: "#2d3f89" },
   final_approved: { label: "Final Approved", color: "#1d2a5d" },
   denied: { label: "Denied", color: "#ad2122" },

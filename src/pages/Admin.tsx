@@ -2085,6 +2085,7 @@ function SupervisorMappingsSection() {
   const [showAddOverride, setShowAddOverride] = useState(false)
   const [addTitles, setAddTitles] = useState<string[]>([])
   const [addSupervisor, setAddSupervisor] = useState("")
+  const [addApprover, setAddApprover] = useState("")
 
   useEffect(() => {
     Promise.all([
@@ -2141,13 +2142,25 @@ function SupervisorMappingsSection() {
     if (!addSupervisor || addTitles.length === 0) return
     const supervisor = users.find((u) => u.email === addSupervisor)
     if (!supervisor) return
+    const approver = addApprover
+      ? users.find((u) => u.email === addApprover)
+      : null
 
     setMappings((prev) => {
       const existing = prev.find((m) => m.supervisorEmail === addSupervisor)
       if (existing) {
         return prev.map((m) =>
           m.supervisorEmail === addSupervisor
-            ? { ...m, titles: [...m.titles, ...addTitles] }
+            ? {
+                ...m,
+                titles: [...m.titles, ...addTitles],
+                ...(approver && {
+                  approverEmail: approver.email,
+                  approverName:
+                    approver.fullName ||
+                    `${approver.firstName} ${approver.lastName}`,
+                }),
+              }
             : m
         )
       }
@@ -2159,11 +2172,17 @@ function SupervisorMappingsSection() {
           supervisorName:
             supervisor.fullName ||
             `${supervisor.firstName} ${supervisor.lastName}`,
+          ...(approver && {
+            approverEmail: approver.email,
+            approverName:
+              approver.fullName || `${approver.firstName} ${approver.lastName}`,
+          }),
         },
       ]
     })
     setAddTitles([])
     setAddSupervisor("")
+    setAddApprover("")
     setShowAddOverride(false)
   }
 
@@ -2448,7 +2467,7 @@ function SupervisorMappingsSection() {
                     className="mb-1 text-xs font-semibold tracking-wider uppercase"
                     style={{ color: "#64748b" }}
                   >
-                    Assign To
+                    Supervisor
                   </p>
                   <select
                     value={addSupervisor}
@@ -2463,6 +2482,33 @@ function SupervisorMappingsSection() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Approver{" "}
+                    <span className="font-normal normal-case">(optional)</span>
+                  </p>
+                  <select
+                    value={addApprover}
+                    onChange={(e) => setAddApprover(e.target.value)}
+                    className="input-neu w-full text-xs"
+                  >
+                    <option value="">None — skip to supervisor</option>
+                    {supervisorUsers.map((u) => (
+                      <option key={u.uid} value={u.email}>
+                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
+                        {u.email}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
+                    If set, submissions route to this person first before the
+                    supervisor.
+                  </p>
                 </div>
 
                 <button
@@ -2515,6 +2561,15 @@ function SupervisorMappingsSection() {
                           >
                             {mapping.supervisorEmail} · {staffCount} staff
                           </p>
+                          {mapping.approverEmail && (
+                            <p
+                              className="text-[11px]"
+                              style={{ color: "#4356a9" }}
+                            >
+                              Approver:{" "}
+                              {mapping.approverName || mapping.approverEmail}
+                            </p>
+                          )}
                         </div>
                         <button
                           onClick={() =>

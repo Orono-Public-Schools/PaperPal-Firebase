@@ -30,6 +30,7 @@ import {
   getSubmission,
   updateSubmission,
   createOrUpdateUserProfile,
+  resolveSupervisor,
 } from "@/lib/firestore"
 import type { CheckRequestData, Attachment } from "@/lib/types"
 import { formatBudgetCode } from "@/lib/utils"
@@ -242,6 +243,15 @@ export default function CheckRequest() {
         grandTotal,
       }
 
+      // Resolve approval chain to check for optional approver step
+      const chain = !sandbox ? await resolveSupervisor(user.email ?? "") : null
+      const approverFields = chain?.approverEmail
+        ? {
+            approverEmail: chain.approverEmail,
+            approverName: chain.approverName ?? "",
+          }
+        : {}
+
       if (resubmitId) {
         await updateSubmission(resubmitId, {
           status: "pending",
@@ -249,11 +259,13 @@ export default function CheckRequest() {
           supervisorEmail: sandbox
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
+          ...approverFields,
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           summary: `Check Request — ${payee}`,
           amount: grandTotal,
           sandbox: sandbox || false,
+          approverSignatureUrl: "",
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
           reviewedAt: deleteField() as never,
@@ -280,6 +292,7 @@ export default function CheckRequest() {
           supervisorEmail: sandbox
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
+          ...approverFields,
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: receipts,
