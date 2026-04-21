@@ -102,8 +102,11 @@ export default function Admin() {
 
   return (
     <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           Admin Panel
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -2912,8 +2915,11 @@ function RolesSection() {
           <p className="mb-2 text-xs" style={{ color: "#94a3b8" }}>
             {users.length} user{users.length !== 1 && "s"}
           </p>
-          <div className="max-h-80 overflow-y-auto">
-            <table className="w-full text-left text-xs">
+          <div className="max-h-80 overflow-auto">
+            <table
+              className="w-full text-left text-xs"
+              style={{ minWidth: 500 }}
+            >
               <thead>
                 <tr
                   style={{
@@ -3431,7 +3437,7 @@ function Section({
     >
       <button
         onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between p-5"
+        className="flex w-full cursor-pointer items-center justify-between p-4 sm:p-5"
       >
         <div className="flex items-center gap-2.5">
           <div
@@ -3458,7 +3464,7 @@ function Section({
       </button>
       {expanded && (
         <div
-          className="px-5 pb-5"
+          className="px-4 pb-4 sm:px-5 sm:pb-5"
           style={{ borderTop: "1px solid rgba(180,185,195,0.2)" }}
         >
           <div className="pt-4">{children}</div>
