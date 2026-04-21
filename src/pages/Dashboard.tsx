@@ -207,8 +207,11 @@ export default function Dashboard() {
   return (
     <AppLayout>
       {/* Page title */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           {userProfile?.firstName
             ? `Welcome back, ${userProfile.firstName}.`
             : "Welcome back."}
@@ -231,7 +234,7 @@ export default function Dashboard() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4"
               style={
                 active
                   ? {
@@ -256,7 +259,7 @@ export default function Dashboard() {
               }}
             >
               <Icon size={15} />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </button>
           )
         })}
@@ -270,11 +273,10 @@ export default function Dashboard() {
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04]"
+                className="group h-[180px] cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04] sm:h-[220px]"
                 style={{
                   background: `linear-gradient(135deg, ${pill.from}, ${pill.to})`,
                   boxShadow: `0 4px 24px ${pill.from}50`,
-                  height: "220px",
                 }}
               >
                 <div className="flex h-full w-full flex-col items-center justify-center gap-3 transition-all duration-400 group-hover:h-0 group-hover:opacity-0">
@@ -517,7 +519,7 @@ function SubmissionList({
             />
 
             {/* Content */}
-            <div className="flex flex-1 items-center justify-between py-4 pr-5">
+            <div className="flex flex-1 flex-col gap-2 py-3 pr-4 sm:flex-row sm:items-center sm:justify-between sm:py-4 sm:pr-5">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">
                   {s.summary}
@@ -527,7 +529,7 @@ function SubmissionList({
                   {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
                 </p>
               </div>
-              <div className="ml-4 flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
                 {s.sandbox && (
                   <span
                     className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
@@ -540,7 +542,7 @@ function SubmissionList({
                   </span>
                 )}
                 <span
-                  className="rounded-full px-3 py-1 text-xs font-semibold"
+                  className="rounded-full px-2.5 py-1 text-xs font-semibold sm:px-3"
                   style={{
                     background: "rgba(255,255,255,0.15)",
                     color: "#ffffff",

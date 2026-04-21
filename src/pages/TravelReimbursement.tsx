@@ -687,8 +687,11 @@ export default function TravelReimbursement() {
 
   return (
     <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           Travel Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -1023,7 +1026,7 @@ export default function TravelReimbursement() {
             title="Pre-Approved Estimated Expenses"
             style={{ order: getOrder("estimatedExpenses") }}
           >
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <DollarField
                 label="Transportation"
                 value={estTransport}
@@ -1271,8 +1274,7 @@ export default function TravelReimbursement() {
                                   amount: parseFloat(e.target.value) || 0,
                                 })
                               }
-                              className="input-neu"
-                              style={{ maxWidth: "110px" }}
+                              className="input-neu sm:max-w-[110px]"
                             />
                             {ocrLoadingIdx === expense._idx && (
                               <Loader2
@@ -1506,7 +1508,7 @@ export default function TravelReimbursement() {
 
         {/* Summary */}
         <div
-          className="space-y-2 rounded-xl p-5"
+          className="space-y-2 rounded-xl p-4 sm:p-5"
           style={{
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
@@ -1567,7 +1569,10 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3" style={{ order: 99 }}>
+        <div
+          className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+          style={{ order: 99 }}
+        >
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -1601,7 +1606,7 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",

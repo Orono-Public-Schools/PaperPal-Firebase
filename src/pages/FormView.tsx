@@ -369,11 +369,14 @@ export default function FormView() {
         Back
       </button>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
         <div>
           <div className="flex items-center gap-2">
             <FormIcon size={20} style={{ color: "#ffffff" }} />
-            <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+            <h1
+              className="text-xl font-bold sm:text-2xl"
+              style={{ color: "#ffffff" }}
+            >
               {formLabel}
             </h1>
           </div>
@@ -384,7 +387,7 @@ export default function FormView() {
             {submission.id} · Submitted by {submission.submitterName}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {submission.sandbox && (
             <div
               className="flex items-center gap-1.5 rounded-full px-3 py-2"
@@ -412,7 +415,7 @@ export default function FormView() {
           </div>
           <button
             onClick={() => window.print()}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
+            className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Print"
           >
@@ -421,7 +424,7 @@ export default function FormView() {
           <button
             onClick={handleDownloadPdf}
             disabled={downloading}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
+            className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Download PDF"
           >
@@ -493,7 +496,7 @@ export default function FormView() {
 
       {/* Form data */}
       <div
-        className="rounded-xl p-6"
+        className="rounded-xl p-4 sm:p-6"
         style={{
           background: "#ffffff",
           boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
@@ -598,7 +601,7 @@ export default function FormView() {
       {/* Approval actions */}
       {(canSupervisorAct || canFinalApproverAct) && !actionDone && (
         <div
-          className="mt-6 rounded-xl p-6 print:hidden"
+          className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
           style={{
             background: "#ffffff",
             boxShadow:
@@ -854,7 +857,7 @@ export default function FormView() {
           submission.status === "revisions_requested") &&
         !actionDone && (
           <div
-            className="mt-6 rounded-xl p-6 print:hidden"
+            className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
             style={{
               background: "#ffffff",
               boxShadow:
@@ -989,7 +992,7 @@ function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {
 
   return (
     <div
-      className="mt-6 rounded-xl p-6"
+      className="mt-6 rounded-xl p-4 sm:p-6"
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",

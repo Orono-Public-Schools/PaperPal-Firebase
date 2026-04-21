@@ -309,8 +309,11 @@ export default function MileageReimbursement() {
   return (
     <AppLayout>
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           Mileage Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -453,7 +456,7 @@ export default function MileageReimbursement() {
 
         {/* Totals */}
         <div
-          className="rounded-xl p-5"
+          className="rounded-xl p-4 sm:p-5"
           style={{
             order: 90,
             background: "#ffffff",
@@ -504,7 +507,10 @@ export default function MileageReimbursement() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3" style={{ order: 99 }}>
+        <div
+          className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+          style={{ order: 99 }}
+        >
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -538,7 +544,7 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",

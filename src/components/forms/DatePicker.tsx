@@ -163,7 +163,7 @@ export default function DatePicker({
             <button
               type="button"
               onClick={prevMonth}
-              className="flex cursor-pointer items-center justify-center rounded-lg p-1 transition-colors"
+              className="flex min-h-[36px] min-w-[36px] cursor-pointer items-center justify-center rounded-lg transition-colors"
               style={{ color: "#64748b" }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "#f0f2f5"
@@ -185,7 +185,7 @@ export default function DatePicker({
             <button
               type="button"
               onClick={nextMonth}
-              className="flex cursor-pointer items-center justify-center rounded-lg p-1 transition-colors"
+              className="flex min-h-[36px] min-w-[36px] cursor-pointer items-center justify-center rounded-lg transition-colors"
               style={{ color: "#64748b" }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "#f0f2f5"
