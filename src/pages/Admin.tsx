@@ -1778,18 +1778,25 @@ function SupervisorMappingsSection() {
   // Titles available for new overrides (not already in a mapping)
   const availableTitles = titles.filter((t) => !titlesWithOverride.has(t))
 
-  const supervisorUsers = users
-    .filter(
-      (u) =>
-        u.role === "approver" ||
-        u.role === "supervisor" ||
-        u.role === "controller" ||
-        u.role === "admin" ||
-        u.role === "business_office"
+  const allUsersSorted = [...users].sort((a, b) =>
+    (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+  )
+
+  async function ensureRole(
+    email: string,
+    targetRole: "supervisor" | "approver"
+  ) {
+    const u = users.find(
+      (usr) => usr.email.toLowerCase() === email.toLowerCase()
     )
-    .sort((a, b) =>
-      (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+    if (!u || u.role !== "staff") return
+    await updateUserRole(u.uid, targetRole)
+    setUsers((prev) =>
+      prev.map((usr) =>
+        usr.uid === u.uid ? { ...usr, role: targetRole } : usr
+      )
     )
+  }
 
   async function handleAddOverride() {
     if (!addSupervisor || addTitles.length === 0) return
@@ -1839,6 +1846,8 @@ function SupervisorMappingsSection() {
     setAddApprover("")
     setShowAddOverride(false)
     await saveMappings(updated)
+    await ensureRole(supervisor.email, "supervisor")
+    if (approver) await ensureRole(approver.email, "approver")
   }
 
   async function handleRemoveTitle(title: string, supervisorEmail: string) {
@@ -1913,6 +1922,8 @@ function SupervisorMappingsSection() {
     setAddBuildingApprover("")
     setShowAddBuilding(false)
     await saveBuildingMappings(updated)
+    await ensureRole(supervisor.email, "supervisor")
+    if (approver) await ensureRole(approver.email, "approver")
   }
 
   async function handleRemoveBuildingMapping(buildingInitials: string) {
@@ -2075,19 +2086,12 @@ function SupervisorMappingsSection() {
                   >
                     Supervisor
                   </p>
-                  <select
+                  <UserSearchDropdown
+                    users={allUsersSorted}
                     value={addBuildingSupervisor}
-                    onChange={(e) => setAddBuildingSupervisor(e.target.value)}
-                    className="input-neu w-full text-xs"
-                  >
-                    <option value="">Select supervisor…</option>
-                    {supervisorUsers.map((u) => (
-                      <option key={u.uid} value={u.email}>
-                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setAddBuildingSupervisor}
+                    placeholder="Search for supervisor…"
+                  />
                 </div>
 
                 <div className="mb-3">
@@ -2098,19 +2102,12 @@ function SupervisorMappingsSection() {
                     Approver{" "}
                     <span className="font-normal normal-case">(optional)</span>
                   </p>
-                  <select
+                  <UserSearchDropdown
+                    users={allUsersSorted}
                     value={addBuildingApprover}
-                    onChange={(e) => setAddBuildingApprover(e.target.value)}
-                    className="input-neu w-full text-xs"
-                  >
-                    <option value="">None — skip to supervisor</option>
-                    {supervisorUsers.map((u) => (
-                      <option key={u.uid} value={u.email}>
-                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setAddBuildingApprover}
+                    placeholder="Search for approver (optional)…"
+                  />
                   <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
                     If set, submissions route to this person first before the
                     supervisor.
@@ -2389,19 +2386,12 @@ function SupervisorMappingsSection() {
                   >
                     Supervisor
                   </p>
-                  <select
+                  <UserSearchDropdown
+                    users={allUsersSorted}
                     value={addSupervisor}
-                    onChange={(e) => setAddSupervisor(e.target.value)}
-                    className="input-neu w-full text-xs"
-                  >
-                    <option value="">Select supervisor…</option>
-                    {supervisorUsers.map((u) => (
-                      <option key={u.uid} value={u.email}>
-                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setAddSupervisor}
+                    placeholder="Search for supervisor…"
+                  />
                 </div>
 
                 <div className="mb-3">
@@ -2412,19 +2402,12 @@ function SupervisorMappingsSection() {
                     Approver{" "}
                     <span className="font-normal normal-case">(optional)</span>
                   </p>
-                  <select
+                  <UserSearchDropdown
+                    users={allUsersSorted}
                     value={addApprover}
-                    onChange={(e) => setAddApprover(e.target.value)}
-                    className="input-neu w-full text-xs"
-                  >
-                    <option value="">None — skip to supervisor</option>
-                    {supervisorUsers.map((u) => (
-                      <option key={u.uid} value={u.email}>
-                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setAddApprover}
+                    placeholder="Search for approver (optional)…"
+                  />
                   <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
                     If set, submissions route to this person first before the
                     supervisor.
@@ -3380,6 +3363,164 @@ function StaffSearchDropdown({
                     {s.title}
                   </span>
                 )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function UserSearchDropdown({
+  users: userList,
+  value,
+  onChange,
+  placeholder = "Search by name or email…",
+}: {
+  users: UserProfile[]
+  value: string
+  onChange: (email: string) => void
+  placeholder?: string
+}) {
+  const [query, setQuery] = useState("")
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const selected = userList.find(
+    (u) => u.email.toLowerCase() === value.toLowerCase()
+  )
+
+  const q = query.toLowerCase().trim()
+  const filtered = (
+    q.length >= 1
+      ? userList.filter(
+          (u) =>
+            u.email.toLowerCase().includes(q) ||
+            (u.fullName || `${u.firstName} ${u.lastName}`)
+              .toLowerCase()
+              .includes(q)
+        )
+      : userList
+  )
+    .sort((a, b) =>
+      (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+    )
+    .slice(0, 12)
+
+  const ROLE_BADGE: Record<string, string> = {
+    staff: "#94a3b8",
+    approver: "#4356a9",
+    supervisor: "#2d3f89",
+    business_office: "#1d2a5d",
+    controller: "#1d2a5d",
+    admin: "#ad2122",
+  }
+
+  return (
+    <div ref={containerRef} className="relative" style={{ minWidth: 200 }}>
+      {selected && !open ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(true)
+            setQuery("")
+          }}
+          className="input-neu flex w-full cursor-pointer items-center justify-between text-left text-xs"
+        >
+          <span style={{ color: "#1d2a5d" }}>
+            {selected.fullName || `${selected.firstName} ${selected.lastName}`}{" "}
+            <span style={{ color: "#94a3b8" }}>— {selected.email}</span>
+          </span>
+          <span
+            className="ml-2 text-[10px]"
+            style={{ color: "#94a3b8" }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onChange("")
+              setQuery("")
+            }}
+          >
+            ✕
+          </span>
+        </button>
+      ) : (
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="input-neu w-full text-xs"
+          autoFocus={open}
+        />
+      )}
+      {open && (
+        <div
+          className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg py-1"
+          style={{
+            background: "#ffffff",
+            boxShadow:
+              "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
+            border: "1px solid #e2e5ea",
+          }}
+        >
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2 text-xs" style={{ color: "#94a3b8" }}>
+              No matches found.
+            </p>
+          ) : (
+            filtered.map((u) => (
+              <button
+                key={u.email}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  onChange(u.email)
+                  setQuery("")
+                  setOpen(false)
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate text-xs font-medium"
+                    style={{ color: "#1d2a5d" }}
+                  >
+                    {u.fullName || `${u.firstName} ${u.lastName}`}
+                  </p>
+                  <p
+                    className="truncate text-[11px]"
+                    style={{ color: "#64748b" }}
+                  >
+                    {u.email}
+                  </p>
+                </div>
+                <span
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{
+                    color: ROLE_BADGE[u.role] ?? "#94a3b8",
+                    background: `${ROLE_BADGE[u.role] ?? "#94a3b8"}18`,
+                  }}
+                >
+                  {u.role}
+                </span>
               </button>
             ))
           )}
