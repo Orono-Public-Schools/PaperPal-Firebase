@@ -223,7 +223,7 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div
-        className="mb-6 flex gap-1 rounded-xl p-1"
+        className="mb-6 grid grid-cols-2 gap-1 rounded-xl p-1 sm:grid-cols-4"
         style={{
           background: "rgba(255,255,255,0.08)",
         }}
@@ -234,7 +234,7 @@ export default function Dashboard() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4"
               style={
                 active
                   ? {
@@ -259,7 +259,7 @@ export default function Dashboard() {
               }}
             >
               <Icon size={15} />
-              <span className="hidden sm:inline">{label}</span>
+              {label}
             </button>
           )
         })}
