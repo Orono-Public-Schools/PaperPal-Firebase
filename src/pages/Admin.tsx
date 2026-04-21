@@ -1798,6 +1798,25 @@ function SupervisorMappingsSection() {
     )
   }
 
+  async function handleCreateUser(email: string) {
+    const staff = staffRecords.find(
+      (s) => s.email.toLowerCase() === email.toLowerCase()
+    )
+    const uid = `pre-${email.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    const profile: Partial<UserProfile> = {
+      uid,
+      email: email.toLowerCase(),
+      firstName: staff?.firstName ?? "",
+      lastName: staff?.lastName ?? "",
+      fullName: staff ? `${staff.firstName} ${staff.lastName}`.trim() : email,
+      employeeId: staff?.employeeId ?? "",
+      building: staff?.building ?? "",
+      role: "staff" as UserRole,
+    }
+    await createOrUpdateUserProfile(uid, profile)
+    setUsers((prev) => [...prev, profile as UserProfile])
+  }
+
   async function handleAddOverride() {
     if (!addSupervisor || addTitles.length === 0) return
     const supervisor = users.find((u) => u.email === addSupervisor)
@@ -2088,8 +2107,10 @@ function SupervisorMappingsSection() {
                   </p>
                   <UserSearchDropdown
                     users={allUsersSorted}
+                    staffRecords={staffRecords}
                     value={addBuildingSupervisor}
                     onChange={setAddBuildingSupervisor}
+                    onCreateUser={handleCreateUser}
                     placeholder="Search for supervisor…"
                   />
                 </div>
@@ -2104,8 +2125,10 @@ function SupervisorMappingsSection() {
                   </p>
                   <UserSearchDropdown
                     users={allUsersSorted}
+                    staffRecords={staffRecords}
                     value={addBuildingApprover}
                     onChange={setAddBuildingApprover}
+                    onCreateUser={handleCreateUser}
                     placeholder="Search for approver (optional)…"
                   />
                   <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
@@ -2388,8 +2411,10 @@ function SupervisorMappingsSection() {
                   </p>
                   <UserSearchDropdown
                     users={allUsersSorted}
+                    staffRecords={staffRecords}
                     value={addSupervisor}
                     onChange={setAddSupervisor}
+                    onCreateUser={handleCreateUser}
                     placeholder="Search for supervisor…"
                   />
                 </div>
@@ -2404,8 +2429,10 @@ function SupervisorMappingsSection() {
                   </p>
                   <UserSearchDropdown
                     users={allUsersSorted}
+                    staffRecords={staffRecords}
                     value={addApprover}
                     onChange={setAddApprover}
+                    onCreateUser={handleCreateUser}
                     placeholder="Search for approver (optional)…"
                   />
                   <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
@@ -3374,17 +3401,22 @@ function StaffSearchDropdown({
 
 function UserSearchDropdown({
   users: userList,
+  staffRecords: staffList,
   value,
   onChange,
+  onCreateUser,
   placeholder = "Search by name or email…",
 }: {
   users: UserProfile[]
+  staffRecords?: StaffRecord[]
   value: string
   onChange: (email: string) => void
+  onCreateUser?: (email: string) => Promise<void>
   placeholder?: string
 }) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -3420,6 +3452,20 @@ function UserSearchDropdown({
       (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
     )
     .slice(0, 12)
+
+  // Staff records not yet in the users list
+  const userEmails = new Set(userList.map((u) => u.email.toLowerCase()))
+  const staffMatches =
+    staffList && q.length >= 2
+      ? staffList
+          .filter(
+            (s) =>
+              !userEmails.has(s.email.toLowerCase()) &&
+              (s.email.toLowerCase().includes(q) ||
+                `${s.firstName} ${s.lastName}`.toLowerCase().includes(q))
+          )
+          .slice(0, 6)
+      : []
 
   const ROLE_BADGE: Record<string, string> = {
     staff: "#94a3b8",
@@ -3481,48 +3527,104 @@ function UserSearchDropdown({
             border: "1px solid #e2e5ea",
           }}
         >
-          {filtered.length === 0 ? (
+          {filtered.map((u) => (
+            <button
+              key={u.email}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                onChange(u.email)
+                setQuery("")
+                setOpen(false)
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+            >
+              <div className="min-w-0 flex-1">
+                <p
+                  className="truncate text-xs font-medium"
+                  style={{ color: "#1d2a5d" }}
+                >
+                  {u.fullName || `${u.firstName} ${u.lastName}`}
+                </p>
+                <p
+                  className="truncate text-[11px]"
+                  style={{ color: "#64748b" }}
+                >
+                  {u.email}
+                </p>
+              </div>
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  color: ROLE_BADGE[u.role] ?? "#94a3b8",
+                  background: `${ROLE_BADGE[u.role] ?? "#94a3b8"}18`,
+                }}
+              >
+                {u.role}
+              </span>
+            </button>
+          ))}
+          {staffMatches.length > 0 && onCreateUser && (
+            <>
+              {filtered.length > 0 && (
+                <div
+                  className="mx-3 my-1"
+                  style={{ borderTop: "1px solid #e2e5ea" }}
+                />
+              )}
+              <p
+                className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: "#94a3b8" }}
+              >
+                From Staff Directory
+              </p>
+              {staffMatches.map((s) => (
+                <button
+                  key={s.email}
+                  type="button"
+                  disabled={adding}
+                  onMouseDown={async (e) => {
+                    e.preventDefault()
+                    setAdding(true)
+                    await onCreateUser(s.email)
+                    onChange(s.email)
+                    setQuery("")
+                    setOpen(false)
+                    setAdding(false)
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-xs font-medium"
+                      style={{ color: "#1d2a5d" }}
+                    >
+                      {s.firstName} {s.lastName}
+                    </p>
+                    <p
+                      className="truncate text-[11px]"
+                      style={{ color: "#64748b" }}
+                    >
+                      {s.email}
+                    </p>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    style={{
+                      color: "#059669",
+                      background: "rgba(5,150,105,0.1)",
+                    }}
+                  >
+                    + Add
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
+          {filtered.length === 0 && staffMatches.length === 0 && (
             <p className="px-3 py-2 text-xs" style={{ color: "#94a3b8" }}>
               No matches found.
             </p>
-          ) : (
-            filtered.map((u) => (
-              <button
-                key={u.email}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  onChange(u.email)
-                  setQuery("")
-                  setOpen(false)
-                }}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-              >
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="truncate text-xs font-medium"
-                    style={{ color: "#1d2a5d" }}
-                  >
-                    {u.fullName || `${u.firstName} ${u.lastName}`}
-                  </p>
-                  <p
-                    className="truncate text-[11px]"
-                    style={{ color: "#64748b" }}
-                  >
-                    {u.email}
-                  </p>
-                </div>
-                <span
-                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  style={{
-                    color: ROLE_BADGE[u.role] ?? "#94a3b8",
-                    background: `${ROLE_BADGE[u.role] ?? "#94a3b8"}18`,
-                  }}
-                >
-                  {u.role}
-                </span>
-              </button>
-            ))
           )}
         </div>
       )}
