@@ -2138,7 +2138,7 @@ function SupervisorMappingsSection() {
       (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
     )
 
-  function handleAddOverride() {
+  async function handleAddOverride() {
     if (!addSupervisor || addTitles.length === 0) return
     const supervisor = users.find((u) => u.email === addSupervisor)
     if (!supervisor) return
@@ -2146,26 +2146,26 @@ function SupervisorMappingsSection() {
       ? users.find((u) => u.email === addApprover)
       : null
 
-    setMappings((prev) => {
-      const existing = prev.find((m) => m.supervisorEmail === addSupervisor)
-      if (existing) {
-        return prev.map((m) =>
-          m.supervisorEmail === addSupervisor
-            ? {
-                ...m,
-                titles: [...m.titles, ...addTitles],
-                ...(approver && {
-                  approverEmail: approver.email,
-                  approverName:
-                    approver.fullName ||
-                    `${approver.firstName} ${approver.lastName}`,
-                }),
-              }
-            : m
-        )
-      }
-      return [
-        ...prev,
+    const existing = mappings.find((m) => m.supervisorEmail === addSupervisor)
+    let updated: SupervisorMapping[]
+    if (existing) {
+      updated = mappings.map((m) =>
+        m.supervisorEmail === addSupervisor
+          ? {
+              ...m,
+              titles: [...m.titles, ...addTitles],
+              ...(approver && {
+                approverEmail: approver.email,
+                approverName:
+                  approver.fullName ||
+                  `${approver.firstName} ${approver.lastName}`,
+              }),
+            }
+          : m
+      )
+    } else {
+      updated = [
+        ...mappings,
         {
           titles: [...addTitles],
           supervisorEmail: supervisor.email,
@@ -2179,37 +2179,45 @@ function SupervisorMappingsSection() {
           }),
         },
       ]
-    })
+    }
+    setMappings(updated)
     setAddTitles([])
     setAddSupervisor("")
     setAddApprover("")
     setShowAddOverride(false)
+    await saveMappings(updated)
   }
 
-  function handleRemoveTitle(title: string, supervisorEmail: string) {
-    setMappings((prev) =>
-      prev
-        .map((m) =>
-          m.supervisorEmail === supervisorEmail
-            ? { ...m, titles: m.titles.filter((t) => t !== title) }
-            : m
-        )
-        .filter((m) => m.titles.length > 0)
+  async function handleRemoveTitle(title: string, supervisorEmail: string) {
+    const updated = mappings
+      .map((m) =>
+        m.supervisorEmail === supervisorEmail
+          ? { ...m, titles: m.titles.filter((t) => t !== title) }
+          : m
+      )
+      .filter((m) => m.titles.length > 0)
+    setMappings(updated)
+    await saveMappings(updated)
+  }
+
+  async function handleRemoveMapping(supervisorEmail: string) {
+    const updated = mappings.filter(
+      (m) => m.supervisorEmail !== supervisorEmail
     )
+    setMappings(updated)
+    await saveMappings(updated)
   }
 
-  function handleRemoveMapping(supervisorEmail: string) {
-    setMappings((prev) =>
-      prev.filter((m) => m.supervisorEmail !== supervisorEmail)
-    )
-  }
-
-  async function handleSave() {
+  async function saveMappings(updated: SupervisorMapping[]) {
     setSaving(true)
-    await updateSupervisorMappings(mappings)
+    await updateSupervisorMappings(updated)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleSave() {
+    await saveMappings(mappings)
   }
 
   return (
