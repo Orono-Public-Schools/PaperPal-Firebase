@@ -22,6 +22,7 @@ import type {
   BudgetSegmentType,
   BudgetSegment,
   SupervisorMapping,
+  BuildingSupervisorMapping,
   FormFieldConfig,
   FormType,
 } from "./types"
@@ -353,7 +354,24 @@ export async function updateSupervisorMappings(
   mappings: SupervisorMapping[]
 ): Promise<void> {
   const ref = doc(db, "settings", "supervisorMappings")
-  await setDoc(ref, { mappings })
+  await setDoc(ref, { mappings }, { merge: true })
+}
+
+export async function getBuildingSupervisorMappings(): Promise<
+  BuildingSupervisorMapping[]
+> {
+  const ref = doc(db, "settings", "supervisorMappings")
+  const snap = await getDoc(ref)
+  return snap.exists()
+    ? ((snap.data().buildingMappings as BuildingSupervisorMapping[]) ?? [])
+    : []
+}
+
+export async function updateBuildingSupervisorMappings(
+  buildingMappings: BuildingSupervisorMapping[]
+): Promise<void> {
+  const ref = doc(db, "settings", "supervisorMappings")
+  await setDoc(ref, { buildingMappings }, { merge: true })
 }
 
 export async function resolveSupervisor(email: string): Promise<{
@@ -383,14 +401,20 @@ export async function resolveSupervisor(email: string): Promise<{
       approverName: match.approverName || undefined,
     }
 
-  // 3. Fallback: building approver (no approver step for building defaults)
+  // 3. Fallback: building supervisor mapping
   if (staff.building) {
-    const buildings = await getBuildings()
-    const building = buildings.find(
-      (b) => b.initials === staff.building || b.name === staff.building
+    const buildingMappings = await getBuildingSupervisorMappings()
+    const bMatch = buildingMappings.find(
+      (bm) =>
+        bm.building === staff.building || bm.buildingName === staff.building
     )
-    if (building)
-      return { email: building.approverEmail, name: building.approverName }
+    if (bMatch)
+      return {
+        email: bMatch.supervisorEmail,
+        name: bMatch.supervisorName,
+        approverEmail: bMatch.approverEmail || undefined,
+        approverName: bMatch.approverName || undefined,
+      }
   }
 
   return null

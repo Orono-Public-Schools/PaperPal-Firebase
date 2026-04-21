@@ -17,8 +17,8 @@ export interface Building {
   name: string
   initials: string
   address?: string
-  approverEmail: string
-  approverName: string
+  approverEmail?: string
+  approverName?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -40,6 +40,15 @@ export interface StaffRecord {
 
 export interface SupervisorMapping {
   titles: string[]
+  supervisorEmail: string
+  supervisorName: string
+  approverEmail?: string
+  approverName?: string
+}
+
+export interface BuildingSupervisorMapping {
+  building: string
+  buildingName: string
   supervisorEmail: string
   supervisorName: string
   approverEmail?: string
