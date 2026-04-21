@@ -63,9 +63,10 @@ import type {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   staff: "Staff",
+  approver: "Approver",
   supervisor: "Supervisor",
-  controller: "Controller",
   business_office: "Business Office",
+  controller: "Controller",
   admin: "Admin",
 }
 
@@ -2126,6 +2127,7 @@ function SupervisorMappingsSection() {
   const supervisorUsers = users
     .filter(
       (u) =>
+        u.role === "approver" ||
         u.role === "supervisor" ||
         u.role === "controller" ||
         u.role === "admin" ||

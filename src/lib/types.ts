@@ -4,9 +4,10 @@ import { Timestamp } from "firebase/firestore"
 
 export type UserRole =
   | "staff"
+  | "approver"
   | "supervisor"
-  | "controller"
   | "business_office"
+  | "controller"
   | "admin"
 
 // ─── Buildings ───────────────────────────────────────────────────────────────

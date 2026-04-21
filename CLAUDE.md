@@ -179,7 +179,18 @@ Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()
 
 ### Roles
 
-`UserProfile.role`: `"staff"` | `"admin"` | `"business_office"`. Admin UI shown when `role === "admin" || role === "business_office"`.
+`UserProfile.role` (ordered by access level):
+
+| Role                | Budget Code Access | Admin Panel | Notes                                 |
+| ------------------- | ------------------ | ----------- | ------------------------------------- |
+| `"staff"`           | No (greyed out)    | No          | Default role                          |
+| `"approver"`        | Yes                | No          | Optional approval layer (future flow) |
+| `"supervisor"`      | Yes                | No          | Reviews/approves submissions          |
+| `"business_office"` | Yes                | Yes         | Business office staff                 |
+| `"controller"`      | Yes                | Yes         | Final approver + admin access         |
+| `"admin"`           | Yes                | Yes (full)  | Full system access                    |
+
+Admin UI shown when `role` is `"admin"`, `"business_office"`, or `"controller"`.
 
 ---
 
