@@ -493,6 +493,7 @@ export default function TravelReimbursement() {
     estOther
   const finalClaim = actTotal - advanceRequested
 
+  const [sandboxApproverStep, setSandboxApproverStep] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
@@ -578,10 +579,11 @@ export default function TravelReimbursement() {
 
       // Resolve approval chain to check for optional approver step
       const chain = await resolveSupervisor(user.email ?? "")
-      const approverFields = chain?.approverEmail
+      const hasApprover = sandbox ? sandboxApproverStep : !!chain?.approverEmail
+      const approverFields = hasApprover
         ? {
-            approverEmail: sandbox ? (user.email ?? "") : chain.approverEmail,
-            approverName: chain.approverName ?? "",
+            approverEmail: sandbox ? (user.email ?? "") : chain!.approverEmail!,
+            approverName: chain?.approverName ?? "",
           }
         : {}
 
@@ -882,6 +884,24 @@ export default function TravelReimbursement() {
                 <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
                   Usually your supervisor, or a specific department admin.
                 </p>
+              </Field>
+            </div>
+          )}
+          {sandbox && (
+            <div className="mt-4">
+              <Field label="Approval Flow (Sandbox)">
+                <select
+                  value={sandboxApproverStep ? "4-step" : "2-step"}
+                  onChange={(e) =>
+                    setSandboxApproverStep(e.target.value === "4-step")
+                  }
+                  className="input-neu cursor-pointer text-sm"
+                >
+                  <option value="2-step">Supervisor → Final Approver</option>
+                  <option value="4-step">
+                    Approver → Supervisor → Final Approver
+                  </option>
+                </select>
               </Field>
             </div>
           )}
