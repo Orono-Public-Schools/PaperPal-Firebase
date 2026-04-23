@@ -10,7 +10,11 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 - Mileage Reimbursement (`/forms/mileage`) — $0.72/mile rate
 - Travel Reimbursement (`/forms/travel`)
 
-**Approval flow:** Staff submits → supervisor approves (status: `reviewed`) → final approver/controller approves (status: `approved`) → business office receives. Supervisor can also deny or request revisions.
+**Approval flow (configurable per-title):**
+
+- **2-step (default):** Staff submits (`pending`) → Supervisor approves (`reviewed`) → Controller approves (`approved`) → Controller marks paid (`paid`)
+- **4-step (when approver mapped):** Staff submits (`pending`) → Approver approves (`approved_by_approver`) → Supervisor approves (`reviewed`) → Controller approves (`approved`) → Controller marks paid (`paid`)
+- Any step can also → `denied`, `revisions_requested`, or `cancelled`
 
 ---
 
@@ -71,7 +75,7 @@ Inset background:  #f8f9fb (summary bars, signature blocks)
 
 **Destructive buttons** (deny, delete) use OPS red: `color: #ad2122`, `background: rgba(173,33,34,0.08)`, `border: 1px solid rgba(173,33,34,0.2)`. Solid red for confirm actions.
 
-**Status badges** use Orono colors: pending/revisions = light blue (`#4356a9`), reviewed = blue (`#2d3f89`), approved = navy (`#1d2a5d`), denied = red (`#ad2122`).
+**Status badges** use Orono colors: pending/revisions = light blue (`#4356a9`), approved_by_approver = blue (`#384a97`), reviewed = blue (`#2d3f89`), approved = navy (`#1d2a5d`), paid = green (`#059669`), denied = red (`#ad2122`).
 
 **Section headings** inside cards: `text-sm font-semibold tracking-widest uppercase` in `#1d2a5d`.
 
@@ -114,12 +118,12 @@ src/
 
   pages/
     Login.tsx                      # Google SSO login page
-    Dashboard.tsx                  # Tabs: New Request / Pending / History
+    Dashboard.tsx                  # Tabs: New Request / Pending / History / Approvals (Pending/Completed sub-tabs)
     CheckRequest.tsx               # Check Request form
     MileageReimbursement.tsx       # Mileage form
     TravelReimbursement.tsx        # Travel Reimbursement form
     FormView.tsx                   # Read-only view of a submitted form
-    Admin.tsx                      # Admin panel (role: admin | business_office)
+    Admin.tsx                      # Admin panel (role: admin | business_office | controller)
     Profile.tsx                    # Profile settings + signature capture
 ```
 
@@ -181,30 +185,32 @@ Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()
 
 `UserProfile.role` (ordered by access level):
 
-| Role                | Budget Code Access | Admin Panel | Notes                                 |
-| ------------------- | ------------------ | ----------- | ------------------------------------- |
-| `"staff"`           | No (greyed out)    | No          | Default role                          |
-| `"approver"`        | Yes                | No          | Optional approval layer (future flow) |
-| `"supervisor"`      | Yes                | No          | Reviews/approves submissions          |
-| `"business_office"` | Yes                | Yes         | Business office staff                 |
-| `"controller"`      | Yes                | Yes         | Final approver + admin access         |
-| `"admin"`           | Yes                | Yes (full)  | Full system access                    |
+| Role                | Budget Code | Admin | Can Approve       | Mark Paid |
+| ------------------- | ----------- | ----- | ----------------- | --------- |
+| `"staff"`           | No          | No    | No                | No        |
+| `"approver"`        | Yes         | No    | As approver       | No        |
+| `"supervisor"`      | Yes         | No    | As supervisor     | No        |
+| `"business_office"` | Yes         | Yes   | As assigned       | Yes       |
+| `"controller"`      | Yes         | Yes   | As final approver | Yes       |
+| `"admin"`           | Yes         | Yes   | As assigned       | Yes       |
 
-Admin UI shown when `role` is `"admin"`, `"business_office"`, or `"controller"`.
+Admin UI shown when `role` is `"admin"`, `"business_office"`, or `"controller"`. Auto-role promotion: assigning someone as a supervisor/approver in mappings automatically upgrades their role from `"staff"`.
 
 ---
 
 ## Firestore Collections
 
-| Collection / Document     | Purpose                                                          |
-| ------------------------- | ---------------------------------------------------------------- |
-| `users/{uid}`             | UserProfile documents                                            |
-| `submissions/{REQ-XXXXX}` | All form submissions                                             |
-| `buildings/{id}`          | Building/org with name, address, approver                        |
-| `staff/{email}`           | Imported staff records                                           |
-| `settings/app`            | AppSettings (email, school address, final approver, fiscal year) |
-| `settings/budgetSegments` | Budget code segments (fund, org, proj, fin, course, obj arrays)  |
-| `mail/{id}`               | Firebase Extension trigger docs for outbound email               |
+| Collection / Document         | Purpose                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `users/{uid}`                 | UserProfile documents                                                     |
+| `submissions/{REQ-XXXXX}`     | All form submissions                                                      |
+| `buildings/{id}`              | Building names/initials (staff sync reference)                            |
+| `staff/{email}`               | Imported staff records                                                    |
+| `settings/app`                | AppSettings (email, school address, final approver, fiscal year)          |
+| `settings/budgetSegments`     | Budget code segments (fund, org, proj, fin, course, obj arrays)           |
+| `settings/supervisorMappings` | Title overrides (`mappings[]`) + building defaults (`buildingMappings[]`) |
+| `settings/formFields`         | Form field visibility/ordering config                                     |
+| `mail/{id}`                   | Firebase Extension trigger docs for outbound email                        |
 
 ---
 
