@@ -248,6 +248,7 @@ export type SubmissionStatus =
   | "approved_by_approver"
   | "reviewed"
   | "approved"
+  | "paid"
   | "denied"
   | "revisions_requested"
   | "cancelled"
@@ -276,6 +277,7 @@ export type ActivityAction =
   | "revisions_requested"
   | "cancelled"
   | "redirected"
+  | "marked_as_paid"
 
 export interface ActivityLogEntry {
   action: ActivityAction
@@ -335,6 +337,8 @@ export interface Submission {
   updatedAt: Timestamp
   reviewedAt?: Timestamp
   approvedAt?: Timestamp
+  paidAt?: Timestamp
+  paidBy?: string
 }
 
 // ─── Form Field Config ──────────────────────────────────────────────────────

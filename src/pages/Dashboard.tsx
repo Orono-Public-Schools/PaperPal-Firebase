@@ -22,6 +22,9 @@ import {
   getReviewedSubmissions,
   getAppSettings,
   updateSubmission,
+  getCompletedApprovals,
+  getCompletedApproverApprovals,
+  getApprovedSubmissions,
 } from "@/lib/firestore"
 import type { Submission, SubmissionStatus } from "@/lib/types"
 
@@ -102,6 +105,14 @@ const STATUS_STYLES: Record<
     cardBg: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
     cardBorder: "#1d2a5d",
     cardGlow: "rgba(29,42,93,0.3)",
+  },
+  paid: {
+    label: "Paid",
+    bg: "rgba(5,150,105,0.12)",
+    color: "#059669",
+    cardBg: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+    cardBorder: "#059669",
+    cardGlow: "rgba(5,150,105,0.3)",
   },
   denied: {
     label: "Denied",
@@ -193,7 +204,13 @@ export default function Dashboard() {
   )
 
   // Approvals — submissions assigned to this user for review
+  const [approvalView, setApprovalView] = useState<"pending" | "completed">(
+    "pending"
+  )
   const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
+  const [completedData, setCompletedData] = useState<Submission[] | null>(null)
+  const loadingCompleted =
+    approvalView === "completed" && completedData === null
 
   useEffect(() => {
     if (activeTab !== "approvals" || !userProfile?.email) return
@@ -227,6 +244,42 @@ export default function Dashboard() {
       cancelled = true
     }
   }, [activeTab, userProfile?.email])
+
+  useEffect(() => {
+    if (
+      activeTab !== "approvals" ||
+      approvalView !== "completed" ||
+      !userProfile?.email
+    )
+      return
+    let cancelled = false
+    const email = userProfile.email.toLowerCase()
+    const isController = ["controller", "business_office", "admin"].includes(
+      userProfile.role
+    )
+    Promise.all([
+      getCompletedApprovals(email),
+      getCompletedApproverApprovals(email),
+      isController ? getApprovedSubmissions() : Promise.resolve([]),
+    ])
+      .then(([supervisor, approver, allApproved]) => {
+        if (!cancelled) {
+          const seen = new Set<string>()
+          const all = [...supervisor, ...approver, ...allApproved].filter(
+            (s) => {
+              if (seen.has(s.id)) return false
+              seen.add(s.id)
+              return true
+            }
+          )
+          setCompletedData(all)
+        }
+      })
+      .catch(console.error)
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, approvalView, userProfile?.email, userProfile?.role])
 
   const loadingApprovals = activeTab === "approvals" && approvalData === null
 
@@ -439,16 +492,53 @@ export default function Dashboard() {
 
       {/* Tab: Approvals */}
       {activeTab === "approvals" && (
-        <SubmissionList
-          submissions={(approvalData ?? []).filter((s) =>
-            sandbox ? s.sandbox === true : !s.sandbox
+        <>
+          <div
+            className="mb-4 flex gap-1 rounded-lg p-1"
+            style={{ background: "rgba(255,255,255,0.06)" }}
+          >
+            {(["pending", "completed"] as const).map((view) => (
+              <button
+                key={view}
+                onClick={() => setApprovalView(view)}
+                className="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-200"
+                style={
+                  approvalView === view
+                    ? {
+                        background: "rgba(255,255,255,0.15)",
+                        color: "#ffffff",
+                      }
+                    : { color: "rgba(255,255,255,0.4)" }
+                }
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+          {approvalView === "pending" ? (
+            <SubmissionList
+              submissions={(approvalData ?? []).filter((s) =>
+                sandbox ? s.sandbox === true : !s.sandbox
+              )}
+              loading={loadingApprovals}
+              emptyIcon={ClipboardCheck}
+              emptyTitle="No pending approvals"
+              emptySubtitle="Submissions assigned to you for review will appear here."
+              showSubmitter
+            />
+          ) : (
+            <SubmissionList
+              submissions={(completedData ?? []).filter((s) =>
+                sandbox ? s.sandbox === true : !s.sandbox
+              )}
+              loading={loadingCompleted}
+              emptyIcon={History}
+              emptyTitle="No completed approvals"
+              emptySubtitle="Submissions you've acted on will appear here."
+              showSubmitter
+            />
           )}
-          loading={loadingApprovals}
-          emptyIcon={ClipboardCheck}
-          emptyTitle="No pending approvals"
-          emptySubtitle="Submissions assigned to you for review will appear here."
-          showSubmitter
-        />
+        </>
       )}
     </AppLayout>
   )

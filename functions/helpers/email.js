@@ -449,6 +449,30 @@ async function sendApproverApprovedEmails(submission, settings, pdfBuffer) {
   )
 }
 
+// ─── On Paid (approved → paid) ──────────────────────────────────────────────
+
+async function sendPaidEmails(submission, settings, pdfBuffer) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const fname = pdfFilename(submission)
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+
+  await sendMail(
+    submission.submitterEmail,
+    `${tag}[PaperPal] Paid — ${formLabel} ${submission.id}`,
+    emailHtml({
+      heading: `Your ${formLabel} Has Been Paid`,
+      body: `
+        <p>Your ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been processed and marked as paid.</p>
+        <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+      `,
+      link,
+    }),
+    pdfBuffer,
+    fname
+  )
+}
+
 module.exports = {
   sendSubmitEmails,
   sendReviewedEmails,
@@ -458,4 +482,5 @@ module.exports = {
   sendResubmittedEmails,
   sendRedirectedEmails,
   sendApproverApprovedEmails,
+  sendPaidEmails,
 }

@@ -72,6 +72,12 @@ const STATUS_CONFIG: Record<
     color: "#1d2a5d",
     icon: CheckCircle,
   },
+  paid: {
+    label: "Paid",
+    bg: "rgba(5,150,105,0.12)",
+    color: "#059669",
+    icon: CheckCircle,
+  },
   denied: {
     label: "Denied",
     bg: "rgba(173,33,34,0.12)",
@@ -184,6 +190,13 @@ export default function FormView() {
       : submission.status === "pending")
   const canFinalApproverAct =
     isFinalApprover && submission.status === "reviewed"
+
+  const isControllerOrAbove = [
+    "controller",
+    "business_office",
+    "admin",
+  ].includes(userProfile?.role ?? "")
+  const canMarkPaid = isControllerOrAbove && submission.status === "approved"
 
   const statusCfg = STATUS_CONFIG[submission.status]
   const StatusIcon = statusCfg.icon
@@ -409,6 +422,24 @@ export default function FormView() {
       alert("Failed to generate PDF. Please try again.")
     }
     setDownloading(false)
+  }
+
+  async function handleMarkAsPaid() {
+    if (!submission) return
+    setActing(true)
+    await updateSubmission(submission.id, {
+      status: "paid",
+      paidAt: serverTimestamp(),
+      paidBy: email,
+      activityLog: arrayUnion({
+        action: "marked_as_paid",
+        by: email,
+        at: Timestamp.now(),
+      }),
+    })
+    setSubmission({ ...submission, status: "paid" as SubmissionStatus })
+    setActing(false)
+    setActionDone("Marked as paid — submitter notified")
   }
 
   return (
@@ -992,6 +1023,41 @@ export default function FormView() {
             </div>
           </div>
         )}
+
+      {/* Mark as Paid */}
+      {canMarkPaid && !actionDone && (
+        <div
+          className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
+          style={{
+            background: "#ffffff",
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+          }}
+        >
+          <p
+            className="mb-4 text-sm font-semibold tracking-widest uppercase"
+            style={{ color: "#059669" }}
+          >
+            Payment Processing
+          </p>
+          <p className="mb-4 text-sm" style={{ color: "#64748b" }}>
+            This request has been fully approved. Mark it as paid once payment
+            has been processed.
+          </p>
+          <button
+            onClick={handleMarkAsPaid}
+            disabled={acting}
+            className="btn-action-approve"
+          >
+            {acting ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <CheckCircle size={14} />
+            )}
+            {acting ? "Processing…" : "Mark as Paid"}
+          </button>
+        </div>
+      )}
     </AppLayout>
   )
 }
@@ -1052,6 +1118,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   revisions_requested: { label: "Revisions Requested", color: "#c2410c" },
   cancelled: { label: "Cancelled", color: "#64748b" },
   redirected: { label: "Redirected", color: "#4356a9" },
+  marked_as_paid: { label: "Marked as Paid", color: "#059669" },
 }
 
 function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {

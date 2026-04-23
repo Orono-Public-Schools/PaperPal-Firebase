@@ -115,6 +115,44 @@ export async function getPendingApproverApprovals(
   return snap.docs.map((d) => d.data() as Submission)
 }
 
+const COMPLETED_STATUSES = ["approved", "paid", "denied", "cancelled"]
+
+export async function getCompletedApprovals(
+  supervisorEmail: string
+): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("supervisorEmail", "==", supervisorEmail),
+    where("status", "in", COMPLETED_STATUSES),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
+export async function getCompletedApproverApprovals(
+  approverEmail: string
+): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("approverEmail", "==", approverEmail),
+    where("status", "in", COMPLETED_STATUSES),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
+export async function getApprovedSubmissions(): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("status", "==", "approved"),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
 export async function getReviewedSubmissions(): Promise<Submission[]> {
   const q = query(
     collection(db, "submissions"),
