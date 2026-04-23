@@ -209,8 +209,18 @@ export default function Dashboard() {
       ),
     ])
       .then(([pending, approverPending, reviewed]) => {
-        if (!cancelled)
-          setApprovalData([...pending, ...approverPending, ...reviewed])
+        if (!cancelled) {
+          // Deduplicate (sandbox mode sets both approver and supervisor to same email)
+          const seen = new Set<string>()
+          const all = [...pending, ...approverPending, ...reviewed].filter(
+            (s) => {
+              if (seen.has(s.id)) return false
+              seen.add(s.id)
+              return true
+            }
+          )
+          setApprovalData(all)
+        }
       })
       .catch(console.error)
     return () => {
