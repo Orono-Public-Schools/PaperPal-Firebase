@@ -199,10 +199,10 @@ export default function MileageReimbursement() {
       }
 
       // Resolve approval chain to check for optional approver step
-      const chain = !sandbox ? await resolveSupervisor(user.email ?? "") : null
+      const chain = await resolveSupervisor(user.email ?? "")
       const approverFields = chain?.approverEmail
         ? {
-            approverEmail: chain.approverEmail,
+            approverEmail: sandbox ? (user.email ?? "") : chain.approverEmail,
             approverName: chain.approverName ?? "",
           }
         : {}
