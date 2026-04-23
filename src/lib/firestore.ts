@@ -22,6 +22,7 @@ import type {
   BudgetSegmentType,
   BudgetSegment,
   SupervisorMapping,
+  BuildingSupervisorMapping,
   FormFieldConfig,
   FormType,
 } from "./types"
@@ -77,10 +78,75 @@ export async function getUserSubmissions(uid: string): Promise<Submission[]> {
 export async function getPendingApprovals(
   supervisorEmail: string
 ): Promise<Submission[]> {
+  const [pendingSnap, approverApprovedSnap] = await Promise.all([
+    getDocs(
+      query(
+        collection(db, "submissions"),
+        where("supervisorEmail", "==", supervisorEmail),
+        where("status", "==", "pending"),
+        orderBy("createdAt", "desc")
+      )
+    ),
+    getDocs(
+      query(
+        collection(db, "submissions"),
+        where("supervisorEmail", "==", supervisorEmail),
+        where("status", "==", "approved_by_approver"),
+        orderBy("createdAt", "desc")
+      )
+    ),
+  ])
+  return [
+    ...pendingSnap.docs.map((d) => d.data() as Submission),
+    ...approverApprovedSnap.docs.map((d) => d.data() as Submission),
+  ]
+}
+
+export async function getPendingApproverApprovals(
+  approverEmail: string
+): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("approverEmail", "==", approverEmail),
+    where("status", "==", "pending"),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
+const COMPLETED_STATUSES = ["approved", "paid", "denied", "cancelled"]
+
+export async function getCompletedApprovals(
+  supervisorEmail: string
+): Promise<Submission[]> {
   const q = query(
     collection(db, "submissions"),
     where("supervisorEmail", "==", supervisorEmail),
-    where("status", "==", "pending"),
+    where("status", "in", COMPLETED_STATUSES),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
+export async function getCompletedApproverApprovals(
+  approverEmail: string
+): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("approverEmail", "==", approverEmail),
+    where("status", "in", COMPLETED_STATUSES),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
+export async function getApprovedSubmissions(): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("status", "==", "approved"),
     orderBy("createdAt", "desc")
   )
   const snap = await getDocs(q)
@@ -326,12 +392,32 @@ export async function updateSupervisorMappings(
   mappings: SupervisorMapping[]
 ): Promise<void> {
   const ref = doc(db, "settings", "supervisorMappings")
-  await setDoc(ref, { mappings })
+  await setDoc(ref, { mappings }, { merge: true })
 }
 
-export async function resolveSupervisor(
+export async function getBuildingSupervisorMappings(): Promise<
+  BuildingSupervisorMapping[]
+> {
+  const ref = doc(db, "settings", "supervisorMappings")
+  const snap = await getDoc(ref)
+  return snap.exists()
+    ? ((snap.data().buildingMappings as BuildingSupervisorMapping[]) ?? [])
+    : []
+}
+
+export async function updateBuildingSupervisorMappings(
+  buildingMappings: BuildingSupervisorMapping[]
+): Promise<void> {
+  const ref = doc(db, "settings", "supervisorMappings")
+  await setDoc(ref, { buildingMappings }, { merge: true })
+}
+
+export async function resolveSupervisor(email: string): Promise<{
   email: string
-): Promise<{ email: string; name: string } | null> {
+  name: string
+  approverEmail?: string
+  approverName?: string
+} | null> {
   // 1. Look up staff record for their title
   const staffRef = doc(db, "staff", email.toLowerCase())
   const staffSnap = await getDoc(staffRef)
@@ -345,16 +431,28 @@ export async function resolveSupervisor(
   const match = mappings.find((m) =>
     m.titles.some((t) => t.toLowerCase() === staff.title.toLowerCase())
   )
-  if (match) return { email: match.supervisorEmail, name: match.supervisorName }
+  if (match)
+    return {
+      email: match.supervisorEmail,
+      name: match.supervisorName,
+      approverEmail: match.approverEmail || undefined,
+      approverName: match.approverName || undefined,
+    }
 
-  // 3. Fallback: building approver
+  // 3. Fallback: building supervisor mapping
   if (staff.building) {
-    const buildings = await getBuildings()
-    const building = buildings.find(
-      (b) => b.initials === staff.building || b.name === staff.building
+    const buildingMappings = await getBuildingSupervisorMappings()
+    const bMatch = buildingMappings.find(
+      (bm) =>
+        bm.building === staff.building || bm.buildingName === staff.building
     )
-    if (building)
-      return { email: building.approverEmail, name: building.approverName }
+    if (bMatch)
+      return {
+        email: bMatch.supervisorEmail,
+        name: bMatch.supervisorName,
+        approverEmail: bMatch.approverEmail || undefined,
+        approverName: bMatch.approverName || undefined,
+      }
   }
 
   return null

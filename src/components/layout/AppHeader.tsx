@@ -103,11 +103,11 @@ export default function AppHeader() {
       <div className="sticky top-0 z-50">
         {sandbox && (
           <div
-            className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold"
+            className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-3 py-1.5 text-center text-[11px] font-semibold sm:px-4 sm:text-xs"
             style={{ background: "#eab308", color: "#422006" }}
           >
-            <FlaskConical size={12} />
-            Sandbox Mode — emails go to you only, no Drive uploads
+            <FlaskConical size={12} className="shrink-0" />
+            <span>Sandbox Mode — emails go to you only, no Drive uploads</span>
             <button
               onClick={() => {
                 setSandbox(false)
@@ -127,7 +127,7 @@ export default function AppHeader() {
           </div>
         )}
         <header
-          className="flex items-center justify-between px-6 py-3"
+          className="flex items-center justify-between px-4 py-3 sm:px-6"
           style={{
             background: "#1d2a5d",
             boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
@@ -136,13 +136,13 @@ export default function AppHeader() {
           {/* Left: branding */}
           <button
             onClick={() => navigate("/")}
-            className="flex cursor-pointer items-center"
+            className="group flex cursor-pointer items-center"
             style={{ gap: "2px" }}
           >
             <img
               src="/orono-paperpal.png"
               alt="PaperPal"
-              className="h-12 w-12 object-contain"
+              className="h-12 w-12 object-contain transition-transform duration-200 group-hover:scale-110"
             />
             <div className="text-xl font-bold tracking-tight text-white">
               PaperPal
@@ -153,7 +153,7 @@ export default function AppHeader() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="flex cursor-pointer items-center justify-center rounded p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="Open menu"
             >
               <Menu size={20} />
@@ -181,7 +181,7 @@ export default function AppHeader() {
                       {userProfile.lastName?.[0]}
                     </div>
                   )}
-                  <span className="text-sm text-white/90">
+                  <span className="hidden text-sm text-white/90 sm:inline">
                     {userProfile.firstName}
                   </span>
                 </button>
@@ -256,7 +256,7 @@ export default function AppHeader() {
           </span>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="cursor-pointer rounded p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X size={18} />
           </button>

@@ -93,10 +93,12 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
 
   if (!settings.notifyOnSubmit) return
 
-  // Supervisor notification
-  if (submission.supervisorEmail) {
+  // Send review notification to approver (if exists) or supervisor
+  const reviewerEmail = submission.approverEmail || submission.supervisorEmail
+  const reviewerRole = submission.approverEmail ? "approver" : "supervisor"
+  if (reviewerEmail) {
     await sendMail(
-      sandboxTo(submission, submission.supervisorEmail),
+      sandboxTo(submission, reviewerEmail),
       `${tag}[PaperPal] ${formLabel} from ${submission.submitterName} — ${currency(submission.amount)}`,
       emailHtml({
         heading: `New ${formLabel} for Review`,
@@ -114,13 +116,14 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
   }
 
   // Receipt to submitter
+  const awaitingLabel = submission.approverEmail ? "approver" : "supervisor"
   await sendMail(
     submission.submitterEmail,
     `${tag}[PaperPal] Submitted — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Your ${formLabel} Has Been Submitted`,
       body: `
-        <p>Your ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been submitted and is awaiting supervisor approval.</p>
+        <p>Your ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been submitted and is awaiting ${awaitingLabel} approval.</p>
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
@@ -310,10 +313,11 @@ async function sendResubmittedEmails(submission, settings, pdfBuffer) {
 
   if (!settings.notifyOnSubmit) return
 
-  // Supervisor notification
-  if (submission.supervisorEmail) {
+  // Send to approver (if exists) or supervisor
+  const reviewerEmail = submission.approverEmail || submission.supervisorEmail
+  if (reviewerEmail) {
     await sendMail(
-      sandboxTo(submission, submission.supervisorEmail),
+      sandboxTo(submission, reviewerEmail),
       `${tag}[PaperPal] Resubmitted — ${formLabel} from ${submission.submitterName}`,
       emailHtml({
         heading: `${formLabel} Resubmitted for Review`,
@@ -331,13 +335,14 @@ async function sendResubmittedEmails(submission, settings, pdfBuffer) {
   }
 
   // Receipt to submitter
+  const awaitingLabel = submission.approverEmail ? "approver" : "supervisor"
   await sendMail(
     submission.submitterEmail,
     `${tag}[PaperPal] Resubmitted — ${formLabel} ${submission.id}`,
     emailHtml({
       heading: `Your ${formLabel} Has Been Resubmitted`,
       body: `
-        <p>Your revised ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been resubmitted and is awaiting supervisor approval.</p>
+        <p>Your revised ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been resubmitted and is awaiting ${awaitingLabel} approval.</p>
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
@@ -399,6 +404,75 @@ async function sendRedirectedEmails(
   }
 }
 
+// ─── On Approver Approve (approved_by_approver) ────────────────────────────
+
+async function sendApproverApprovedEmails(submission, settings, pdfBuffer) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const fname = pdfFilename(submission)
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+
+  // Notify supervisor — it's now their turn
+  if (submission.supervisorEmail) {
+    await sendMail(
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] ${formLabel} from ${submission.submitterName} — Approver Approved`,
+      emailHtml({
+        heading: `${formLabel} Ready for Supervisor Review`,
+        body: `
+          <p><strong>${submission.submitterName}</strong>'s ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been approved by ${submission.approverName || "the approver"} and is now ready for your review.</p>
+          <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+          <p>Please review and approve or deny this request.</p>
+        `,
+        link,
+        linkLabel: "Review Request",
+      }),
+      pdfBuffer,
+      fname
+    )
+  }
+
+  // Confirmation to submitter
+  await sendMail(
+    submission.submitterEmail,
+    `${tag}[PaperPal] Approver Approved — ${formLabel} ${submission.id}`,
+    emailHtml({
+      heading: `Your ${formLabel} Has Been Approved by ${submission.approverName || "Approver"}`,
+      body: `
+        <p>Your ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been approved and forwarded to your supervisor for review.</p>
+        <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+      `,
+      link,
+    }),
+    pdfBuffer,
+    fname
+  )
+}
+
+// ─── On Paid (approved → paid) ──────────────────────────────────────────────
+
+async function sendPaidEmails(submission, settings, pdfBuffer) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const fname = pdfFilename(submission)
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+
+  await sendMail(
+    submission.submitterEmail,
+    `${tag}[PaperPal] Paid — ${formLabel} ${submission.id}`,
+    emailHtml({
+      heading: `Your ${formLabel} Has Been Paid`,
+      body: `
+        <p>Your ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been processed and marked as paid.</p>
+        <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+      `,
+      link,
+    }),
+    pdfBuffer,
+    fname
+  )
+}
+
 module.exports = {
   sendSubmitEmails,
   sendReviewedEmails,
@@ -407,4 +481,6 @@ module.exports = {
   sendRevisionsEmails,
   sendResubmittedEmails,
   sendRedirectedEmails,
+  sendApproverApprovedEmails,
+  sendPaidEmails,
 }

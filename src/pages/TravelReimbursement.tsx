@@ -35,6 +35,7 @@ import {
   updateSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
+  resolveSupervisor,
 } from "@/lib/firestore"
 import type { TravelData, TravelExpenseItem } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
@@ -492,6 +493,7 @@ export default function TravelReimbursement() {
     estOther
   const finalClaim = actTotal - advanceRequested
 
+  const [sandboxApproverStep, setSandboxApproverStep] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
@@ -575,6 +577,16 @@ export default function TravelReimbursement() {
         finalClaim,
       }
 
+      // Resolve approval chain to check for optional approver step
+      const chain = await resolveSupervisor(user.email ?? "")
+      const hasApprover = sandbox ? sandboxApproverStep : !!chain?.approverEmail
+      const approverFields = hasApprover
+        ? {
+            approverEmail: sandbox ? (user.email ?? "") : chain!.approverEmail!,
+            approverName: chain?.approverName ?? "",
+          }
+        : {}
+
       if (resubmitId) {
         await updateSubmission(resubmitId, {
           status: "pending",
@@ -582,12 +594,14 @@ export default function TravelReimbursement() {
           supervisorEmail: sandbox
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
+          ...approverFields,
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: justificationFiles,
           summary: `Travel — ${meetingTitle || location}`,
           amount: finalClaim,
           sandbox: sandbox || false,
+          approverSignatureUrl: "",
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
           reviewedAt: deleteField() as never,
@@ -614,6 +628,7 @@ export default function TravelReimbursement() {
           supervisorEmail: sandbox
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
+          ...approverFields,
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: justificationFiles,
@@ -687,8 +702,11 @@ export default function TravelReimbursement() {
 
   return (
     <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           Travel Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -869,6 +887,24 @@ export default function TravelReimbursement() {
               </Field>
             </div>
           )}
+          {sandbox && (
+            <div className="mt-4">
+              <Field label="Approval Flow (Sandbox)">
+                <select
+                  value={sandboxApproverStep ? "4-step" : "2-step"}
+                  onChange={(e) =>
+                    setSandboxApproverStep(e.target.value === "4-step")
+                  }
+                  className="input-neu cursor-pointer text-sm"
+                >
+                  <option value="2-step">Supervisor → Final Approver</option>
+                  <option value="4-step">
+                    Approver → Supervisor → Final Approver
+                  </option>
+                </select>
+              </Field>
+            </div>
+          )}
         </Section>
 
         {/* Justification for Release */}
@@ -1023,7 +1059,7 @@ export default function TravelReimbursement() {
             title="Pre-Approved Estimated Expenses"
             style={{ order: getOrder("estimatedExpenses") }}
           >
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <DollarField
                 label="Transportation"
                 value={estTransport}
@@ -1271,8 +1307,7 @@ export default function TravelReimbursement() {
                                   amount: parseFloat(e.target.value) || 0,
                                 })
                               }
-                              className="input-neu"
-                              style={{ maxWidth: "110px" }}
+                              className="input-neu sm:max-w-[110px]"
                             />
                             {ocrLoadingIdx === expense._idx && (
                               <Loader2
@@ -1506,7 +1541,7 @@ export default function TravelReimbursement() {
 
         {/* Summary */}
         <div
-          className="space-y-2 rounded-xl p-5"
+          className="space-y-2 rounded-xl p-4 sm:p-5"
           style={{
             background: "#ffffff",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
@@ -1567,7 +1602,10 @@ export default function TravelReimbursement() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3" style={{ order: 99 }}>
+        <div
+          className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+          style={{ order: 99 }}
+        >
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -1601,7 +1639,7 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",

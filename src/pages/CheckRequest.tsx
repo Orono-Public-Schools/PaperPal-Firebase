@@ -30,6 +30,7 @@ import {
   getSubmission,
   updateSubmission,
   createOrUpdateUserProfile,
+  resolveSupervisor,
 } from "@/lib/firestore"
 import type { CheckRequestData, Attachment } from "@/lib/types"
 import { formatBudgetCode } from "@/lib/utils"
@@ -129,6 +130,7 @@ export default function CheckRequest() {
   const [receipts, setReceipts] = useState<Attachment[]>(saved?.receipts ?? [])
   const [uploadingReceipts, setUploadingReceipts] = useState(false)
 
+  const [sandboxApproverStep, setSandboxApproverStep] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
@@ -242,6 +244,16 @@ export default function CheckRequest() {
         grandTotal,
       }
 
+      // Resolve approval chain to check for optional approver step
+      const chain = await resolveSupervisor(user.email ?? "")
+      const hasApprover = sandbox ? sandboxApproverStep : !!chain?.approverEmail
+      const approverFields = hasApprover
+        ? {
+            approverEmail: sandbox ? (user.email ?? "") : chain!.approverEmail!,
+            approverName: chain?.approverName ?? "",
+          }
+        : {}
+
       if (resubmitId) {
         await updateSubmission(resubmitId, {
           status: "pending",
@@ -249,11 +261,13 @@ export default function CheckRequest() {
           supervisorEmail: sandbox
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
+          ...approverFields,
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           summary: `Check Request — ${payee}`,
           amount: grandTotal,
           sandbox: sandbox || false,
+          approverSignatureUrl: "",
           supervisorSignatureUrl: "",
           finalApproverSignatureUrl: "",
           reviewedAt: deleteField() as never,
@@ -280,6 +294,7 @@ export default function CheckRequest() {
           supervisorEmail: sandbox
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
+          ...approverFields,
           employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
           formData,
           attachments: receipts,
@@ -354,8 +369,11 @@ export default function CheckRequest() {
   return (
     <AppLayout>
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           Check Request
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -427,6 +445,24 @@ export default function CheckRequest() {
                 <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
                   Your form will be sent to this person for approval.
                 </p>
+              </Field>
+            </div>
+          )}
+          {sandbox && (
+            <div className="mt-4">
+              <Field label="Approval Flow (Sandbox)">
+                <select
+                  value={sandboxApproverStep ? "4-step" : "2-step"}
+                  onChange={(e) =>
+                    setSandboxApproverStep(e.target.value === "4-step")
+                  }
+                  className="input-neu cursor-pointer text-sm"
+                >
+                  <option value="2-step">Supervisor → Final Approver</option>
+                  <option value="4-step">
+                    Approver → Supervisor → Final Approver
+                  </option>
+                </select>
               </Field>
             </div>
           )}
@@ -671,7 +707,7 @@ export default function CheckRequest() {
 
         {/* Total */}
         <div
-          className="rounded-xl p-5"
+          className="rounded-xl p-4 sm:p-5"
           style={{
             order: 90,
             background: "#ffffff",
@@ -703,7 +739,10 @@ export default function CheckRequest() {
         </Section>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3" style={{ order: 99 }}>
+        <div
+          className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+          style={{ order: 99 }}
+        >
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -737,7 +776,7 @@ function Section({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
@@ -843,8 +882,7 @@ function ExpenseRow({
             onChange={(e) =>
               onChange(index, "amount", parseFloat(e.target.value) || 0)
             }
-            className="input-neu"
-            style={{ maxWidth: "120px" }}
+            className="input-neu sm:max-w-[120px]"
           />
         </Field>
         <div className="flex items-end pb-0.5">

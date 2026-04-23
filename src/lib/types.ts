@@ -4,9 +4,10 @@ import { Timestamp } from "firebase/firestore"
 
 export type UserRole =
   | "staff"
+  | "approver"
   | "supervisor"
-  | "controller"
   | "business_office"
+  | "controller"
   | "admin"
 
 // ─── Buildings ───────────────────────────────────────────────────────────────
@@ -16,8 +17,8 @@ export interface Building {
   name: string
   initials: string
   address?: string
-  approverEmail: string
-  approverName: string
+  approverEmail?: string
+  approverName?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -41,6 +42,17 @@ export interface SupervisorMapping {
   titles: string[]
   supervisorEmail: string
   supervisorName: string
+  approverEmail?: string
+  approverName?: string
+}
+
+export interface BuildingSupervisorMapping {
+  building: string
+  buildingName: string
+  supervisorEmail: string
+  supervisorName: string
+  approverEmail?: string
+  approverName?: string
 }
 
 // ─── App Settings ────────────────────────────────────────────────────────────
@@ -233,8 +245,10 @@ export type FormType = "check" | "mileage" | "travel"
 
 export type SubmissionStatus =
   | "pending"
+  | "approved_by_approver"
   | "reviewed"
   | "approved"
+  | "paid"
   | "denied"
   | "revisions_requested"
   | "cancelled"
@@ -256,12 +270,14 @@ export interface Attachment {
 export type ActivityAction =
   | "submitted"
   | "resubmitted"
+  | "approver_approved"
   | "supervisor_approved"
   | "final_approved"
   | "denied"
   | "revisions_requested"
   | "cancelled"
   | "redirected"
+  | "marked_as_paid"
 
 export interface ActivityLogEntry {
   action: ActivityAction
@@ -279,6 +295,8 @@ export interface Submission {
   submitterUid: string
   submitterEmail: string
   submitterName: string
+  approverEmail?: string
+  approverName?: string
   supervisorEmail: string
   supervisorName?: string
   finalApproverEmail?: string
@@ -288,6 +306,7 @@ export interface Submission {
 
   // Signatures
   employeeSignatureUrl?: string
+  approverSignatureUrl?: string
   supervisorSignatureUrl?: string
   finalApproverSignatureUrl?: string
 
@@ -318,6 +337,8 @@ export interface Submission {
   updatedAt: Timestamp
   reviewedAt?: Timestamp
   approvedAt?: Timestamp
+  paidAt?: Timestamp
+  paidBy?: string
 }
 
 // ─── Form Field Config ──────────────────────────────────────────────────────

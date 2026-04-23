@@ -37,6 +37,7 @@ service cloud.firestore {
       allow read: if request.auth != null
                   && (resource.data.submitterUid == request.auth.uid
                       || resource.data.supervisorEmail == request.auth.token.email
+                      || resource.data.approverEmail == request.auth.token.email
                       || isAdminOrBO());
       allow update: if request.auth != null
                     && (
@@ -45,6 +46,7 @@ service cloud.firestore {
                       || (resource.data.submitterUid == request.auth.uid
                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenBySubmitter', 'updatedAt']))
                       || resource.data.supervisorEmail == request.auth.token.email
+                      || resource.data.approverEmail == request.auth.token.email
                       || isAdminOrBO()
                     );
     }

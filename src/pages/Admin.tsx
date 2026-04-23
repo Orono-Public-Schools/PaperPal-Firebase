@@ -28,9 +28,6 @@ import { useAuth } from "@/hooks/useAuth"
 import { invalidateFormFieldsCache } from "@/hooks/useFormFields"
 import {
   getBuildings,
-  createBuilding,
-  updateBuilding,
-  deleteBuilding,
   getStaffRecords,
   getAllUsers,
   updateUserRole,
@@ -41,8 +38,9 @@ import {
   updateBudgetSegments,
   getSupervisorMappings,
   updateSupervisorMappings,
+  getBuildingSupervisorMappings,
+  updateBuildingSupervisorMappings,
   getUniqueStaffTitles,
-  seedBuildingsFromInitials,
   getFormFieldConfigs,
   updateFormFieldConfigs,
 } from "@/lib/firestore"
@@ -57,15 +55,17 @@ import type {
   BudgetSegmentType,
   BudgetSegment,
   SupervisorMapping,
+  BuildingSupervisorMapping,
   FormFieldConfig,
   FormType,
 } from "@/lib/types"
 
 const ROLE_LABELS: Record<UserRole, string> = {
   staff: "Staff",
+  approver: "Approver",
   supervisor: "Supervisor",
-  controller: "Controller",
   business_office: "Business Office",
+  controller: "Controller",
   admin: "Admin",
 }
 
@@ -102,8 +102,11 @@ export default function Admin() {
 
   return (
     <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           Admin Panel
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -146,7 +149,6 @@ export default function Admin() {
         <div className="space-y-6">
           <FormFieldsSection />
           <BudgetSegmentsSection />
-          <BuildingsSection />
           <SupervisorMappingsSection />
         </div>
       )}
@@ -1507,359 +1509,6 @@ function BudgetSegmentsSection() {
   )
 }
 
-// ─── Buildings ───────────────────────────────────────────────────────────────
-
-function BuildingsSection() {
-  const [buildings, setBuildings] = useState<Building[]>([])
-  const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const [seeding, setSeeding] = useState(false)
-  const [newInitials, setNewInitials] = useState("")
-  const [newName, setNewName] = useState("")
-  const [newAddress, setNewAddress] = useState("")
-  const [newApproverEmail, setNewApproverEmail] = useState("")
-  const [newApproverName, setNewApproverName] = useState("")
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editAddress, setEditAddress] = useState("")
-  const [editEmail, setEditEmail] = useState("")
-  const [editName, setEditName] = useState("")
-
-  useEffect(() => {
-    getBuildings().then((b) => {
-      setBuildings(b)
-      setLoading(false)
-    })
-  }, [])
-
-  async function handleSeed() {
-    setSeeding(true)
-    await seedBuildingsFromInitials()
-    const updated = await getBuildings()
-    setBuildings(updated)
-    setSeeding(false)
-  }
-
-  async function handleAdd() {
-    if (!newName.trim()) return
-    const id = await createBuilding({
-      name: newName.trim(),
-      initials: newInitials.trim().toUpperCase(),
-      address: newAddress.trim(),
-      approverEmail: newApproverEmail.trim(),
-      approverName: newApproverName.trim(),
-    })
-    setBuildings((prev) => [
-      ...prev,
-      {
-        id,
-        name: newName.trim(),
-        initials: newInitials.trim().toUpperCase(),
-        address: newAddress.trim(),
-        approverEmail: newApproverEmail.trim(),
-        approverName: newApproverName.trim(),
-      } as Building,
-    ])
-    setNewInitials("")
-    setNewName("")
-    setNewAddress("")
-    setNewApproverEmail("")
-    setNewApproverName("")
-    setAdding(false)
-  }
-
-  async function handleDelete(id: string) {
-    await deleteBuilding(id)
-    setBuildings((prev) => prev.filter((b) => b.id !== id))
-  }
-
-  function startEdit(b: Building) {
-    setEditingId(b.id)
-    setEditAddress(b.address ?? "")
-    setEditEmail(b.approverEmail)
-    setEditName(b.approverName)
-  }
-
-  async function saveEdit(id: string) {
-    await updateBuilding(id, {
-      address: editAddress.trim(),
-      approverEmail: editEmail.trim(),
-      approverName: editName.trim(),
-    })
-    setBuildings((prev) =>
-      prev.map((b) =>
-        b.id === id
-          ? {
-              ...b,
-              address: editAddress.trim(),
-              approverEmail: editEmail.trim(),
-              approverName: editName.trim(),
-            }
-          : b
-      )
-    )
-    setEditingId(null)
-  }
-
-  return (
-    <Section
-      title="Buildings / Organizations"
-      icon={Building2}
-      expanded={expanded}
-      onToggle={() => setExpanded(!expanded)}
-    >
-      {loading ? (
-        <p className="text-sm" style={{ color: "#64748b" }}>
-          Loading…
-        </p>
-      ) : (
-        <>
-          <div
-            className="divide-y"
-            style={{ borderColor: "rgba(180,185,195,0.25)" }}
-          >
-            {buildings.map((b) => (
-              <div
-                key={b.id}
-                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="flex items-center gap-2 text-sm font-semibold"
-                    style={{ color: "#1d2a5d" }}
-                  >
-                    {b.initials && (
-                      <span
-                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
-                        style={{
-                          background: "rgba(29,42,93,0.1)",
-                          color: "#1d2a5d",
-                        }}
-                      >
-                        {b.initials}
-                      </span>
-                    )}
-                    {b.name}
-                  </p>
-                  {editingId === b.id ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <div style={{ maxWidth: "280px", flex: "1 1 280px" }}>
-                        <AddressAutocomplete
-                          value={editAddress}
-                          onChange={setEditAddress}
-                          placeholder="Building address"
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Approver name"
-                        className="input-neu text-xs"
-                        style={{ maxWidth: "180px" }}
-                      />
-                      <div style={{ maxWidth: "220px" }}>
-                        <StaffEmailAutocomplete
-                          value={editEmail}
-                          onChange={setEditEmail}
-                          placeholder="Approver email"
-                          className="input-neu text-xs"
-                        />
-                      </div>
-                      <button
-                        onClick={() => saveEdit(b.id)}
-                        className="cursor-pointer rounded px-3 py-1.5 text-xs font-semibold text-white"
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-                        }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="cursor-pointer rounded px-3 py-1.5 text-xs font-medium"
-                        style={{ color: "#64748b" }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {b.address && (
-                        <p className="text-xs" style={{ color: "#94a3b8" }}>
-                          {b.address}
-                        </p>
-                      )}
-                      <p className="text-xs" style={{ color: "#64748b" }}>
-                        {b.approverName
-                          ? `${b.approverName} (${b.approverEmail})`
-                          : b.approverEmail || "No approver set"}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  {editingId !== b.id && (
-                    <button
-                      onClick={() => startEdit(b)}
-                      className="cursor-pointer rounded p-1.5 text-xs font-medium transition-colors"
-                      style={{ color: "#4356a9" }}
-                    >
-                      Edit
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(b.id)}
-                    className="cursor-pointer rounded p-1.5 transition-colors"
-                    style={{ color: "#94a3b8" }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = "#ad2122")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color = "#94a3b8")
-                    }
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {adding ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
-                <label
-                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                  style={{ color: "#64748b" }}
-                >
-                  Initials
-                </label>
-                <input
-                  type="text"
-                  value={newInitials}
-                  onChange={(e) => setNewInitials(e.target.value)}
-                  placeholder="e.g. MS"
-                  className="input-neu w-full"
-                  style={{ maxWidth: "100px" }}
-                />
-              </div>
-              <div>
-                <label
-                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                  style={{ color: "#64748b" }}
-                >
-                  Building Name
-                </label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Orono Middle School"
-                  className="input-neu w-full"
-                />
-              </div>
-              <div>
-                <label
-                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                  style={{ color: "#64748b" }}
-                >
-                  Address
-                </label>
-                <AddressAutocomplete
-                  value={newAddress}
-                  onChange={setNewAddress}
-                  placeholder="Building street address"
-                />
-              </div>
-              <div>
-                <label
-                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                  style={{ color: "#64748b" }}
-                >
-                  Approver Name
-                </label>
-                <input
-                  type="text"
-                  value={newApproverName}
-                  onChange={(e) => setNewApproverName(e.target.value)}
-                  placeholder="Jane Smith"
-                  className="input-neu w-full"
-                />
-              </div>
-              <div>
-                <label
-                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
-                  style={{ color: "#64748b" }}
-                >
-                  Approver Email
-                </label>
-                <StaffEmailAutocomplete
-                  value={newApproverEmail}
-                  onChange={setNewApproverEmail}
-                  placeholder="approver@orono.k12.mn.us"
-                  className="input-neu w-full"
-                />
-              </div>
-              <div className="flex items-end gap-2 sm:col-span-2">
-                <button
-                  onClick={handleAdd}
-                  className="cursor-pointer rounded px-4 py-2 text-sm font-semibold text-white"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-                  }}
-                >
-                  Add Building
-                </button>
-                <button
-                  onClick={() => setAdding(false)}
-                  className="cursor-pointer rounded px-4 py-2 text-sm font-medium"
-                  style={{ color: "#64748b" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                onClick={() => setAdding(true)}
-                className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-sm font-medium transition-all duration-200"
-                style={{ color: "#4356a9" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    "rgba(67,86,169,0.06)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
-              >
-                <Plus size={15} />
-                Add Building
-              </button>
-              {buildings.length === 0 && (
-                <button
-                  onClick={handleSeed}
-                  disabled={seeding}
-                  className="flex cursor-pointer items-center gap-2 rounded px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-                  }}
-                >
-                  {seeding ? "Seeding…" : "Seed Orono Buildings"}
-                </button>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </Section>
-  )
-}
-
 // ─── Staff Sync (Google Sheet) ──────────────────────────────────────────────
 
 function StaffSyncSection() {
@@ -2081,6 +1730,14 @@ function SupervisorMappingsSection() {
   const [showAddOverride, setShowAddOverride] = useState(false)
   const [addTitles, setAddTitles] = useState<string[]>([])
   const [addSupervisor, setAddSupervisor] = useState("")
+  const [addApprover, setAddApprover] = useState("")
+  const [buildingMappings, setBuildingMappings] = useState<
+    BuildingSupervisorMapping[]
+  >([])
+  const [showAddBuilding, setShowAddBuilding] = useState(false)
+  const [addBuildingId, setAddBuildingId] = useState("")
+  const [addBuildingSupervisor, setAddBuildingSupervisor] = useState("")
+  const [addBuildingApprover, setAddBuildingApprover] = useState("")
 
   useEffect(() => {
     Promise.all([
@@ -2089,12 +1746,14 @@ function SupervisorMappingsSection() {
       getAllUsers(),
       getBuildings(),
       getStaffRecords(),
-    ]).then(([m, t, u, b, s]) => {
+      getBuildingSupervisorMappings(),
+    ]).then(([m, t, u, b, s, bm]) => {
       setMappings(m)
       setTitles(t)
       setUsers(u)
       setBuildings(b)
       setStaffRecords(s)
+      setBuildingMappings(bm)
       setLoading(false)
     })
   }, [])
@@ -2105,87 +1764,193 @@ function SupervisorMappingsSection() {
   const overrideCount = staffRecords.filter((s) =>
     titlesWithOverride.has(s.title)
   ).length
+  const buildingsWithMapping = new Set(
+    buildingMappings.map((bm) => bm.building)
+  )
   const buildingCount = staffRecords.filter(
     (s) =>
       !titlesWithOverride.has(s.title) &&
       s.building &&
-      buildings.some(
-        (b) =>
-          (b.initials === s.building || b.name === s.building) &&
-          b.approverEmail
-      )
+      buildingsWithMapping.has(s.building)
   ).length
   const uncoveredCount = staffRecords.length - overrideCount - buildingCount
 
   // Titles available for new overrides (not already in a mapping)
   const availableTitles = titles.filter((t) => !titlesWithOverride.has(t))
 
-  const supervisorUsers = users
-    .filter(
-      (u) =>
-        u.role === "supervisor" ||
-        u.role === "controller" ||
-        u.role === "admin" ||
-        u.role === "business_office"
-    )
-    .sort((a, b) =>
-      (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
-    )
+  const allUsersSorted = [...users].sort((a, b) =>
+    (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+  )
 
-  function handleAddOverride() {
+  async function ensureRole(
+    email: string,
+    targetRole: "supervisor" | "approver"
+  ) {
+    const u = users.find(
+      (usr) => usr.email.toLowerCase() === email.toLowerCase()
+    )
+    if (!u || u.role !== "staff") return
+    await updateUserRole(u.uid, targetRole)
+    setUsers((prev) =>
+      prev.map((usr) =>
+        usr.uid === u.uid ? { ...usr, role: targetRole } : usr
+      )
+    )
+  }
+
+  async function handleCreateUser(email: string) {
+    const staff = staffRecords.find(
+      (s) => s.email.toLowerCase() === email.toLowerCase()
+    )
+    const uid = `pre-${email.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    const profile: Partial<UserProfile> = {
+      uid,
+      email: email.toLowerCase(),
+      firstName: staff?.firstName ?? "",
+      lastName: staff?.lastName ?? "",
+      fullName: staff ? `${staff.firstName} ${staff.lastName}`.trim() : email,
+      employeeId: staff?.employeeId ?? "",
+      building: staff?.building ?? "",
+      role: "staff" as UserRole,
+    }
+    await createOrUpdateUserProfile(uid, profile)
+    setUsers((prev) => [...prev, profile as UserProfile])
+  }
+
+  async function handleAddOverride() {
     if (!addSupervisor || addTitles.length === 0) return
     const supervisor = users.find((u) => u.email === addSupervisor)
     if (!supervisor) return
+    const approver = addApprover
+      ? users.find((u) => u.email === addApprover)
+      : null
 
-    setMappings((prev) => {
-      const existing = prev.find((m) => m.supervisorEmail === addSupervisor)
-      if (existing) {
-        return prev.map((m) =>
-          m.supervisorEmail === addSupervisor
-            ? { ...m, titles: [...m.titles, ...addTitles] }
-            : m
-        )
-      }
-      return [
-        ...prev,
+    const existing = mappings.find((m) => m.supervisorEmail === addSupervisor)
+    let updated: SupervisorMapping[]
+    if (existing) {
+      updated = mappings.map((m) =>
+        m.supervisorEmail === addSupervisor
+          ? {
+              ...m,
+              titles: [...m.titles, ...addTitles],
+              ...(approver && {
+                approverEmail: approver.email,
+                approverName:
+                  approver.fullName ||
+                  `${approver.firstName} ${approver.lastName}`,
+              }),
+            }
+          : m
+      )
+    } else {
+      updated = [
+        ...mappings,
         {
           titles: [...addTitles],
           supervisorEmail: supervisor.email,
           supervisorName:
             supervisor.fullName ||
             `${supervisor.firstName} ${supervisor.lastName}`,
+          ...(approver && {
+            approverEmail: approver.email,
+            approverName:
+              approver.fullName || `${approver.firstName} ${approver.lastName}`,
+          }),
         },
       ]
-    })
+    }
+    setMappings(updated)
     setAddTitles([])
     setAddSupervisor("")
+    setAddApprover("")
     setShowAddOverride(false)
+    await saveMappings(updated)
+    await ensureRole(supervisor.email, "supervisor")
+    if (approver) await ensureRole(approver.email, "approver")
   }
 
-  function handleRemoveTitle(title: string, supervisorEmail: string) {
-    setMappings((prev) =>
-      prev
-        .map((m) =>
-          m.supervisorEmail === supervisorEmail
-            ? { ...m, titles: m.titles.filter((t) => t !== title) }
-            : m
-        )
-        .filter((m) => m.titles.length > 0)
+  async function handleRemoveTitle(title: string, supervisorEmail: string) {
+    const updated = mappings
+      .map((m) =>
+        m.supervisorEmail === supervisorEmail
+          ? { ...m, titles: m.titles.filter((t) => t !== title) }
+          : m
+      )
+      .filter((m) => m.titles.length > 0)
+    setMappings(updated)
+    await saveMappings(updated)
+  }
+
+  async function handleRemoveMapping(supervisorEmail: string) {
+    const updated = mappings.filter(
+      (m) => m.supervisorEmail !== supervisorEmail
     )
+    setMappings(updated)
+    await saveMappings(updated)
   }
 
-  function handleRemoveMapping(supervisorEmail: string) {
-    setMappings((prev) =>
-      prev.filter((m) => m.supervisorEmail !== supervisorEmail)
-    )
-  }
-
-  async function handleSave() {
+  async function saveMappings(updated: SupervisorMapping[]) {
     setSaving(true)
-    await updateSupervisorMappings(mappings)
+    await updateSupervisorMappings(updated)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleSave() {
+    await saveMappings(mappings)
+    await saveBuildingMappings(buildingMappings)
+  }
+
+  async function saveBuildingMappings(updated: BuildingSupervisorMapping[]) {
+    setSaving(true)
+    await updateBuildingSupervisorMappings(updated)
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleAddBuildingMapping() {
+    if (!addBuildingId || !addBuildingSupervisor) return
+    const building = buildings.find((b) => b.id === addBuildingId)
+    const supervisor = users.find((u) => u.email === addBuildingSupervisor)
+    if (!building || !supervisor) return
+    const approver = addBuildingApprover
+      ? users.find((u) => u.email === addBuildingApprover)
+      : null
+
+    const updated = [
+      ...buildingMappings,
+      {
+        building: building.initials,
+        buildingName: building.name,
+        supervisorEmail: supervisor.email,
+        supervisorName:
+          supervisor.fullName ||
+          `${supervisor.firstName} ${supervisor.lastName}`,
+        ...(approver && {
+          approverEmail: approver.email,
+          approverName:
+            approver.fullName || `${approver.firstName} ${approver.lastName}`,
+        }),
+      },
+    ]
+    setBuildingMappings(updated)
+    setAddBuildingId("")
+    setAddBuildingSupervisor("")
+    setAddBuildingApprover("")
+    setShowAddBuilding(false)
+    await saveBuildingMappings(updated)
+    await ensureRole(supervisor.email, "supervisor")
+    if (approver) await ensureRole(approver.email, "approver")
+  }
+
+  async function handleRemoveBuildingMapping(buildingInitials: string) {
+    const updated = buildingMappings.filter(
+      (bm) => bm.building !== buildingInitials
+    )
+    setBuildingMappings(updated)
+    await saveBuildingMappings(updated)
   }
 
   return (
@@ -2265,65 +2030,264 @@ function SupervisorMappingsSection() {
 
           {/* Building defaults */}
           <div className="mb-4">
-            <p
-              className="mb-2 text-xs font-semibold tracking-wider uppercase"
-              style={{ color: "#64748b" }}
-            >
-              Building Defaults
-            </p>
-            <div className="space-y-1">
-              {buildings.length === 0 ? (
-                <p className="text-xs" style={{ color: "#94a3b8" }}>
-                  No buildings configured. Add buildings in the Buildings
-                  section.
-                </p>
-              ) : (
-                buildings.map((b) => {
+            <div className="mb-2 flex items-center justify-between">
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Building Defaults
+              </p>
+              <button
+                onClick={() => setShowAddBuilding(!showAddBuilding)}
+                className="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                style={{
+                  color: "#1d2a5d",
+                  background: showAddBuilding
+                    ? "rgba(29,42,93,0.1)"
+                    : "transparent",
+                  border: "1px solid rgba(180,185,195,0.25)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "rgba(29,42,93,0.08)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = showAddBuilding
+                    ? "rgba(29,42,93,0.1)"
+                    : "transparent")
+                }
+              >
+                <Plus size={12} />
+                Add Building Default
+              </button>
+            </div>
+
+            {showAddBuilding && (
+              <div
+                className="mb-3 rounded-lg p-3"
+                style={{
+                  background: "#f8f9fb",
+                  border: "1px solid rgba(180,185,195,0.25)",
+                }}
+              >
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Building
+                  </p>
+                  <select
+                    value={addBuildingId}
+                    onChange={(e) => setAddBuildingId(e.target.value)}
+                    className="input-neu w-full text-xs"
+                  >
+                    <option value="">Select building…</option>
+                    {buildings
+                      .filter(
+                        (b) =>
+                          !buildingMappings.some(
+                            (bm) => bm.building === b.initials
+                          )
+                      )
+                      .map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.initials})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Supervisor
+                  </p>
+                  <UserSearchDropdown
+                    users={allUsersSorted}
+                    staffRecords={staffRecords}
+                    value={addBuildingSupervisor}
+                    onChange={setAddBuildingSupervisor}
+                    onCreateUser={handleCreateUser}
+                    placeholder="Search for supervisor…"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
+                  >
+                    Approver{" "}
+                    <span className="font-normal normal-case">(optional)</span>
+                  </p>
+                  <UserSearchDropdown
+                    users={allUsersSorted}
+                    staffRecords={staffRecords}
+                    value={addBuildingApprover}
+                    onChange={setAddBuildingApprover}
+                    onCreateUser={handleCreateUser}
+                    placeholder="Search for approver (optional)…"
+                  />
+                  <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
+                    If set, submissions route to this person first before the
+                    supervisor.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleAddBuildingMapping}
+                  disabled={!addBuildingId || !addBuildingSupervisor}
+                  className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  }}
+                >
+                  <Plus size={13} />
+                  Add Building Default
+                </button>
+              </div>
+            )}
+
+            {buildingMappings.length === 0 ? (
+              <p className="text-xs" style={{ color: "#94a3b8" }}>
+                No building defaults configured. Add a building default above.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {buildingMappings.map((bm) => {
                   const staffInBuilding = staffRecords.filter(
                     (s) =>
-                      (s.building === b.initials || s.building === b.name) &&
+                      s.building === bm.building &&
                       !titlesWithOverride.has(s.title)
                   ).length
                   return (
                     <div
-                      key={b.id}
-                      className="flex items-center justify-between rounded-lg px-3 py-2"
+                      key={bm.building}
+                      className="rounded-lg p-3"
                       style={{
-                        background: b.approverEmail ? "#f0fdf4" : "#fffbeb",
-                        border: `1px solid ${b.approverEmail ? "rgba(5,150,105,0.2)" : "rgba(234,179,8,0.25)"}`,
+                        background: "#eef2ff",
+                        border: "1px solid rgba(67,86,169,0.2)",
                       }}
                     >
-                      <div className="flex items-center gap-2">
-                        <Building2
-                          size={13}
-                          style={{
-                            color: b.approverEmail ? "#059669" : "#b45309",
-                          }}
-                        />
-                        <span
-                          className="text-sm font-medium"
-                          style={{ color: "#1d2a5d" }}
+                      <div className="mb-1 flex items-start justify-between">
+                        <div>
+                          <p
+                            className="flex items-center gap-2 text-sm font-semibold"
+                            style={{ color: "#1d2a5d" }}
+                          >
+                            <Building2 size={13} style={{ color: "#4356a9" }} />
+                            {bm.buildingName}
+                            <span
+                              className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
+                              style={{
+                                background: "rgba(29,42,93,0.1)",
+                                color: "#1d2a5d",
+                              }}
+                            >
+                              {bm.building}
+                            </span>
+                          </p>
+                          <p
+                            className="text-[11px]"
+                            style={{ color: "#64748b" }}
+                          >
+                            {bm.supervisorName} ({bm.supervisorEmail}) ·{" "}
+                            {staffInBuilding} staff
+                          </p>
+                          {bm.approverEmail && (
+                            <p
+                              className="text-[11px]"
+                              style={{ color: "#4356a9" }}
+                            >
+                              Approver: {bm.approverName || bm.approverEmail}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() =>
+                            handleRemoveBuildingMapping(bm.building)
+                          }
+                          className="cursor-pointer rounded p-1 transition-colors"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.color = "#94a3b8")
+                          }
                         >
-                          {b.name}
-                        </span>
-                        <span className="text-xs" style={{ color: "#94a3b8" }}>
-                          ({staffInBuilding} staff)
-                        </span>
+                          <Trash2 size={13} />
+                        </button>
                       </div>
-                      <span className="text-xs" style={{ color: "#64748b" }}>
-                        {b.approverEmail ? (
-                          <>{b.approverName || b.approverEmail}</>
-                        ) : (
-                          <span style={{ color: "#b45309" }}>
-                            No approver set
-                          </span>
-                        )}
-                      </span>
                     </div>
                   )
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
+
+            {(() => {
+              const uncoveredBuildings = buildings.filter(
+                (b) =>
+                  !buildingMappings.some((bm) => bm.building === b.initials)
+              )
+              if (uncoveredBuildings.length === 0) return null
+              return (
+                <div className="mt-3">
+                  <p
+                    className="mb-1.5 text-[10px] font-semibold tracking-wider uppercase"
+                    style={{ color: "#b45309" }}
+                  >
+                    Uncovered Buildings
+                  </p>
+                  <div className="space-y-1">
+                    {uncoveredBuildings.map((b) => {
+                      const staffInBuilding = staffRecords.filter(
+                        (s) =>
+                          (s.building === b.initials ||
+                            s.building === b.name) &&
+                          !titlesWithOverride.has(s.title)
+                      ).length
+                      return (
+                        <div
+                          key={b.id}
+                          className="flex items-center justify-between rounded-lg px-3 py-2"
+                          style={{
+                            background: "#fffbeb",
+                            border: "1px solid rgba(234,179,8,0.25)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Building2 size={13} style={{ color: "#b45309" }} />
+                            <span
+                              className="text-sm font-medium"
+                              style={{ color: "#1d2a5d" }}
+                            >
+                              {b.name}
+                            </span>
+                            <span
+                              className="text-xs"
+                              style={{ color: "#94a3b8" }}
+                            >
+                              ({staffInBuilding} staff)
+                            </span>
+                          </div>
+                          <span
+                            className="text-xs"
+                            style={{ color: "#b45309" }}
+                          >
+                            No supervisor set
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Title overrides */}
@@ -2443,21 +2407,38 @@ function SupervisorMappingsSection() {
                     className="mb-1 text-xs font-semibold tracking-wider uppercase"
                     style={{ color: "#64748b" }}
                   >
-                    Assign To
+                    Supervisor
                   </p>
-                  <select
+                  <UserSearchDropdown
+                    users={allUsersSorted}
+                    staffRecords={staffRecords}
                     value={addSupervisor}
-                    onChange={(e) => setAddSupervisor(e.target.value)}
-                    className="input-neu w-full text-xs"
+                    onChange={setAddSupervisor}
+                    onCreateUser={handleCreateUser}
+                    placeholder="Search for supervisor…"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <p
+                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "#64748b" }}
                   >
-                    <option value="">Select supervisor…</option>
-                    {supervisorUsers.map((u) => (
-                      <option key={u.uid} value={u.email}>
-                        {u.fullName || `${u.firstName} ${u.lastName}`} —{" "}
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
+                    Approver{" "}
+                    <span className="font-normal normal-case">(optional)</span>
+                  </p>
+                  <UserSearchDropdown
+                    users={allUsersSorted}
+                    staffRecords={staffRecords}
+                    value={addApprover}
+                    onChange={setAddApprover}
+                    onCreateUser={handleCreateUser}
+                    placeholder="Search for approver (optional)…"
+                  />
+                  <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
+                    If set, submissions route to this person first before the
+                    supervisor.
+                  </p>
                 </div>
 
                 <button
@@ -2510,6 +2491,15 @@ function SupervisorMappingsSection() {
                           >
                             {mapping.supervisorEmail} · {staffCount} staff
                           </p>
+                          {mapping.approverEmail && (
+                            <p
+                              className="text-[11px]"
+                              style={{ color: "#4356a9" }}
+                            >
+                              Approver:{" "}
+                              {mapping.approverName || mapping.approverEmail}
+                            </p>
+                          )}
                         </div>
                         <button
                           onClick={() =>
@@ -2912,8 +2902,11 @@ function RolesSection() {
           <p className="mb-2 text-xs" style={{ color: "#94a3b8" }}>
             {users.length} user{users.length !== 1 && "s"}
           </p>
-          <div className="max-h-80 overflow-y-auto">
-            <table className="w-full text-left text-xs">
+          <div className="max-h-80 overflow-auto">
+            <table
+              className="w-full text-left text-xs"
+              style={{ minWidth: 500 }}
+            >
               <thead>
                 <tr
                   style={{
@@ -3406,6 +3399,239 @@ function StaffSearchDropdown({
   )
 }
 
+function UserSearchDropdown({
+  users: userList,
+  staffRecords: staffList,
+  value,
+  onChange,
+  onCreateUser,
+  placeholder = "Search by name or email…",
+}: {
+  users: UserProfile[]
+  staffRecords?: StaffRecord[]
+  value: string
+  onChange: (email: string) => void
+  onCreateUser?: (email: string) => Promise<void>
+  placeholder?: string
+}) {
+  const [query, setQuery] = useState("")
+  const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const selected = userList.find(
+    (u) => u.email.toLowerCase() === value.toLowerCase()
+  )
+
+  const q = query.toLowerCase().trim()
+  const filtered = (
+    q.length >= 1
+      ? userList.filter(
+          (u) =>
+            u.email.toLowerCase().includes(q) ||
+            (u.fullName || `${u.firstName} ${u.lastName}`)
+              .toLowerCase()
+              .includes(q)
+        )
+      : userList
+  )
+    .sort((a, b) =>
+      (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
+    )
+    .slice(0, 12)
+
+  // Staff records not yet in the users list
+  const userEmails = new Set(userList.map((u) => u.email.toLowerCase()))
+  const staffMatches =
+    staffList && q.length >= 2
+      ? staffList
+          .filter(
+            (s) =>
+              !userEmails.has(s.email.toLowerCase()) &&
+              (s.email.toLowerCase().includes(q) ||
+                `${s.firstName} ${s.lastName}`.toLowerCase().includes(q))
+          )
+          .slice(0, 6)
+      : []
+
+  const ROLE_BADGE: Record<string, string> = {
+    staff: "#94a3b8",
+    approver: "#4356a9",
+    supervisor: "#2d3f89",
+    business_office: "#1d2a5d",
+    controller: "#1d2a5d",
+    admin: "#ad2122",
+  }
+
+  return (
+    <div ref={containerRef} className="relative" style={{ minWidth: 200 }}>
+      {selected && !open ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(true)
+            setQuery("")
+          }}
+          className="input-neu flex w-full cursor-pointer items-center justify-between text-left text-xs"
+        >
+          <span style={{ color: "#1d2a5d" }}>
+            {selected.fullName || `${selected.firstName} ${selected.lastName}`}{" "}
+            <span style={{ color: "#94a3b8" }}>— {selected.email}</span>
+          </span>
+          <span
+            className="ml-2 text-[10px]"
+            style={{ color: "#94a3b8" }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onChange("")
+              setQuery("")
+            }}
+          >
+            ✕
+          </span>
+        </button>
+      ) : (
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="input-neu w-full text-xs"
+          autoFocus={open}
+        />
+      )}
+      {open && (
+        <div
+          className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg py-1"
+          style={{
+            background: "#ffffff",
+            boxShadow:
+              "0 4px 20px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08)",
+            border: "1px solid #e2e5ea",
+          }}
+        >
+          {filtered.map((u) => (
+            <button
+              key={u.email}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                onChange(u.email)
+                setQuery("")
+                setOpen(false)
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+            >
+              <div className="min-w-0 flex-1">
+                <p
+                  className="truncate text-xs font-medium"
+                  style={{ color: "#1d2a5d" }}
+                >
+                  {u.fullName || `${u.firstName} ${u.lastName}`}
+                </p>
+                <p
+                  className="truncate text-[11px]"
+                  style={{ color: "#64748b" }}
+                >
+                  {u.email}
+                </p>
+              </div>
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  color: ROLE_BADGE[u.role] ?? "#94a3b8",
+                  background: `${ROLE_BADGE[u.role] ?? "#94a3b8"}18`,
+                }}
+              >
+                {u.role}
+              </span>
+            </button>
+          ))}
+          {staffMatches.length > 0 && onCreateUser && (
+            <>
+              {filtered.length > 0 && (
+                <div
+                  className="mx-3 my-1"
+                  style={{ borderTop: "1px solid #e2e5ea" }}
+                />
+              )}
+              <p
+                className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: "#94a3b8" }}
+              >
+                From Staff Directory
+              </p>
+              {staffMatches.map((s) => (
+                <button
+                  key={s.email}
+                  type="button"
+                  disabled={adding}
+                  onMouseDown={async (e) => {
+                    e.preventDefault()
+                    setAdding(true)
+                    await onCreateUser(s.email)
+                    onChange(s.email)
+                    setQuery("")
+                    setOpen(false)
+                    setAdding(false)
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-xs font-medium"
+                      style={{ color: "#1d2a5d" }}
+                    >
+                      {s.firstName} {s.lastName}
+                    </p>
+                    <p
+                      className="truncate text-[11px]"
+                      style={{ color: "#64748b" }}
+                    >
+                      {s.email}
+                    </p>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    style={{
+                      color: "#059669",
+                      background: "rgba(5,150,105,0.1)",
+                    }}
+                  >
+                    + Add
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
+          {filtered.length === 0 && staffMatches.length === 0 && (
+            <p className="px-3 py-2 text-xs" style={{ color: "#94a3b8" }}>
+              No matches found.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Shared Sub-components ───────────────────────────────────────────────────
 
 function Section({
@@ -3431,7 +3657,7 @@ function Section({
     >
       <button
         onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between p-5"
+        className="flex w-full cursor-pointer items-center justify-between p-4 sm:p-5"
       >
         <div className="flex items-center gap-2.5">
           <div
@@ -3458,7 +3684,7 @@ function Section({
       </button>
       {expanded && (
         <div
-          className="px-5 pb-5"
+          className="px-4 pb-4 sm:px-5 sm:pb-5"
           style={{ borderTop: "1px solid rgba(180,185,195,0.2)" }}
         >
           <div className="pt-4">{children}</div>

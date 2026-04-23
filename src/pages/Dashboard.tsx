@@ -18,9 +18,13 @@ import { useSandbox } from "@/hooks/useSandbox"
 import {
   getUserSubmissions,
   getPendingApprovals,
+  getPendingApproverApprovals,
   getReviewedSubmissions,
   getAppSettings,
   updateSubmission,
+  getCompletedApprovals,
+  getCompletedApproverApprovals,
+  getApprovedSubmissions,
 } from "@/lib/firestore"
 import type { Submission, SubmissionStatus } from "@/lib/types"
 
@@ -78,6 +82,14 @@ const STATUS_STYLES: Record<
     cardBorder: "#4356a9",
     cardGlow: "rgba(67,86,169,0.3)",
   },
+  approved_by_approver: {
+    label: "Approver Approved",
+    bg: "rgba(56,74,151,0.12)",
+    color: "#384a97",
+    cardBg: "linear-gradient(135deg, #384a97 0%, #4d62b5 100%)",
+    cardBorder: "#384a97",
+    cardGlow: "rgba(56,74,151,0.3)",
+  },
   reviewed: {
     label: "Awaiting Final Approval",
     bg: "rgba(45,63,137,0.12)",
@@ -93,6 +105,14 @@ const STATUS_STYLES: Record<
     cardBg: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
     cardBorder: "#1d2a5d",
     cardGlow: "rgba(29,42,93,0.3)",
+  },
+  paid: {
+    label: "Paid",
+    bg: "rgba(5,150,105,0.12)",
+    color: "#059669",
+    cardBg: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+    cardBorder: "#059669",
+    cardGlow: "rgba(5,150,105,0.3)",
   },
   denied: {
     label: "Denied",
@@ -173,13 +193,24 @@ export default function Dashboard() {
     (activeTab === "pending" || activeTab === "history") &&
     submissionData?.uid !== user?.uid
 
-  const pendingSubmissions = submissions.filter((s) => s.status === "pending")
+  const pendingSubmissions = submissions.filter(
+    (s) => s.status === "pending" || s.status === "approved_by_approver"
+  )
   const historySubmissions = submissions.filter(
-    (s) => s.status !== "pending" && !s.hiddenBySubmitter
+    (s) =>
+      s.status !== "pending" &&
+      s.status !== "approved_by_approver" &&
+      !s.hiddenBySubmitter
   )
 
   // Approvals — submissions assigned to this user for review
+  const [approvalView, setApprovalView] = useState<"pending" | "completed">(
+    "pending"
+  )
   const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
+  const [completedData, setCompletedData] = useState<Submission[] | null>(null)
+  const loadingCompleted =
+    approvalView === "completed" && completedData === null
 
   useEffect(() => {
     if (activeTab !== "approvals" || !userProfile?.email) return
@@ -187,14 +218,26 @@ export default function Dashboard() {
     const email = userProfile.email.toLowerCase()
     Promise.all([
       getPendingApprovals(email),
+      getPendingApproverApprovals(email),
       getAppSettings().then((s) =>
         s.finalApproverEmail?.toLowerCase() === email
           ? getReviewedSubmissions()
           : []
       ),
     ])
-      .then(([pending, reviewed]) => {
-        if (!cancelled) setApprovalData([...pending, ...reviewed])
+      .then(([pending, approverPending, reviewed]) => {
+        if (!cancelled) {
+          // Deduplicate (sandbox mode sets both approver and supervisor to same email)
+          const seen = new Set<string>()
+          const all = [...pending, ...approverPending, ...reviewed].filter(
+            (s) => {
+              if (seen.has(s.id)) return false
+              seen.add(s.id)
+              return true
+            }
+          )
+          setApprovalData(all)
+        }
       })
       .catch(console.error)
     return () => {
@@ -202,13 +245,52 @@ export default function Dashboard() {
     }
   }, [activeTab, userProfile?.email])
 
+  useEffect(() => {
+    if (
+      activeTab !== "approvals" ||
+      approvalView !== "completed" ||
+      !userProfile?.email
+    )
+      return
+    let cancelled = false
+    const email = userProfile.email.toLowerCase()
+    const isController = ["controller", "business_office", "admin"].includes(
+      userProfile.role
+    )
+    Promise.all([
+      getCompletedApprovals(email),
+      getCompletedApproverApprovals(email),
+      isController ? getApprovedSubmissions() : Promise.resolve([]),
+    ])
+      .then(([supervisor, approver, allApproved]) => {
+        if (!cancelled) {
+          const seen = new Set<string>()
+          const all = [...supervisor, ...approver, ...allApproved].filter(
+            (s) => {
+              if (seen.has(s.id)) return false
+              seen.add(s.id)
+              return true
+            }
+          )
+          setCompletedData(all)
+        }
+      })
+      .catch(console.error)
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, approvalView, userProfile?.email, userProfile?.role])
+
   const loadingApprovals = activeTab === "approvals" && approvalData === null
 
   return (
     <AppLayout>
       {/* Page title */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+      <div className="mb-5 sm:mb-8">
+        <h1
+          className="text-xl font-bold sm:text-2xl"
+          style={{ color: "#ffffff" }}
+        >
           {userProfile?.firstName
             ? `Welcome back, ${userProfile.firstName}.`
             : "Welcome back."}
@@ -220,7 +302,7 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div
-        className="mb-6 flex gap-1 rounded-xl p-1"
+        className="mb-6 grid grid-cols-2 gap-1 rounded-xl p-1 sm:grid-cols-4"
         style={{
           background: "rgba(255,255,255,0.08)",
         }}
@@ -231,7 +313,7 @@ export default function Dashboard() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4"
               style={
                 active
                   ? {
@@ -242,6 +324,18 @@ export default function Dashboard() {
                     }
                   : { color: "rgba(255,255,255,0.5)" }
               }
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.9)"
+                  e.currentTarget.style.background = "rgba(255,255,255,0.08)"
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.5)"
+                  e.currentTarget.style.background = "transparent"
+                }
+              }}
             >
               <Icon size={15} />
               {label}
@@ -258,11 +352,10 @@ export default function Dashboard() {
               <button
                 key={id}
                 onClick={() => navigate(path)}
-                className="group cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04]"
+                className="group h-[180px] cursor-pointer overflow-hidden rounded-2xl transition-all duration-400 hover:scale-[1.04] sm:h-[220px]"
                 style={{
                   background: `linear-gradient(135deg, ${pill.from}, ${pill.to})`,
                   boxShadow: `0 4px 24px ${pill.from}50`,
-                  height: "220px",
                 }}
               >
                 <div className="flex h-full w-full flex-col items-center justify-center gap-3 transition-all duration-400 group-hover:h-0 group-hover:opacity-0">
@@ -399,16 +492,53 @@ export default function Dashboard() {
 
       {/* Tab: Approvals */}
       {activeTab === "approvals" && (
-        <SubmissionList
-          submissions={(approvalData ?? []).filter((s) =>
-            sandbox ? s.sandbox === true : !s.sandbox
+        <>
+          <div
+            className="mb-4 flex gap-1 rounded-lg p-1"
+            style={{ background: "rgba(255,255,255,0.06)" }}
+          >
+            {(["pending", "completed"] as const).map((view) => (
+              <button
+                key={view}
+                onClick={() => setApprovalView(view)}
+                className="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-200"
+                style={
+                  approvalView === view
+                    ? {
+                        background: "rgba(255,255,255,0.15)",
+                        color: "#ffffff",
+                      }
+                    : { color: "rgba(255,255,255,0.4)" }
+                }
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+          {approvalView === "pending" ? (
+            <SubmissionList
+              submissions={(approvalData ?? []).filter((s) =>
+                sandbox ? s.sandbox === true : !s.sandbox
+              )}
+              loading={loadingApprovals}
+              emptyIcon={ClipboardCheck}
+              emptyTitle="No pending approvals"
+              emptySubtitle="Submissions assigned to you for review will appear here."
+              showSubmitter
+            />
+          ) : (
+            <SubmissionList
+              submissions={(completedData ?? []).filter((s) =>
+                sandbox ? s.sandbox === true : !s.sandbox
+              )}
+              loading={loadingCompleted}
+              emptyIcon={History}
+              emptyTitle="No completed approvals"
+              emptySubtitle="Submissions you've acted on will appear here."
+              showSubmitter
+            />
           )}
-          loading={loadingApprovals}
-          emptyIcon={ClipboardCheck}
-          emptyTitle="No pending approvals"
-          emptySubtitle="Submissions assigned to you for review will appear here."
-          showSubmitter
-        />
+        </>
       )}
     </AppLayout>
   )
@@ -505,7 +635,7 @@ function SubmissionList({
             />
 
             {/* Content */}
-            <div className="flex flex-1 items-center justify-between py-4 pr-5">
+            <div className="flex flex-1 flex-col gap-2 py-3 pr-4 sm:flex-row sm:items-center sm:justify-between sm:py-4 sm:pr-5">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">
                   {s.summary}
@@ -515,7 +645,7 @@ function SubmissionList({
                   {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
                 </p>
               </div>
-              <div className="ml-4 flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
                 {s.sandbox && (
                   <span
                     className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
@@ -528,7 +658,7 @@ function SubmissionList({
                   </span>
                 )}
                 <span
-                  className="rounded-full px-3 py-1 text-xs font-semibold"
+                  className="rounded-full px-2.5 py-1 text-xs font-semibold sm:px-3"
                   style={{
                     background: "rgba(255,255,255,0.15)",
                     color: "#ffffff",

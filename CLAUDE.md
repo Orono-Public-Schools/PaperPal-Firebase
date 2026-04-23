@@ -179,7 +179,18 @@ Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()
 
 ### Roles
 
-`UserProfile.role`: `"staff"` | `"admin"` | `"business_office"`. Admin UI shown when `role === "admin" || role === "business_office"`.
+`UserProfile.role` (ordered by access level):
+
+| Role                | Budget Code Access | Admin Panel | Notes                                 |
+| ------------------- | ------------------ | ----------- | ------------------------------------- |
+| `"staff"`           | No (greyed out)    | No          | Default role                          |
+| `"approver"`        | Yes                | No          | Optional approval layer (future flow) |
+| `"supervisor"`      | Yes                | No          | Reviews/approves submissions          |
+| `"business_office"` | Yes                | Yes         | Business office staff                 |
+| `"controller"`      | Yes                | Yes         | Final approver + admin access         |
+| `"admin"`           | Yes                | Yes (full)  | Full system access                    |
+
+Admin UI shown when `role` is `"admin"`, `"business_office"`, or `"controller"`.
 
 ---
 
@@ -202,13 +213,25 @@ Deep-linked via `?tab=pending` / `?tab=history` query params. `useSearchParams()
 ```bash
 npm run dev          # Local dev server (Vite)
 npm run build        # Production build
-npm run typecheck    # tsc --noEmit
+npm run typecheck    # tsc -b
+npm run lint         # eslint . --max-warnings=0
+npm run format:check # prettier --check .
 
 # Firebase
 firebase emulators:start
 firebase hosting:channel:deploy dev-joel   # Preview deploy
 firebase deploy                            # Production deploy
 ```
+
+### Before pushing / PR
+
+Always run all three checks before pushing — CI will fail otherwise:
+
+```bash
+npm run typecheck && npm run lint && npm run format:check
+```
+
+If formatting fails, fix with `npx prettier --write .` and commit separately.
 
 ---
 

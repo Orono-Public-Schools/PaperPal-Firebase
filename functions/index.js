@@ -18,6 +18,8 @@ const {
   sendRevisionsEmails,
   sendResubmittedEmails,
   sendRedirectedEmails,
+  sendApproverApprovedEmails,
+  sendPaidEmails,
 } = require("./helpers/email")
 
 initializeApp()
@@ -339,6 +341,11 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
           }
           break
 
+        case "approved_by_approver":
+          await sendApproverApprovedEmails(after, settings, pdfBuffer)
+          console.log(`Approver-approved emails sent for ${after.id}`)
+          break
+
         case "reviewed":
           await sendReviewedEmails(after, settings, pdfBuffer)
           console.log(`Reviewed emails sent for ${after.id}`)
@@ -368,6 +375,11 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
           await sendApprovedEmails(after, settings, pdfBuffer)
           break
         }
+
+        case "paid":
+          await sendPaidEmails(after, settings, pdfBuffer)
+          console.log(`Paid emails sent for ${after.id}`)
+          break
 
         case "denied":
           await sendDeniedEmails(after, settings, pdfBuffer)
