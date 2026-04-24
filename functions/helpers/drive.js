@@ -120,4 +120,16 @@ async function uploadToDriveSetup(yearLabel) {
   return { yearFolderId: yearFolder.id, monthFolders }
 }
 
-module.exports = { uploadToDrive, uploadToDriveSetup }
+async function updateDriveFile(fileId, pdfBuffer) {
+  const drive = getDriveService()
+  await drive.files.update({
+    fileId,
+    media: {
+      mimeType: "application/pdf",
+      body: Readable.from(pdfBuffer),
+    },
+    supportsAllDrives: true,
+  })
+}
+
+module.exports = { uploadToDrive, uploadToDriveSetup, updateDriveFile }

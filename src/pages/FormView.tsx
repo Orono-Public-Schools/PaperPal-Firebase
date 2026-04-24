@@ -34,7 +34,12 @@ import type {
   SubmissionStatus,
   ActivityLogEntry,
 } from "@/lib/types"
-import { serverTimestamp, Timestamp, arrayUnion } from "firebase/firestore"
+import {
+  serverTimestamp,
+  Timestamp,
+  arrayUnion,
+  deleteField,
+} from "firebase/firestore"
 import { httpsCallable } from "firebase/functions"
 import { functions } from "@/lib/firebase"
 import {
@@ -197,6 +202,7 @@ export default function FormView() {
     "admin",
   ].includes(userProfile?.role ?? "")
   const canMarkPaid = isControllerOrAbove && submission.status === "approved"
+  const canUnmarkPaid = isControllerOrAbove && submission.status === "paid"
 
   const statusCfg = STATUS_CONFIG[submission.status]
   const StatusIcon = statusCfg.icon
@@ -440,6 +446,25 @@ export default function FormView() {
     setSubmission({ ...submission, status: "paid" as SubmissionStatus })
     setActing(false)
     setActionDone("Marked as paid — submitter notified")
+  }
+
+  async function handleUnmarkPaid() {
+    if (!submission) return
+    if (!confirm("Revert this submission back to approved?")) return
+    setActing(true)
+    await updateSubmission(submission.id, {
+      status: "approved",
+      paidAt: deleteField(),
+      paidBy: deleteField(),
+      activityLog: arrayUnion({
+        action: "unmarked_as_paid",
+        by: email,
+        at: Timestamp.now(),
+      }),
+    })
+    setSubmission({ ...submission, status: "approved" as SubmissionStatus })
+    setActing(false)
+    setActionDone("Reverted to approved")
   }
 
   return (
@@ -1058,6 +1083,24 @@ export default function FormView() {
           </button>
         </div>
       )}
+
+      {/* Undo Paid */}
+      {canUnmarkPaid && !actionDone && (
+        <div className="mt-6 flex justify-end print:hidden">
+          <button
+            onClick={handleUnmarkPaid}
+            disabled={acting}
+            className="btn-action-deny-solid"
+          >
+            {acting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RotateCcw size={13} />
+            )}
+            {acting ? "Reverting…" : "Undo Paid"}
+          </button>
+        </div>
+      )}
     </AppLayout>
   )
 }
@@ -1119,6 +1162,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "Cancelled", color: "#64748b" },
   redirected: { label: "Redirected", color: "#4356a9" },
   marked_as_paid: { label: "Marked as Paid", color: "#059669" },
+  unmarked_as_paid: { label: "Reverted to Approved", color: "#64748b" },
 }
 
 function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {

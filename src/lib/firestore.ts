@@ -11,6 +11,8 @@ import {
   orderBy,
   serverTimestamp,
   writeBatch,
+  arrayUnion,
+  Timestamp,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import type {
@@ -70,6 +72,27 @@ export async function batchHideSubmissions(ids: string[]): Promise<void> {
   for (const id of ids) {
     batch.update(doc(db, "submissions", id), {
       hiddenBySubmitter: true,
+      updatedAt: serverTimestamp(),
+    })
+  }
+  await batch.commit()
+}
+
+export async function batchMarkAsPaid(
+  ids: string[],
+  paidByEmail: string
+): Promise<void> {
+  const batch = writeBatch(db)
+  for (const id of ids) {
+    batch.update(doc(db, "submissions", id), {
+      status: "paid",
+      paidAt: serverTimestamp(),
+      paidBy: paidByEmail,
+      activityLog: arrayUnion({
+        action: "marked_as_paid",
+        by: paidByEmail,
+        at: Timestamp.now(),
+      }),
       updatedAt: serverTimestamp(),
     })
   }
