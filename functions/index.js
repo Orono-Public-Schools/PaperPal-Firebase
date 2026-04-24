@@ -9,7 +9,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore")
 const { google } = require("googleapis")
 const { generatePdf } = require("./helpers/pdf")
 const { uploadToDrive } = require("./helpers/drive")
-const { appendToLog } = require("./helpers/sheets")
+const { appendToLog, markPaidInLog } = require("./helpers/sheets")
 const {
   sendSubmitEmails,
   sendReviewedEmails,
@@ -377,6 +377,10 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
         }
 
         case "paid":
+          if (!after.sandbox) {
+            await markPaidInLog(after, settings)
+            console.log(`Log sheet updated with paid date for ${after.id}`)
+          }
           await sendPaidEmails(after, settings, pdfBuffer)
           console.log(`Paid emails sent for ${after.id}`)
           break

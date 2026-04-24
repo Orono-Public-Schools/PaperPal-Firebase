@@ -22,6 +22,7 @@ import {
   getReviewedSubmissions,
   getAppSettings,
   updateSubmission,
+  batchHideSubmissions,
   getCompletedApprovals,
   getCompletedApproverApprovals,
   getApprovedSubmissions,
@@ -440,9 +441,9 @@ export default function Dashboard() {
                     )
                   )
                     return
-                  for (const s of historySubmissions) {
-                    await updateSubmission(s.id, { hiddenBySubmitter: true })
-                  }
+                  await batchHideSubmissions(
+                    historySubmissions.map((s) => s.id)
+                  )
                   setSubmissionData((prev) =>
                     prev
                       ? {

@@ -15,6 +15,8 @@ const LOG_HEADERS = [
   "Approved Date",
   "Supervisor",
   "PDF Link",
+  "Paid Date",
+  "Paid By",
 ]
 
 function getAuth() {
@@ -164,4 +166,44 @@ async function appendToLog(submission, settings, driveUrl, yearFolderId, db) {
   })
 }
 
-module.exports = { appendToLog, setupLogSheet: findOrCreateLogSheet }
+async function markPaidInLog(submission, settings) {
+  const sheetId = settings.paperpalLogSheetId
+  if (!sheetId) return
+
+  const auth = getAuth()
+  const sheets = google.sheets({ version: "v4", auth })
+
+  // Find the row with this submission ID
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "Sheet1!A:A",
+  })
+
+  const rows = res.data.values || []
+  let rowIndex = -1
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][0] === submission.id) {
+      rowIndex = i + 1 // 1-indexed for Sheets API
+      break
+    }
+  }
+
+  if (rowIndex === -1) return // Row not found
+
+  const paidDate = submission.paidAt?.toDate
+    ? submission.paidAt.toDate().toLocaleDateString("en-US")
+    : new Date().toLocaleDateString("en-US")
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `Sheet1!I${rowIndex}:J${rowIndex}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[paidDate, submission.paidBy || ""]] },
+  })
+}
+
+module.exports = {
+  appendToLog,
+  markPaidInLog,
+  setupLogSheet: findOrCreateLogSheet,
+}

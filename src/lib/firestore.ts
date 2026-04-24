@@ -65,6 +65,17 @@ export async function updateSubmission(
   await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() })
 }
 
+export async function batchHideSubmissions(ids: string[]): Promise<void> {
+  const batch = writeBatch(db)
+  for (const id of ids) {
+    batch.update(doc(db, "submissions", id), {
+      hiddenBySubmitter: true,
+      updatedAt: serverTimestamp(),
+    })
+  }
+  await batch.commit()
+}
+
 export async function getUserSubmissions(uid: string): Promise<Submission[]> {
   const q = query(
     collection(db, "submissions"),
