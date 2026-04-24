@@ -11,6 +11,10 @@ import {
   Trash2,
   Download,
   X,
+  CheckSquare,
+  Square,
+  DollarSign,
+  Loader2,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAuth } from "@/hooks/useAuth"
@@ -23,6 +27,7 @@ import {
   getAppSettings,
   updateSubmission,
   batchHideSubmissions,
+  batchMarkAsPaid,
   getCompletedApprovals,
   getCompletedApproverApprovals,
   getApprovedSubmissions,
@@ -146,23 +151,24 @@ const FORM_LABELS: Record<string, string> = {
   mileage: "Mileage",
   travel: "Travel",
 }
-
-const FORM_TYPE_COLORS: Record<string, string> = {
-  check: "#1d2a5d",
-  mileage: "#ad2122",
-  travel: "#2d3589",
-}
-
 export default function Dashboard() {
   const { user, userProfile } = useAuth()
   const { sandbox } = useSandbox()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
+  const viewParam = searchParams.get("view")
   const validTabs = ["pending", "history", "approvals"]
-  const [activeTab, setActiveTab] = useState(
+  const [activeTab, setActiveTabState] = useState(
     validTabs.includes(tabParam ?? "") ? tabParam! : "new"
   )
+
+  function setActiveTab(tab: string) {
+    setActiveTabState(tab)
+    const params: Record<string, string> = {}
+    if (tab !== "new") params.tab = tab
+    setSearchParams(params, { replace: true })
+  }
 
   // User's own submissions
   const [submissionData, setSubmissionData] = useState<{
@@ -205,9 +211,16 @@ export default function Dashboard() {
   )
 
   // Approvals — submissions assigned to this user for review
-  const [approvalView, setApprovalView] = useState<"pending" | "completed">(
-    "pending"
-  )
+  const [approvalView, setApprovalViewState] = useState<
+    "pending" | "completed"
+  >(viewParam === "completed" ? "completed" : "pending")
+
+  function setApprovalView(view: "pending" | "completed") {
+    setApprovalViewState(view)
+    const params: Record<string, string> = { tab: "approvals" }
+    if (view !== "pending") params.view = view
+    setSearchParams(params, { replace: true })
+  }
   const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
   const [completedData, setCompletedData] = useState<Submission[] | null>(null)
   const loadingCompleted =
@@ -281,6 +294,57 @@ export default function Dashboard() {
       cancelled = true
     }
   }, [activeTab, approvalView, userProfile?.email, userProfile?.role])
+
+  // Bulk mark-as-paid (controller+ only)
+  const isController = ["controller", "business_office", "admin"].includes(
+    userProfile?.role ?? ""
+  )
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkPaying, setBulkPaying] = useState(false)
+
+  const completedFiltered = (completedData ?? []).filter((s) =>
+    sandbox ? s.sandbox === true : !s.sandbox
+  )
+  const approvedForPayment = completedFiltered.filter(
+    (s) => s.status === "approved"
+  )
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === approvedForPayment.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(approvedForPayment.map((s) => s.id)))
+    }
+  }
+
+  async function handleBulkPay() {
+    if (selectedIds.size === 0 || !userProfile?.email) return
+    if (
+      !confirm(
+        `Mark ${selectedIds.size} submission${selectedIds.size > 1 ? "s" : ""} as paid?`
+      )
+    )
+      return
+    setBulkPaying(true)
+    await batchMarkAsPaid(Array.from(selectedIds), userProfile.email)
+    setCompletedData(
+      (prev) =>
+        prev?.map((s) =>
+          selectedIds.has(s.id) ? ({ ...s, status: "paid" } as Submission) : s
+        ) ?? null
+    )
+    setSelectedIds(new Set())
+    setBulkPaying(false)
+  }
 
   const loadingApprovals = activeTab === "approvals" && approvalData === null
 
@@ -528,16 +592,60 @@ export default function Dashboard() {
               showSubmitter
             />
           ) : (
-            <SubmissionList
-              submissions={(completedData ?? []).filter((s) =>
-                sandbox ? s.sandbox === true : !s.sandbox
+            <>
+              {isController && approvedForPayment.length > 0 && (
+                <div
+                  className="mb-4 flex items-center justify-between rounded-xl px-4 py-3"
+                  style={{ background: "rgba(255,255,255,0.06)" }}
+                >
+                  <button
+                    onClick={toggleSelectAll}
+                    className="flex cursor-pointer items-center gap-2 text-xs font-semibold"
+                    style={{ color: "rgba(255,255,255,0.6)" }}
+                  >
+                    {selectedIds.size === approvedForPayment.length ? (
+                      <CheckSquare size={14} />
+                    ) : (
+                      <Square size={14} />
+                    )}
+                    {selectedIds.size === 0
+                      ? `Select all (${approvedForPayment.length})`
+                      : `${selectedIds.size} selected`}
+                  </button>
+                  {selectedIds.size > 0 && (
+                    <button
+                      onClick={handleBulkPay}
+                      disabled={bulkPaying}
+                      className="flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white transition-all"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                        boxShadow: "0 2px 8px rgba(5,150,105,0.35)",
+                        opacity: bulkPaying ? 0.7 : 1,
+                      }}
+                    >
+                      {bulkPaying ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <DollarSign size={13} />
+                      )}
+                      Mark {selectedIds.size} as Paid
+                    </button>
+                  )}
+                </div>
               )}
-              loading={loadingCompleted}
-              emptyIcon={History}
-              emptyTitle="No completed approvals"
-              emptySubtitle="Submissions you've acted on will appear here."
-              showSubmitter
-            />
+              <SubmissionList
+                submissions={completedFiltered}
+                loading={loadingCompleted}
+                emptyIcon={History}
+                emptyTitle="No completed approvals"
+                emptySubtitle="Submissions you've acted on will appear here."
+                showSubmitter
+                selectable={isController}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelected}
+              />
+            </>
           )}
         </>
       )}
@@ -555,6 +663,9 @@ function SubmissionList({
   emptySubtitle,
   showSubmitter,
   onHide,
+  selectable,
+  selectedIds,
+  onToggleSelect,
 }: {
   submissions: Submission[]
   loading: boolean
@@ -563,6 +674,9 @@ function SubmissionList({
   emptySubtitle: string
   showSubmitter?: boolean
   onHide?: (id: string) => void
+  selectable?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
 }) {
   const navigate = useNavigate()
   if (loading) {
@@ -616,27 +730,43 @@ function SubmissionList({
               year: "numeric",
             })
           : ""
+        const canSelect = selectable && s.status === "approved"
+        const isSelected = canSelect && selectedIds?.has(s.id)
         return (
           <div
             key={s.id}
             onClick={() => navigate(`/forms/${s.formType}/${s.id}`)}
-            className="group flex cursor-pointer items-center gap-4 overflow-hidden rounded-xl transition-all duration-200 hover:-translate-y-0.5"
+            className="group flex cursor-pointer items-center overflow-hidden rounded-xl transition-all duration-200 hover:-translate-y-0.5"
             style={{
               background: statusStyle.cardBg,
               boxShadow: `0 2px 12px ${statusStyle.cardGlow}`,
+              outline: isSelected
+                ? "2px solid rgba(5,150,105,0.6)"
+                : "2px solid transparent",
             }}
           >
-            {/* Left accent bar — form type color */}
-            <div
-              className="w-1 self-stretch rounded-l-xl"
-              style={{
-                background:
-                  FORM_TYPE_COLORS[s.formType] ?? "rgba(255,255,255,0.25)",
-              }}
-            />
+            {/* Checkbox for selectable approved submissions */}
+            {canSelect && (
+              <div
+                className="flex cursor-pointer items-center pl-3"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleSelect?.(s.id)
+                }}
+              >
+                {isSelected ? (
+                  <CheckSquare size={18} style={{ color: "#10b981" }} />
+                ) : (
+                  <Square
+                    size={18}
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Content */}
-            <div className="flex flex-1 flex-col gap-2 py-3 pr-4 sm:flex-row sm:items-center sm:justify-between sm:py-4 sm:pr-5">
+            <div className="flex flex-1 flex-col gap-2 py-3 pr-4 pl-4 sm:flex-row sm:items-center sm:justify-between sm:py-4 sm:pr-5 sm:pl-5">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">
                   {s.summary}

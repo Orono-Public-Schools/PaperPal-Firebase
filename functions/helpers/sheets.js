@@ -202,8 +202,40 @@ async function markPaidInLog(submission, settings) {
   })
 }
 
+async function clearPaidInLog(submission, settings) {
+  const sheetId = settings.paperpalLogSheetId
+  if (!sheetId) return
+
+  const auth = getAuth()
+  const sheets = google.sheets({ version: "v4", auth })
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "Sheet1!A:A",
+  })
+
+  const rows = res.data.values || []
+  let rowIndex = -1
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][0] === submission.id) {
+      rowIndex = i + 1
+      break
+    }
+  }
+
+  if (rowIndex === -1) return
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `Sheet1!I${rowIndex}:J${rowIndex}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [["", ""]] },
+  })
+}
+
 module.exports = {
   appendToLog,
   markPaidInLog,
+  clearPaidInLog,
   setupLogSheet: findOrCreateLogSheet,
 }

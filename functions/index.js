@@ -7,9 +7,13 @@ const {
 const { initializeApp } = require("firebase-admin/app")
 const { getFirestore, FieldValue } = require("firebase-admin/firestore")
 const { google } = require("googleapis")
-const { generatePdf } = require("./helpers/pdf")
-const { uploadToDrive } = require("./helpers/drive")
-const { appendToLog, markPaidInLog } = require("./helpers/sheets")
+const { generatePdf, stampPaidWatermark } = require("./helpers/pdf")
+const { uploadToDrive, updateDriveFile } = require("./helpers/drive")
+const {
+  appendToLog,
+  markPaidInLog,
+  clearPaidInLog,
+} = require("./helpers/sheets")
 const {
   sendSubmitEmails,
   sendReviewedEmails,
@@ -352,38 +356,64 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
           break
 
         case "approved": {
-          // Upload to shared drive + log sheet (skip in sandbox)
-          if (!after.pdfDriveId && !after.sandbox) {
-            const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
-              pdfBuffer,
-              after,
-              settings
-            )
+          if (before.status === "paid") {
+            // Undo paid: regenerate PDF without watermark and update Drive
+            if (!after.sandbox && after.pdfDriveId) {
+              await updateDriveFile(after.pdfDriveId, pdfBuffer)
+              console.log(
+                `Drive file reverted (watermark removed) for ${after.id}`
+              )
+            }
+            if (!after.sandbox) {
+              await clearPaidInLog(after, settings)
+              console.log(`Log sheet paid columns cleared for ${after.id}`)
+            }
+            console.log(`Submission ${after.id} reverted from paid to approved`)
+          } else {
+            // Normal approval: upload to shared drive + log sheet (skip in sandbox)
+            if (!after.pdfDriveId && !after.sandbox) {
+              const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
+                pdfBuffer,
+                after,
+                settings
+              )
 
-            await event.data.after.ref.update({
-              pdfDriveId: fileId,
-              pdfDriveUrl: webViewLink,
-              updatedAt: FieldValue.serverTimestamp(),
-            })
+              await event.data.after.ref.update({
+                pdfDriveId: fileId,
+                pdfDriveUrl: webViewLink,
+                updatedAt: FieldValue.serverTimestamp(),
+              })
 
-            await appendToLog(after, settings, webViewLink, yearFolderId, db)
-            console.log(
-              `Approval processed for ${after.id}: PDF uploaded (${fileId})`
-            )
+              await appendToLog(after, settings, webViewLink, yearFolderId, db)
+              console.log(
+                `Approval processed for ${after.id}: PDF uploaded (${fileId})`
+              )
+            }
+
+            await sendApprovedEmails(after, settings, pdfBuffer)
           }
-
-          await sendApprovedEmails(after, settings, pdfBuffer)
           break
         }
 
-        case "paid":
+        case "paid": {
+          // Regenerate PDF with PAID watermark
+          const paidPdf = await stampPaidWatermark(pdfBuffer)
+
           if (!after.sandbox) {
+            // Update existing Drive file with watermarked PDF
+            if (after.pdfDriveId) {
+              await updateDriveFile(after.pdfDriveId, paidPdf)
+              console.log(
+                `Drive file updated with PAID watermark for ${after.id}`
+              )
+            }
             await markPaidInLog(after, settings)
             console.log(`Log sheet updated with paid date for ${after.id}`)
           }
-          await sendPaidEmails(after, settings, pdfBuffer)
+          await sendPaidEmails(after, settings, paidPdf)
           console.log(`Paid emails sent for ${after.id}`)
           break
+        }
 
         case "denied":
           await sendDeniedEmails(after, settings, pdfBuffer)

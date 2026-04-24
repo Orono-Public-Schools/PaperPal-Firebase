@@ -1,6 +1,6 @@
 const PDFDocument = require("pdfkit")
 const https = require("https")
-const { PDFDocument: PDFLib } = require("pdf-lib")
+const { PDFDocument: PDFLib, rgb, degrees } = require("pdf-lib")
 
 const MILEAGE_RATE = 0.72
 
@@ -778,4 +778,27 @@ async function generatePdf(submission) {
   }
 }
 
-module.exports = { generatePdf }
+async function stampPaidWatermark(pdfBuffer) {
+  const pdfDoc = await PDFLib.load(pdfBuffer)
+  const pages = pdfDoc.getPages()
+
+  for (const page of pages) {
+    const { width, height } = page.getSize()
+    const text = "PAID"
+    const fontSize = 120
+
+    page.drawText(text, {
+      x: width / 2 - 180,
+      y: height / 2 - 40,
+      size: fontSize,
+      color: rgb(0.02, 0.6, 0.4),
+      opacity: 0.12,
+      rotate: degrees(-35),
+    })
+  }
+
+  const stamped = await pdfDoc.save()
+  return Buffer.from(stamped)
+}
+
+module.exports = { generatePdf, stampPaidWatermark }
