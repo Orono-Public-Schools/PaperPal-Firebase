@@ -15,11 +15,11 @@ All three must pass before pushing or creating a PR.
 
 ## Individual Commands
 
-| Check | Command | Fixes |
-|-------|---------|-------|
-| TypeScript | `npm run typecheck` | Fix type errors in code |
-| ESLint | `npm run lint` | Fix lint issues (max 0 warnings) |
-| Prettier | `npm run format:check` | Run `npx prettier --write .` to auto-fix |
+| Check      | Command                | Fixes                                    |
+| ---------- | ---------------------- | ---------------------------------------- |
+| TypeScript | `npm run typecheck`    | Fix type errors in code                  |
+| ESLint     | `npm run lint`         | Fix lint issues (max 0 warnings)         |
+| Prettier   | `npm run format:check` | Run `npx prettier --write .` to auto-fix |
 
 ## Auto-fix Formatting
 

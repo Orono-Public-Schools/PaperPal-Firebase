@@ -202,4 +202,8 @@ async function markPaidInLog(submission, settings) {
   })
 }
 
-module.exports = { appendToLog, markPaidInLog, setupLogSheet: findOrCreateLogSheet }
+module.exports = {
+  appendToLog,
+  markPaidInLog,
+  setupLogSheet: findOrCreateLogSheet,
+}
