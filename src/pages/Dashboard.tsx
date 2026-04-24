@@ -766,7 +766,7 @@ function SubmissionList({
             )}
 
             {/* Content */}
-            <div className="flex flex-1 flex-col gap-2 py-3 pl-4 pr-4 sm:flex-row sm:items-center sm:justify-between sm:py-4 sm:pl-5 sm:pr-5">
+            <div className="flex flex-1 flex-col gap-2 py-3 pr-4 pl-4 sm:flex-row sm:items-center sm:justify-between sm:py-4 sm:pr-5 sm:pl-5">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">
                   {s.summary}
