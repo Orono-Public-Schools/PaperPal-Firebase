@@ -1,8 +1,14 @@
 # PaperPal — Plan
 
-## Current Phase: Testing & Stabilization
+## Current Phase: Paid Workflow Enhancements
 
-Testing the full approval workflow (2-step and 4-step), supervisor mappings, and mark-as-paid flow on the preview channel before merging PR #9 to main.
+### 1. PAID Watermark on PDF
+
+When a submission is marked as paid, regenerate the PDF with a "PAID" stamp/watermark and update the existing file in Google Drive so the Drive copy reflects the final payment state.
+
+### 2. Bulk Mark as Paid
+
+Add a batch payment processing view for controller+ roles. Select multiple approved submissions and mark them all as paid in one action — updates Firestore, log sheet, and sends emails for each.
 
 ## Future
 
