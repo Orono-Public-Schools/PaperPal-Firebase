@@ -135,7 +135,7 @@ export default function AppHeader() {
         >
           {/* Left: branding */}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate({ pathname: "/", search: "" })}
             className="group flex cursor-pointer items-center"
             style={{ gap: "2px" }}
           >
