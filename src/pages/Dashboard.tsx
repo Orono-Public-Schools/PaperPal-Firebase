@@ -159,9 +159,12 @@ export default function Dashboard() {
   const tabParam = searchParams.get("tab")
   const viewParam = searchParams.get("view")
   const validTabs = ["pending", "history", "approvals"]
-  const [activeTab, setActiveTabState] = useState(
-    validTabs.includes(tabParam ?? "") ? tabParam! : "new"
-  )
+  const derivedTab = validTabs.includes(tabParam ?? "") ? tabParam! : "new"
+  const [activeTab, setActiveTabState] = useState(derivedTab)
+
+  useEffect(() => {
+    setActiveTabState(derivedTab)
+  }, [derivedTab])
 
   function setActiveTab(tab: string) {
     setActiveTabState(tab)
@@ -211,9 +214,14 @@ export default function Dashboard() {
   )
 
   // Approvals — submissions assigned to this user for review
+  const derivedView = viewParam === "completed" ? "completed" : "pending"
   const [approvalView, setApprovalViewState] = useState<
     "pending" | "completed"
-  >(viewParam === "completed" ? "completed" : "pending")
+  >(derivedView)
+
+  useEffect(() => {
+    setApprovalViewState(derivedView)
+  }, [derivedView])
 
   function setApprovalView(view: "pending" | "completed") {
     setApprovalViewState(view)
