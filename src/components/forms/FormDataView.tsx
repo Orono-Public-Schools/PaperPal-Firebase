@@ -5,7 +5,7 @@ import type {
   TravelExpenseItem,
 } from "@/lib/types"
 
-const MILEAGE_RATE = 0.72
+const MILEAGE_RATE = 0.725
 
 function Field({
   label,
@@ -197,7 +197,7 @@ export function MileageView({ data }: { data: MileageData }) {
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: "#64748b" }}
         >
-          {data.totalMiles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(2)}
+          {data.totalMiles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(3)}
         </span>
         <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
           {currency(data.totalReimbursement)}
@@ -211,6 +211,7 @@ const EXPENSE_CATEGORY_LABELS: Record<TravelExpenseItem["category"], string> = {
   meal: "Meal",
   lodging: "Lodging",
   registration: "Registration",
+  airfare: "Airfare",
   other_transport: "Other Transportation",
 }
 
@@ -316,7 +317,7 @@ export function TravelView({ data }: { data: TravelData }) {
                 <td className="py-2 pr-4">Mileage</td>
                 <td className="py-2 pr-4">
                   {data.actuals.miles.toFixed(1)} mi × $
-                  {MILEAGE_RATE.toFixed(2)}
+                  {MILEAGE_RATE.toFixed(3)}
                 </td>
                 <td className="py-2 pr-4">
                   {currency(data.actuals.miles * MILEAGE_RATE)}
@@ -387,7 +388,7 @@ export function TravelView({ data }: { data: TravelData }) {
                 style={{ borderColor: "rgba(180,185,195,0.25)" }}
               >
                 <td className="py-2 pr-4">
-                  Miles ({data.actuals.miles} × ${MILEAGE_RATE.toFixed(2)})
+                  Miles ({data.actuals.miles} × ${MILEAGE_RATE.toFixed(3)})
                 </td>
                 <td className="py-2 pr-4">
                   {currency(data.actuals.miles * MILEAGE_RATE)}

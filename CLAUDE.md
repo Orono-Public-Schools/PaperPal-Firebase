@@ -7,7 +7,7 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 **Live forms:**
 
 - Check Request (`/forms/check`)
-- Mileage Reimbursement (`/forms/mileage`) — $0.72/mile rate
+- Mileage Reimbursement (`/forms/mileage`) — $0.725/mile rate
 - Travel Reimbursement (`/forms/travel`)
 
 **Approval flow (configurable per-title):**

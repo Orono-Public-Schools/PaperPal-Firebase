@@ -8,12 +8,16 @@ import {
   Loader2,
   MapPin,
   X,
+  FileText,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete, {
   type QuickFill,
 } from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import PolicyDrawer, {
+  TravelPolicyContent,
+} from "@/components/forms/PolicyDrawer"
 import SignatureField, {
   type SignatureFieldRef,
 } from "@/components/forms/SignatureField"
@@ -37,7 +41,7 @@ import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { formatBudgetCode } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
-const RATE = 0.72
+const RATE = 0.725
 
 function emptyTrip(): MileageTrip {
   return {
@@ -92,6 +96,7 @@ export default function MileageReimbursement() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
+  const [policyOpen, setPolicyOpen] = useState(false)
   const [calculatingMiles, setCalculatingMiles] = useState<number | null>(null)
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
 
@@ -332,8 +337,17 @@ export default function MileageReimbursement() {
           Mileage Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Reimbursed at <span className="font-semibold">$0.72 per mile</span>.
-          Enter each trip below and submit for supervisor approval.
+          Reimbursed at <span className="font-semibold">$0.725 per mile</span>.
+          Enter each trip below and submit for supervisor approval.{" "}
+          <button
+            type="button"
+            onClick={() => setPolicyOpen(true)}
+            className="inline-flex cursor-pointer items-center gap-1 underline"
+            style={{ color: "rgba(255,255,255,0.8)" }}
+          >
+            <FileText size={12} />
+            Travel Policy
+          </button>
         </p>
         {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
@@ -509,7 +523,7 @@ export default function MileageReimbursement() {
               Rate
             </span>
             <span className="font-semibold" style={{ color: "#1d2a5d" }}>
-              $0.72 / mile
+              $0.725 / mile
             </span>
           </div>
           <div
@@ -560,6 +574,13 @@ export default function MileageReimbursement() {
           </button>
         </div>
       </form>
+      <PolicyDrawer
+        open={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+        title="Travel Policy"
+      >
+        <TravelPolicyContent />
+      </PolicyDrawer>
     </AppLayout>
   )
 }

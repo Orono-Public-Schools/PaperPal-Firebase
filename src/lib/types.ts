@@ -179,7 +179,7 @@ export interface MileageData {
 }
 
 export interface TravelExpenseItem {
-  category: "meal" | "lodging" | "registration" | "other_transport"
+  category: "meal" | "lodging" | "registration" | "airfare" | "other_transport"
   date: string
   amount: number
   mealType?: "breakfast" | "lunch" | "dinner"
