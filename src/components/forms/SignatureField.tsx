@@ -28,6 +28,7 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
     const [savedMsg, setSavedMsg] = useState(false)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const drawing = useRef(false)
+    const hasDrawn = useRef(false)
 
     useEffect(() => {
       if (mode !== "draw") return
@@ -71,6 +72,7 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
     ) {
       e.preventDefault()
       drawing.current = true
+      hasDrawn.current = true
       const ctx = canvasRef.current?.getContext("2d")
       if (!ctx) return
       const { x, y } = getPos(e)
@@ -103,6 +105,7 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
       if (!ctx) return
       ctx.fillStyle = "#f4f5f7"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
+      hasDrawn.current = false
     }
 
     function getCurrentDataUrl(): string {
@@ -121,6 +124,7 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
         ctx.fillText(typedSig, 16, 50)
         return canvas.toDataURL()
       }
+      if (!hasDrawn.current) return ""
       return canvasRef.current?.toDataURL() ?? ""
     }
 
@@ -135,24 +139,7 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
     }
 
     useImperativeHandle(ref, () => ({
-      getDataUrl: () => {
-        if (mode === "saved") return localSavedUrl ?? ""
-        if (mode === "type") {
-          if (!typedSig.trim()) return ""
-          const canvas = document.createElement("canvas")
-          canvas.width = 400
-          canvas.height = 100
-          const ctx = canvas.getContext("2d")!
-          ctx.fillStyle = "#f4f5f7"
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-          ctx.font = "48px Caveat, cursive"
-          ctx.fillStyle = "#1d2a5d"
-          ctx.textBaseline = "middle"
-          ctx.fillText(typedSig, 16, 50)
-          return canvas.toDataURL()
-        }
-        return canvasRef.current?.toDataURL() ?? ""
-      },
+      getDataUrl: () => getCurrentDataUrl(),
     }))
 
     const modes: { id: SigMode; label: string; icon: typeof Pencil }[] = [
