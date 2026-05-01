@@ -1,14 +1,8 @@
 # PaperPal — Plan
 
-## Current Phase: Paid Workflow Enhancements
+## Current Phase
 
-### 1. PAID Watermark on PDF
-
-When a submission is marked as paid, regenerate the PDF with a "PAID" stamp/watermark and update the existing file in Google Drive so the Drive copy reflects the final payment state.
-
-### 2. Bulk Mark as Paid
-
-Add a batch payment processing view for controller+ roles. Select multiple approved submissions and mark them all as paid in one action — updates Firestore, log sheet, and sends emails for each.
+_No active phase. Pick the next item from Future or wait for new feedback._
 
 ## Future
 
@@ -19,6 +13,11 @@ Add a batch payment processing view for controller+ roles. Select multiple appro
 
 ## Done
 
+- Business office feedback round (mileage rate $0.725, Airfare expense category, meal certification, Travel Policy slide-out drawer)
+- Dashboard tab state persisted in URL (back button restores correct tab/sub-view)
+- Bulk mark as paid (controller+ multi-select on Completed approvals)
+- Undo paid (revert to approved, regenerate PDF without watermark, clear log sheet)
+- PAID watermark on PDF (stamps all pages, updates existing Drive file)
 - Approval history sub-tab (Pending/Completed) in Approvals tab
 - Mark as Paid status (controller+ can mark approved submissions as paid)
 - Sandbox approval flow selector (2-step vs 4-step toggle)
