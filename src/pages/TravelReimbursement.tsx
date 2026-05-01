@@ -57,6 +57,17 @@ function todayStr() {
 
 type ExpenseCategory = TravelExpenseItem["category"]
 
+type TravelCarTrip = {
+  from: string
+  to: string
+  miles: number
+  isRoundTrip: boolean
+}
+
+function emptyCarTrip(): TravelCarTrip {
+  return { from: "", to: "", miles: 0, isRoundTrip: false }
+}
+
 const EXPENSE_CATEGORIES: {
   value: ExpenseCategory
   label: string
@@ -126,9 +137,7 @@ export default function TravelReimbursement() {
     justification: string
     routeRequestTo: string
     advanceRequested: number
-    mileageFrom: string
-    mileageTo: string
-    actMiles: number
+    carTrips: TravelCarTrip[]
     justificationFiles: Attachment[]
     expenses: TravelExpenseItem[]
     taxExemptAcknowledged: boolean
@@ -174,10 +183,15 @@ export default function TravelReimbursement() {
     saved?.advanceRequested ?? 0
   )
 
-  // Mileage within travel
-  const [mileageFrom, setMileageFrom] = useState(saved?.mileageFrom ?? "")
-  const [mileageTo, setMileageTo] = useState(saved?.mileageTo ?? "")
-  const [calculatingMiles, setCalculatingMiles] = useState(false)
+  // Mileage within travel — multiple trips supported
+  const [carTrips, setCarTrips] = useState<TravelCarTrip[]>(
+    saved?.carTrips && saved.carTrips.length > 0
+      ? saved.carTrips
+      : [emptyCarTrip()]
+  )
+  const [calculatingTripIdx, setCalculatingTripIdx] = useState<number | null>(
+    null
+  )
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
 
   // File uploads
@@ -195,9 +209,6 @@ export default function TravelReimbursement() {
   )
   const [estSubstitute, setEstSubstitute] = useState(saved?.estSubstitute ?? 0)
   const [estOther, setEstOther] = useState(saved?.estOther ?? 0)
-
-  // Mileage (stays separate from expenses)
-  const [actMiles, setActMiles] = useState(saved?.actMiles ?? 0)
 
   // Unified expenses
   const [expenses, setExpenses] = useState<TravelExpenseItem[]>(
@@ -231,9 +242,7 @@ export default function TravelReimbursement() {
         justification,
         routeRequestTo,
         advanceRequested,
-        mileageFrom,
-        mileageTo,
-        actMiles,
+        carTrips,
         justificationFiles,
         expenses,
         taxExemptAcknowledged,
@@ -263,9 +272,7 @@ export default function TravelReimbursement() {
     justification,
     routeRequestTo,
     advanceRequested,
-    mileageFrom,
-    mileageTo,
-    actMiles,
+    carTrips,
     justificationFiles,
     expenses,
     taxExemptAcknowledged,
@@ -337,7 +344,12 @@ export default function TravelReimbursement() {
       setEstRegistration(fd.estimated.registration)
       setEstSubstitute(fd.estimated.substitute)
       setEstOther(fd.estimated.other)
-      setActMiles(fd.actuals.miles)
+      // Seed a single trip from legacy submission's flat mileage total
+      if (fd.actuals.miles > 0) {
+        setCarTrips([
+          { from: "", to: "", miles: fd.actuals.miles, isRoundTrip: false },
+        ])
+      }
       if (fd.expenses && fd.expenses.length > 0) {
         setExpenses(fd.expenses)
         setTaxExemptAcknowledged(fd.taxExemptAcknowledged ?? false)
@@ -401,12 +413,26 @@ export default function TravelReimbursement() {
     })
   }, [resubmitId])
 
-  async function calcDistance() {
-    if (mileageFrom.length < 5 || mileageTo.length < 5) return
-    setCalculatingMiles(true)
-    const miles = await calculateDrivingDistance(mileageFrom, mileageTo)
-    setCalculatingMiles(false)
-    if (miles !== null) setActMiles(miles)
+  function updateCarTrip(index: number, updates: Partial<TravelCarTrip>) {
+    setCarTrips((trips) =>
+      trips.map((t, i) => (i === index ? { ...t, ...updates } : t))
+    )
+  }
+
+  function addCarTrip() {
+    setCarTrips((trips) => [...trips, emptyCarTrip()])
+  }
+
+  function removeCarTrip(index: number) {
+    setCarTrips((trips) => trips.filter((_, i) => i !== index))
+  }
+
+  async function calcTripDistance(index: number, from: string, to: string) {
+    if (from.length < 5 || to.length < 5) return
+    setCalculatingTripIdx(index)
+    const miles = await calculateDrivingDistance(from, to)
+    setCalculatingTripIdx((prev) => (prev === index ? null : prev))
+    if (miles !== null) updateCarTrip(index, { miles })
   }
 
   async function handleFileUpload(files: FileList | null) {
@@ -485,8 +511,12 @@ export default function TravelReimbursement() {
   }
 
   const MILEAGE_RATE = 0.725
+  const effectiveActMiles = carTrips.reduce(
+    (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
+    0
+  )
   const expensesTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
-  const actTotal = actMiles * MILEAGE_RATE + expensesTotal
+  const actTotal = effectiveActMiles * MILEAGE_RATE + expensesTotal
 
   const estTotal =
     estTransport +
@@ -567,7 +597,7 @@ export default function TravelReimbursement() {
           total: estTotal,
         },
         actuals: {
-          miles: actMiles,
+          miles: effectiveActMiles,
           otherTransport: otherTransportTotal,
           lodging: lodgingTotal,
           registration: registrationTotal,
@@ -1124,77 +1154,163 @@ export default function TravelReimbursement() {
               Rate: ${MILEAGE_RATE.toFixed(3)} / mile
             </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="From">
-              <AddressAutocomplete
-                value={mileageFrom}
-                onChange={setMileageFrom}
-                onSelect={(v) => {
-                  setMileageFrom(v)
-                  if (mileageTo.length >= 5) calcDistance()
-                }}
-                placeholder="Origin"
-                quickFills={quickFills}
-                showAddHome={!userProfile?.homeAddress}
-              />
-            </Field>
-            <Field label="To">
-              <AddressAutocomplete
-                value={mileageTo}
-                onChange={setMileageTo}
-                onSelect={(v) => {
-                  setMileageTo(v)
-                  if (mileageFrom.length >= 5) calcDistance()
-                }}
-                placeholder="Destination"
-                quickFills={quickFills}
-                showAddHome={!userProfile?.homeAddress}
-              />
-            </Field>
-            <Field label="Miles">
-              <div className="flex gap-1.5">
-                <input
-                  type="number"
-                  value={actMiles || ""}
-                  min={0}
-                  step="0.1"
-                  placeholder="0.0"
-                  onChange={(e) => setActMiles(parseFloat(e.target.value) || 0)}
-                  className="input-neu w-full"
-                />
-                <button
-                  type="button"
-                  disabled={
-                    mileageFrom.length < 5 ||
-                    mileageTo.length < 5 ||
-                    calculatingMiles
-                  }
-                  onClick={calcDistance}
-                  className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
-                  style={{ color: calculatingMiles ? "#4356a9" : "#64748b" }}
-                  title="Calculate distance"
-                >
-                  {calculatingMiles ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <MapPin size={16} />
-                  )}
-                </button>
-              </div>
-            </Field>
-            <Field label="Mileage Cost">
-              <div
-                className="input-neu flex items-center"
-                style={{
-                  background: "#f0f2f5",
-                  color: "#1d2a5d",
-                  fontWeight: 600,
-                }}
-              >
-                ${(actMiles * MILEAGE_RATE).toFixed(2)}
-              </div>
-            </Field>
+          <div className="divide-y" style={{ borderColor: "#e5e7eb" }}>
+            {carTrips.map((trip, idx) => {
+              const tripEffective = trip.isRoundTrip
+                ? trip.miles * 2
+                : trip.miles
+              const isCalcing = calculatingTripIdx === idx
+              const canCalc =
+                trip.from.length >= 5 && trip.to.length >= 5 && !isCalcing
+              return (
+                <div key={idx} className="py-3 first:pt-0 last:pb-0">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="From">
+                      <AddressAutocomplete
+                        value={trip.from}
+                        onChange={(v) => updateCarTrip(idx, { from: v })}
+                        onSelect={(v) => {
+                          updateCarTrip(idx, { from: v })
+                          if (trip.to.length >= 5)
+                            calcTripDistance(idx, v, trip.to)
+                        }}
+                        placeholder="Origin"
+                        quickFills={quickFills}
+                        showAddHome={!userProfile?.homeAddress}
+                      />
+                    </Field>
+                    <Field label="To">
+                      <AddressAutocomplete
+                        value={trip.to}
+                        onChange={(v) => updateCarTrip(idx, { to: v })}
+                        onSelect={(v) => {
+                          updateCarTrip(idx, { to: v })
+                          if (trip.from.length >= 5)
+                            calcTripDistance(idx, trip.from, v)
+                        }}
+                        placeholder="Destination"
+                        quickFills={quickFills}
+                        showAddHome={!userProfile?.homeAddress}
+                      />
+                    </Field>
+                    <Field label="Miles">
+                      <div className="flex gap-1.5">
+                        <input
+                          type="number"
+                          value={trip.miles || ""}
+                          min={0}
+                          step="0.1"
+                          placeholder="0.0"
+                          onChange={(e) =>
+                            updateCarTrip(idx, {
+                              miles: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="input-neu w-full"
+                        />
+                        <button
+                          type="button"
+                          disabled={!canCalc}
+                          onClick={() =>
+                            calcTripDistance(idx, trip.from, trip.to)
+                          }
+                          className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
+                          style={{ color: isCalcing ? "#4356a9" : "#64748b" }}
+                          title="Calculate distance"
+                        >
+                          {isCalcing ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <MapPin size={16} />
+                          )}
+                        </button>
+                      </div>
+                    </Field>
+                    <Field label="Mileage Cost">
+                      <div
+                        className="input-neu flex items-center"
+                        style={{
+                          background: "#f0f2f5",
+                          color: "#1d2a5d",
+                          fontWeight: 600,
+                        }}
+                      >
+                        ${(tripEffective * MILEAGE_RATE).toFixed(2)}
+                      </div>
+                    </Field>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <label
+                      className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                      style={{ color: "#334155" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={trip.isRoundTrip}
+                        onChange={(e) =>
+                          updateCarTrip(idx, { isRoundTrip: e.target.checked })
+                        }
+                        className="h-4 w-4 cursor-pointer accent-[#4356a9]"
+                      />
+                      Round trip
+                      {trip.isRoundTrip && trip.miles > 0 && (
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: "#4356a9" }}
+                        >
+                          ({(trip.miles * 2).toFixed(1)} mi total)
+                        </span>
+                      )}
+                    </label>
+                    {carTrips.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeCarTrip(idx)}
+                        className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+                        style={{ color: "#94a3b8" }}
+                        onMouseEnter={(e) =>
+                          ((e.currentTarget as HTMLButtonElement).style.color =
+                            "#ad2122")
+                        }
+                        onMouseLeave={(e) =>
+                          ((e.currentTarget as HTMLButtonElement).style.color =
+                            "#94a3b8")
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
+          <button
+            type="button"
+            onClick={addCarTrip}
+            className="mt-4 flex cursor-pointer items-center gap-1.5 text-sm font-semibold"
+            style={{ color: "#4356a9" }}
+          >
+            <Plus size={14} />
+            Add another trip
+          </button>
+          {carTrips.length > 1 && (
+            <div
+              className="mt-4 flex items-center justify-between rounded-lg px-3 py-2"
+              style={{ background: "#f8f9fb" }}
+            >
+              <span
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Total Mileage
+              </span>
+              <span className="text-sm font-bold" style={{ color: "#1d2a5d" }}>
+                {effectiveActMiles.toFixed(1)} mi · $
+                {(effectiveActMiles * MILEAGE_RATE).toFixed(2)}
+              </span>
+            </div>
+          )}
         </Section>
 
         {/* Unified Expenses */}
