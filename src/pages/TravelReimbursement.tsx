@@ -21,6 +21,9 @@ import AddressAutocomplete, {
   type QuickFill,
 } from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import PolicyDrawer, {
+  TravelPolicyContent,
+} from "@/components/forms/PolicyDrawer"
 import SignatureField, {
   type SignatureFieldRef,
 } from "@/components/forms/SignatureField"
@@ -62,6 +65,7 @@ const EXPENSE_CATEGORIES: {
   { value: "meal", label: "Meal", icon: "🍽" },
   { value: "lodging", label: "Lodging", icon: "🏨" },
   { value: "registration", label: "Registration", icon: "🎫" },
+  { value: "airfare", label: "Airfare", icon: "✈️" },
   { value: "other_transport", label: "Other Transportation", icon: "🚌" },
 ]
 
@@ -480,7 +484,7 @@ export default function TravelReimbursement() {
     }
   }
 
-  const MILEAGE_RATE = 0.72
+  const MILEAGE_RATE = 0.725
   const expensesTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
   const actTotal = actMiles * MILEAGE_RATE + expensesTotal
 
@@ -496,6 +500,7 @@ export default function TravelReimbursement() {
   const [sandboxApproverStep, setSandboxApproverStep] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [policyOpen, setPolicyOpen] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
 
   function updateExpense(index: number, updates: Partial<TravelExpenseItem>) {
@@ -710,8 +715,16 @@ export default function TravelReimbursement() {
           Travel Reimbursement
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Request reimbursement for travel with pre-approved and actual
-          expenses.
+          Request reimbursement for travel expenses.{" "}
+          <button
+            type="button"
+            onClick={() => setPolicyOpen(true)}
+            className="inline-flex cursor-pointer items-center gap-1 underline"
+            style={{ color: "rgba(255,255,255,0.8)" }}
+          >
+            <FileText size={12} />
+            Travel Policy
+          </button>
         </p>
         {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
@@ -1108,7 +1121,7 @@ export default function TravelReimbursement() {
               Mileage Calculator
             </p>
             <span className="text-xs" style={{ color: "#94a3b8" }}>
-              Rate: ${MILEAGE_RATE.toFixed(2)} / mile
+              Rate: ${MILEAGE_RATE.toFixed(3)} / mile
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1513,8 +1526,8 @@ export default function TravelReimbursement() {
             )}
           </div>
 
-          {/* Tax exempt acknowledgment */}
-          {expenses.length > 0 && (
+          {/* Meal certification */}
+          {expenses.some((e) => e.category === "meal") && (
             <label
               className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
               style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
@@ -1530,8 +1543,8 @@ export default function TravelReimbursement() {
                 className="text-xs font-medium"
                 style={{ color: "#ad2122" }}
               >
-                I confirm all amounts are pre-tax (Orono Public Schools is
-                tax-exempt)
+                I confirm that the meals listed were not provided at the
+                conference or event and are eligible for reimbursement
               </span>
             </label>
           )}
@@ -1622,6 +1635,13 @@ export default function TravelReimbursement() {
           </button>
         </div>
       </form>
+      <PolicyDrawer
+        open={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+        title="Travel Policy"
+      >
+        <TravelPolicyContent />
+      </PolicyDrawer>
     </AppLayout>
   )
 }

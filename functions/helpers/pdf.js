@@ -2,7 +2,7 @@ const PDFDocument = require("pdfkit")
 const https = require("https")
 const { PDFDocument: PDFLib, rgb, degrees } = require("pdf-lib")
 
-const MILEAGE_RATE = 0.72
+const MILEAGE_RATE = 0.725
 
 const FORM_LABELS = {
   check: "Check Request",
@@ -407,7 +407,7 @@ function renderMileage(doc, data) {
     .fontSize(9)
     .fillColor(LABEL_COLOR)
     .text(
-      `${data.totalMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(2)} = `,
+      `${data.totalMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)} = `,
       50,
       doc.y,
       { continued: true }
@@ -491,6 +491,7 @@ function renderTravel(doc, data) {
     meal: "Meal",
     lodging: "Lodging",
     registration: "Registration",
+    airfare: "Airfare",
     other_transport: "Other Transportation",
   }
 
@@ -512,7 +513,7 @@ function renderTravel(doc, data) {
         [
           "—",
           "Mileage",
-          `${data.actuals.miles} mi × $${MILEAGE_RATE.toFixed(2)}`,
+          `${data.actuals.miles} mi × $${MILEAGE_RATE.toFixed(3)}`,
           currency(mileageCost),
         ],
         expCols,
@@ -551,7 +552,7 @@ function renderTravel(doc, data) {
 
     const actRows = [
       [
-        `Miles (${data.actuals.miles} × $${MILEAGE_RATE.toFixed(2)})`,
+        `Miles (${data.actuals.miles} × $${MILEAGE_RATE.toFixed(3)})`,
         currency(data.actuals.miles * MILEAGE_RATE),
       ],
       ["Other Transport", currency(data.actuals.otherTransport)],
