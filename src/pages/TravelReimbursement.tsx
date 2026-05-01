@@ -542,6 +542,11 @@ export default function TravelReimbursement() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
+    const signatureUrl = signatureRef.current?.getDataUrl() ?? ""
+    if (!signatureUrl) {
+      alert("Please add your signature before submitting.")
+      return
+    }
     setSubmitting(true)
     try {
       // Build legacy actuals from new expenses for backward compat
@@ -630,7 +635,7 @@ export default function TravelReimbursement() {
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
           ...approverFields,
-          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          employeeSignatureUrl: signatureUrl,
           formData,
           attachments: justificationFiles,
           summary: `Travel — ${meetingTitle || location}`,
@@ -664,7 +669,7 @@ export default function TravelReimbursement() {
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
           ...approverFields,
-          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          employeeSignatureUrl: signatureUrl,
           formData,
           attachments: justificationFiles,
           revisionHistory: [],

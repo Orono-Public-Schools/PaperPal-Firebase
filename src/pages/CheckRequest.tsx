@@ -233,6 +233,11 @@ export default function CheckRequest() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
+    const signatureUrl = signatureRef.current?.getDataUrl() ?? ""
+    if (!signatureUrl) {
+      alert("Please add your signature before submitting.")
+      return
+    }
     setSubmitting(true)
     try {
       const formData = {
@@ -262,7 +267,7 @@ export default function CheckRequest() {
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
           ...approverFields,
-          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          employeeSignatureUrl: signatureUrl,
           formData,
           summary: `Check Request — ${payee}`,
           amount: grandTotal,
@@ -295,7 +300,7 @@ export default function CheckRequest() {
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
           ...approverFields,
-          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          employeeSignatureUrl: signatureUrl,
           formData,
           attachments: receipts,
           revisionHistory: [],

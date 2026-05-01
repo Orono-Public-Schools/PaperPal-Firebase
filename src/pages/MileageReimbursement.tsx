@@ -193,6 +193,11 @@ export default function MileageReimbursement() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
+    const signatureUrl = signatureRef.current?.getDataUrl() ?? ""
+    if (!signatureUrl) {
+      alert("Please add your signature before submitting.")
+      return
+    }
     setSubmitting(true)
     try {
       const formData = {
@@ -222,7 +227,7 @@ export default function MileageReimbursement() {
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
           ...approverFields,
-          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          employeeSignatureUrl: signatureUrl,
           formData,
           summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
           amount: totalReimbursement,
@@ -255,7 +260,7 @@ export default function MileageReimbursement() {
             ? (user.email ?? "")
             : routeRequestTo || userProfile.supervisorEmail || "",
           ...approverFields,
-          employeeSignatureUrl: signatureRef.current?.getDataUrl() ?? "",
+          employeeSignatureUrl: signatureUrl,
           formData,
           attachments: [],
           revisionHistory: [],
