@@ -14,6 +14,7 @@ import {
   ArrowRightLeft,
   Printer,
   Download,
+  Pencil,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import SignatureField, {
@@ -115,7 +116,13 @@ const FORM_LABELS: Record<string, string> = {
   travel: "Travel Reimbursement",
 }
 
-type ActionMode = null | "approve" | "deny" | "revisions" | "redirect"
+type ActionMode =
+  | null
+  | "approve"
+  | "deny"
+  | "revisions"
+  | "redirect"
+  | "return_to_supervisor"
 
 export default function FormView() {
   const { id } = useParams<{ type: string; id: string }>()
@@ -365,6 +372,39 @@ export default function FormView() {
     } catch (err) {
       console.error("Failed to request revisions:", err)
       alert("Failed to request revisions. Please try again.")
+    }
+    setActing(false)
+  }
+
+  async function handleReturnToSupervisor() {
+    if (!submission || !comments.trim()) return
+    setActing(true)
+    try {
+      await updateSubmission(submission.id, {
+        status: "pending",
+        revisionComments: comments.trim(),
+        // Clear the supervisor's signature so they re-sign on re-approval
+        supervisorSignatureUrl: deleteField() as never,
+        reviewedAt: deleteField() as never,
+        activityLog: arrayUnion({
+          action: "returned_to_supervisor",
+          by: email,
+          at: Timestamp.now(),
+          comments: comments.trim(),
+        }),
+      })
+      const updated = {
+        ...submission,
+        status: "pending" as SubmissionStatus,
+        revisionComments: comments.trim(),
+      }
+      setSubmission(updated)
+      setActionMode(null)
+      setComments("")
+      setActionDone("Returned to supervisor — they have been notified")
+    } catch (err) {
+      console.error("Failed to return to supervisor:", err)
+      alert("Failed to return to supervisor. Please try again.")
     }
     setActing(false)
   }
@@ -764,6 +804,28 @@ export default function FormView() {
                     </button>
                   </>
                 )}
+                {canFinalApproverAct && (
+                  <>
+                    <button
+                      onClick={() => setActionMode("return_to_supervisor")}
+                      className="btn-action-revisions"
+                    >
+                      <RotateCcw size={16} />
+                      Return to Supervisor
+                    </button>
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/forms/${submission.formType}?edit=${submission.id}`
+                        )
+                      }
+                      className="btn-action-revisions"
+                    >
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setActionMode("deny")}
                   className="btn-action-deny"
@@ -914,6 +976,50 @@ export default function FormView() {
                       <RotateCcw size={14} />
                     )}
                     {acting ? "Sending…" : "Request Revisions"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActionMode(null)
+                      setComments("")
+                    }}
+                    className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium"
+                    style={{ color: "#64748b" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Return to supervisor mode — comments */}
+            {actionMode === "return_to_supervisor" && (
+              <div>
+                <p className="mb-3 text-sm" style={{ color: "#64748b" }}>
+                  Send this request back to{" "}
+                  {submission.supervisorName || "the supervisor"} with a note.
+                  They will be notified and can edit, re-approve, or take
+                  further action.
+                </p>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="What needs the supervisor's attention…"
+                  rows={3}
+                  className="input-neu mb-3 w-full"
+                  style={{ resize: "vertical" }}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleReturnToSupervisor}
+                    disabled={acting || !comments.trim()}
+                    className="btn-action-revisions-solid"
+                  >
+                    {acting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={14} />
+                    )}
+                    {acting ? "Sending…" : "Return to Supervisor"}
                   </button>
                   <button
                     onClick={() => {
@@ -1163,6 +1269,11 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   redirected: { label: "Redirected", color: "#4356a9" },
   marked_as_paid: { label: "Marked as Paid", color: "#059669" },
   unmarked_as_paid: { label: "Reverted to Approved", color: "#64748b" },
+  returned_to_supervisor: {
+    label: "Returned to Supervisor",
+    color: "#c2410c",
+  },
+  edited_by_controller: { label: "Edited by Controller", color: "#4356a9" },
 }
 
 function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {

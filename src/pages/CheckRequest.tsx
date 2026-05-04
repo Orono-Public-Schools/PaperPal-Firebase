@@ -76,6 +76,9 @@ export default function CheckRequest() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
+  const editId = searchParams.get("edit")
+  const loadId = resubmitId || editId
+  const isEdit = !!editId
   const signatureRef = useRef<SignatureFieldRef>(null)
   const draft = useDraft<{
     submitterName: string
@@ -89,7 +92,7 @@ export default function CheckRequest() {
     zip: string
     expenses: CheckRequestExpense[]
     receipts: Attachment[]
-  }>("paperpal-draft-check", !!resubmitId)
+  }>("paperpal-draft-check", !!loadId)
   const {
     save: saveDraft,
     load: loadDraft,
@@ -168,10 +171,10 @@ export default function CheckRequest() {
     receipts,
   ])
 
-  // Load existing submission for resubmit
+  // Load existing submission for resubmit or controller edit
   useEffect(() => {
-    if (!resubmitId) return
-    getSubmission(resubmitId).then((sub) => {
+    if (!loadId) return
+    getSubmission(loadId).then((sub) => {
       if (!sub || sub.formType !== "check") return
       const fd = sub.formData as CheckRequestData
       setSubmitterName(sub.submitterName)
@@ -184,8 +187,9 @@ export default function CheckRequest() {
       setState(fd.address?.state ?? "")
       setZip(fd.address?.zip ?? "")
       setExpenses(fd.expenses.length > 0 ? fd.expenses : [emptyExpense()])
+      setReceipts(sub.attachments ?? [])
     })
-  }, [resubmitId])
+  }, [loadId])
 
   const grandTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
 
@@ -233,8 +237,10 @@ export default function CheckRequest() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
-    const signatureUrl = signatureRef.current?.getDataUrl() ?? ""
-    if (!signatureUrl) {
+    const signatureUrl = isEdit
+      ? ""
+      : (signatureRef.current?.getDataUrl() ?? "")
+    if (!isEdit && !signatureUrl) {
       alert("Please add your signature before submitting.")
       return
     }
@@ -259,7 +265,20 @@ export default function CheckRequest() {
           }
         : {}
 
-      if (resubmitId) {
+      if (editId) {
+        await updateSubmission(editId, {
+          formData,
+          attachments: receipts,
+          summary: `Check Request — ${payee}`,
+          amount: grandTotal,
+          activityLog: arrayUnion({
+            action: "edited_by_controller",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
+        })
+        setSubmissionId(editId)
+      } else if (resubmitId) {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
@@ -318,6 +337,10 @@ export default function CheckRequest() {
         setSubmissionId(id)
       }
       clearDraft()
+      if (isEdit && editId) {
+        navigate(`/forms/check/${editId}`)
+        return
+      }
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -379,10 +402,12 @@ export default function CheckRequest() {
           className="text-xl font-bold sm:text-2xl"
           style={{ color: "#ffffff" }}
         >
-          Check Request
+          {isEdit ? "Edit Check Request" : "Check Request"}
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Submit a payment request for a vendor or service.
+          {isEdit
+            ? "Editing as controller — changes will not change the approval status."
+            : "Submit a payment request for a vendor or service."}
         </p>
         {draftLastSaved && (
           <div className="mt-2 flex items-center gap-3">
@@ -438,7 +463,7 @@ export default function CheckRequest() {
               </Field>
             )}
           </div>
-          {isVisible("routeTo") && (
+          {isVisible("routeTo") && !isEdit && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Route To">
                 <StaffEmailAutocomplete
@@ -729,19 +754,21 @@ export default function CheckRequest() {
           </div>
         </div>
 
-        <Section title="Employee Signature" style={{ order: 91 }}>
-          <SignatureField
-            ref={signatureRef}
-            savedSignatureUrl={userProfile?.savedSignatureUrl}
-            fullName={userProfile?.fullName}
-            onSaveSignature={(dataUrl) => {
-              if (user)
-                createOrUpdateUserProfile(user.uid, {
-                  savedSignatureUrl: dataUrl,
-                })
-            }}
-          />
-        </Section>
+        {!isEdit && (
+          <Section title="Employee Signature" style={{ order: 91 }}>
+            <SignatureField
+              ref={signatureRef}
+              savedSignatureUrl={userProfile?.savedSignatureUrl}
+              fullName={userProfile?.fullName}
+              onSaveSignature={(dataUrl) => {
+                if (user)
+                  createOrUpdateUserProfile(user.uid, {
+                    savedSignatureUrl: dataUrl,
+                  })
+              }}
+            />
+          </Section>
+        )}
 
         {/* Actions */}
         <div
@@ -760,7 +787,15 @@ export default function CheckRequest() {
             <div className="svg-wrapper">
               <Send size={16} />
             </div>
-            <span>{submitting ? "Submitting…" : "Submit"}</span>
+            <span>
+              {submitting
+                ? isEdit
+                  ? "Saving…"
+                  : "Submitting…"
+                : isEdit
+                  ? "Save Changes"
+                  : "Submit"}
+            </span>
           </button>
         </div>
       </form>

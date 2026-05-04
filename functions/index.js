@@ -24,6 +24,7 @@ const {
   sendRedirectedEmails,
   sendApproverApprovedEmails,
   sendPaidEmails,
+  sendReturnedToSupervisorEmails,
 } = require("./helpers/email")
 
 initializeApp()
@@ -307,6 +308,10 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
       (after.activityLog || []).length > (before.activityLog || []).length &&
       !isRedirect
 
+    // Detect return-to-supervisor: reviewed → pending
+    const isReturnedToSupervisor =
+      before.status === "reviewed" && after.status === "pending"
+
     // Only fire on actual status transitions, redirects, or resubmits
     if (before.status === after.status && !isRedirect && !isResubmitFromPending)
       return
@@ -335,11 +340,14 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
 
       switch (after.status) {
         case "pending":
-          // Resubmit: revisions_requested → pending, or pending → pending (edit & resubmit)
-          if (
+          if (isReturnedToSupervisor) {
+            await sendReturnedToSupervisorEmails(after, settings, pdfBuffer)
+            console.log(`Return-to-supervisor emails sent for ${after.id}`)
+          } else if (
             before.status === "revisions_requested" ||
             isResubmitFromPending
           ) {
+            // Resubmit: revisions_requested → pending, or pending → pending (edit & resubmit)
             await sendResubmittedEmails(after, settings, pdfBuffer)
             console.log(`Resubmit emails sent for ${after.id}`)
           }

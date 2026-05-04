@@ -404,6 +404,36 @@ async function sendRedirectedEmails(
   }
 }
 
+// ─── On Returned to Supervisor (controller sends back) ────────────────────
+
+async function sendReturnedToSupervisorEmails(submission, settings, pdfBuffer) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const fname = pdfFilename(submission)
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+  const note = submission.revisionComments || ""
+
+  if (submission.supervisorEmail) {
+    await sendMail(
+      sandboxTo(submission, submission.supervisorEmail),
+      `${tag}[PaperPal] ${formLabel} Returned to You — ${submission.submitterName}`,
+      emailHtml({
+        heading: `${formLabel} Returned for Your Review`,
+        body: `
+          <p>The controller has returned <strong>${submission.submitterName}</strong>'s ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> back to you for further review.</p>
+          <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+          ${note ? `<div style="background: #f8f9fb; border-left: 3px solid #c2410c; padding: 12px 16px; margin: 16px 0; border-radius: 4px;"><p style="margin: 0; color: #334155; font-size: 13px;"><strong>Note from controller:</strong></p><p style="margin: 6px 0 0; color: #334155; font-size: 13px;">${note}</p></div>` : ""}
+          <p>Please review, edit if needed, and re-approve.</p>
+        `,
+        link,
+        linkLabel: "Review Request",
+      }),
+      pdfBuffer,
+      fname
+    )
+  }
+}
+
 // ─── On Approver Approve (approved_by_approver) ────────────────────────────
 
 async function sendApproverApprovedEmails(submission, settings, pdfBuffer) {
@@ -483,4 +513,5 @@ module.exports = {
   sendRedirectedEmails,
   sendApproverApprovedEmails,
   sendPaidEmails,
+  sendReturnedToSupervisorEmails,
 }

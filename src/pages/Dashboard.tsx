@@ -179,7 +179,7 @@ export default function Dashboard() {
   } | null>(null)
 
   useEffect(() => {
-    if (!user || (activeTab !== "pending" && activeTab !== "history")) return
+    if (!user) return
     let cancelled = false
     getUserSubmissions(user.uid)
       .then((data) => {
@@ -189,7 +189,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [user, activeTab])
+  }, [user])
 
   const allSubmissions =
     submissionData && submissionData.uid === user?.uid
@@ -234,7 +234,7 @@ export default function Dashboard() {
     approvalView === "completed" && completedData === null
 
   useEffect(() => {
-    if (activeTab !== "approvals" || !userProfile?.email) return
+    if (!userProfile?.email) return
     let cancelled = false
     const email = userProfile.email.toLowerCase()
     Promise.all([
@@ -264,7 +264,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [activeTab, userProfile?.email])
+  }, [userProfile?.email])
 
   useEffect(() => {
     if (
@@ -301,6 +301,13 @@ export default function Dashboard() {
       cancelled = true
     }
   }, [activeTab, approvalView, userProfile?.email, userProfile?.role])
+
+  // Tab badge flags
+  const hasPendingDot = pendingSubmissions.length > 0
+  const hasApprovalDot =
+    (approvalData ?? []).filter((s) =>
+      sandbox ? s.sandbox === true : !s.sandbox
+    ).length > 0
 
   // Bulk mark-as-paid (controller+ only)
   const isController = ["controller", "business_office", "admin"].includes(
@@ -381,11 +388,14 @@ export default function Dashboard() {
       >
         {TABS.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id
+          const showDot =
+            (id === "pending" && hasPendingDot) ||
+            (id === "approvals" && hasApprovalDot)
           return (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4"
+              className="relative flex cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4"
               style={
                 active
                   ? {
@@ -411,6 +421,17 @@ export default function Dashboard() {
             >
               <Icon size={15} />
               {label}
+              {showDot && (
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    background: active ? "#ffffff" : "#ef4444",
+                    boxShadow: active
+                      ? "0 0 6px rgba(255,255,255,0.6)"
+                      : "0 0 6px rgba(239,68,68,0.6)",
+                  }}
+                />
+              )}
             </button>
           )
         })}
