@@ -412,7 +412,7 @@ export async function updateBudgetSegments(
   await setDoc(ref, data)
 }
 
-// ─── Supervisor Mappings ────────────────────────────────────────────────────
+// ─── Workflow Mapping ───────────────────────────────────────────────────────
 
 export async function getSupervisorMappings(): Promise<SupervisorMapping[]> {
   const ref = doc(db, "settings", "supervisorMappings")
@@ -460,7 +460,7 @@ export async function resolveSupervisor(email: string): Promise<{
   const staff = staffSnap.data() as StaffRecord
   if (!staff.title) return null
 
-  // 2. Find a supervisor mapping that includes this title
+  // 2. Find a title workflow mapping that includes this title
   const mappings = await getSupervisorMappings()
   const match = mappings.find((m) =>
     m.titles.some((t) => t.toLowerCase() === staff.title.toLowerCase())
@@ -473,7 +473,7 @@ export async function resolveSupervisor(email: string): Promise<{
       approverName: match.approverName || undefined,
     }
 
-  // 3. Fallback: building supervisor mapping
+  // 3. Fallback: building workflow mapping
   if (staff.building) {
     const buildingMappings = await getBuildingSupervisorMappings()
     const bMatch = buildingMappings.find(

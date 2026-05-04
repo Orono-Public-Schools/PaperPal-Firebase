@@ -1,8 +1,39 @@
 # PaperPal — Plan
 
-## Current Phase
+## Current Phase: Workflow Mapping Overhaul
 
-_No active phase. Pick the next item from Future or wait for new feedback._
+Rename "Supervisor Mappings" → **Workflow Mapping** and rebuild the admin UX. The current admin section (`Admin.tsx:1718–2565`) has two parallel subsections (Building Defaults + Title Overrides) with no inline editing, weak approver visibility, and brittle title management.
+
+### Goals
+
+1. **Rename**: "Supervisor Mappings" → "Workflow Mapping" everywhere (UI, admin tab label, code variable names where reasonable). Backing Firestore doc stays at `settings/supervisorMappings` (no migration).
+2. **Inline edit**: every existing row should be editable in place — supervisor, approver, building/titles. No more delete-and-re-add.
+3. **Clearer routing model**: each row visualizes the resolved chain (Staff → Approver? → Supervisor → Final Approver). Make precedence (title override > building default > profile fallback) visible from the UI.
+4. **Approver as a first-class field**: not buried under "optional"; show pill/badge in the row so admins can scan which mappings have an approver step.
+5. **Coverage gaps**: surface uncovered staff/buildings/titles inline, not in a separate collapsible. One uncovered row should be a one-click "add mapping" affordance.
+6. **Consolidated add flow**: one "Add Mapping" button that asks "By Building" or "By Title" first, then drops into the same form fields. Less duplicate form code.
+7. **Search/filter**: small search box that filters rows by staff name, supervisor, approver, building, or title. The list is small now but will grow.
+
+### Concrete UI changes
+
+- Header: "Workflow Mapping" with one-line summary ("X staff routed via Y mappings · Z uncovered")
+- Single unified table/list of rows, with a "Type" column (Building / Title) so they can coexist visually but stay sortable/filterable
+- Each row in collapsed mode: type badge · scope (building name or title list) · supervisor · approver pill (if any) · staff count · edit/delete icons
+- Expanded edit mode (inline): change supervisor (UserSearchDropdown), change approver (UserSearchDropdown w/ "remove" option), edit building, add/remove titles
+- Uncovered section condensed to one banner with chevron, e.g. "3 buildings + 12 titles uncovered" → expands
+
+### Out of scope for this phase
+
+- Firestore data model changes (keep `mappings[]` and `buildingMappings[]` arrays for now)
+- Bulk import/export of mappings
+- Per-form-type mappings (e.g. different supervisor for Travel vs Mileage)
+
+### Files to touch
+
+- `src/pages/Admin.tsx` — the SupervisorMappingsSection (~850 lines today; should shrink)
+- `src/lib/types.ts` — keep types as-is, possibly rename interface aliases
+- `src/lib/firestore.ts` — `resolveSupervisor()` logic stays unchanged
+- Anywhere "Supervisor Mappings" copy appears (admin tab labels, settings titles)
 
 ## Future
 
