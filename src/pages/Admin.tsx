@@ -1776,8 +1776,7 @@ function buildTitleMapping(
   if (approver) {
     result.approverEmail = approver.email
     result.approverName =
-      approver.fullName ||
-      `${approver.firstName} ${approver.lastName}`.trim()
+      approver.fullName || `${approver.firstName} ${approver.lastName}`.trim()
   }
   return result
 }
@@ -1799,8 +1798,7 @@ function buildBuildingMapping(
   if (approver) {
     result.approverEmail = approver.email
     result.approverName =
-      approver.fullName ||
-      `${approver.firstName} ${approver.lastName}`.trim()
+      approver.fullName || `${approver.firstName} ${approver.lastName}`.trim()
   }
   return result
 }
@@ -1983,9 +1981,7 @@ function WorkflowMappingSection() {
       }
       const oldEmail = row.mapping.supervisorEmail
       const newEmail = supervisor.email
-      const oldIndex = mappings.findIndex(
-        (m) => m.supervisorEmail === oldEmail
-      )
+      const oldIndex = mappings.findIndex((m) => m.supervisorEmail === oldEmail)
       const withoutOld = mappings.filter((m) => m.supervisorEmail !== oldEmail)
       const existingTarget = withoutOld.find(
         (m) => m.supervisorEmail === newEmail
@@ -2273,7 +2269,10 @@ function WorkflowMappingSection() {
             )}
           />
 
-          <div className="my-4 h-px" style={{ background: "rgba(180,185,195,0.25)" }} />
+          <div
+            className="my-4 h-px"
+            style={{ background: "rgba(180,185,195,0.25)" }}
+          />
 
           {/* Title Overrides group */}
           <MappingGroup
@@ -2613,8 +2612,7 @@ function SupervisorApproverFields({
             className="text-xs font-semibold tracking-wider uppercase"
             style={{ color: "#64748b" }}
           >
-            Approver{" "}
-            <span className="font-normal normal-case">(optional)</span>
+            Approver <span className="font-normal normal-case">(optional)</span>
           </p>
           {draftApprover && (
             <button
@@ -2663,10 +2661,7 @@ function TitlePicker({
         }}
       >
         {available.length === 0 ? (
-          <p
-            className="py-2 text-center text-xs"
-            style={{ color: "#94a3b8" }}
-          >
+          <p className="py-2 text-center text-xs" style={{ color: "#94a3b8" }}>
             All titles have mappings assigned.
           </p>
         ) : (
@@ -2722,8 +2717,7 @@ function RoutingChain({
   const steps: { label: string; name: string }[] = []
   if (approverName) steps.push({ label: "Approver", name: approverName })
   steps.push({ label: "Supervisor", name: supervisorName })
-  if (finalApproverName)
-    steps.push({ label: "Final", name: finalApproverName })
+  if (finalApproverName) steps.push({ label: "Final", name: finalApproverName })
 
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -2798,9 +2792,7 @@ function WorkflowRowCard({
   const titleMapping =
     row.kind === "title" ? (row.mapping as SupervisorMapping) : null
   const buildingMapping =
-    row.kind === "building"
-      ? (row.mapping as BuildingSupervisorMapping)
-      : null
+    row.kind === "building" ? (row.mapping as BuildingSupervisorMapping) : null
 
   return (
     <div
@@ -2884,12 +2876,8 @@ function WorkflowRowCard({
               className="cursor-pointer rounded p-1 transition-colors"
               style={{ color: "#64748b" }}
               title="Edit"
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = "#1d2a5d")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "#64748b")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#1d2a5d")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
             >
               <Pencil size={13} />
             </button>
@@ -2898,12 +2886,8 @@ function WorkflowRowCard({
               className="cursor-pointer rounded p-1 transition-colors"
               style={{ color: "#94a3b8" }}
               title="Delete"
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = "#ad2122")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "#94a3b8")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
             >
               <Trash2 size={13} />
             </button>
@@ -2992,8 +2976,7 @@ function WorkflowRowCard({
               }
               className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
               style={{
-                background:
-                  "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                background: "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
               }}
             >
               <Check size={13} />
