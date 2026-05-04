@@ -61,6 +61,9 @@ export default function MileageReimbursement() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
+  const editId = searchParams.get("edit")
+  const loadId = resubmitId || editId
+  const isEdit = !!editId
   const signatureRef = useRef<SignatureFieldRef>(null)
   const draft = useDraft<{
     submitterName: string
@@ -68,7 +71,7 @@ export default function MileageReimbursement() {
     employeeId: string
     accountCode: string
     trips: MileageTrip[]
-  }>("paperpal-draft-mileage", !!resubmitId)
+  }>("paperpal-draft-mileage", !!loadId)
   const {
     save: saveDraft,
     load: loadDraft,
@@ -138,10 +141,10 @@ export default function MileageReimbursement() {
     })
   }, [userProfile?.homeAddress])
 
-  // Load existing submission for resubmit
+  // Load existing submission for resubmit or controller edit
   useEffect(() => {
-    if (!resubmitId) return
-    getSubmission(resubmitId).then((sub) => {
+    if (!loadId) return
+    getSubmission(loadId).then((sub) => {
       if (!sub || sub.formType !== "mileage") return
       const fd = sub.formData as MileageData
       setSubmitterName(sub.submitterName)
@@ -150,7 +153,7 @@ export default function MileageReimbursement() {
       setAccountCode(fd.accountCode)
       setTrips(fd.trips.length > 0 ? fd.trips : [emptyTrip()])
     })
-  }, [resubmitId])
+  }, [loadId])
 
   // Auto-calculate distance when From or To changes
   async function calcDistance(index: number, from: string, to: string) {
@@ -193,8 +196,10 @@ export default function MileageReimbursement() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
-    const signatureUrl = signatureRef.current?.getDataUrl() ?? ""
-    if (!signatureUrl) {
+    const signatureUrl = isEdit
+      ? ""
+      : (signatureRef.current?.getDataUrl() ?? "")
+    if (!isEdit && !signatureUrl) {
       alert("Please add your signature before submitting.")
       return
     }
@@ -219,7 +224,19 @@ export default function MileageReimbursement() {
           }
         : {}
 
-      if (resubmitId) {
+      if (editId) {
+        await updateSubmission(editId, {
+          formData,
+          summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
+          amount: totalReimbursement,
+          activityLog: arrayUnion({
+            action: "edited_by_controller",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
+        })
+        setSubmissionId(editId)
+      } else if (resubmitId) {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
@@ -278,6 +295,10 @@ export default function MileageReimbursement() {
         setSubmissionId(id)
       }
       clearDraft()
+      if (isEdit && editId) {
+        navigate(`/forms/mileage/${editId}`)
+        return
+      }
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -339,11 +360,19 @@ export default function MileageReimbursement() {
           className="text-xl font-bold sm:text-2xl"
           style={{ color: "#ffffff" }}
         >
-          Mileage Reimbursement
+          {isEdit ? "Edit Mileage Reimbursement" : "Mileage Reimbursement"}
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Reimbursed at <span className="font-semibold">$0.725 per mile</span>.
-          Enter each trip below and submit for supervisor approval.{" "}
+          {isEdit
+            ? "Editing as controller — changes will not change the approval status."
+            : null}
+          {!isEdit && (
+            <>
+              Reimbursed at{" "}
+              <span className="font-semibold">$0.725 per mile</span>. Enter each
+              trip below and submit for supervisor approval.{" "}
+            </>
+          )}
           <button
             type="button"
             onClick={() => setPolicyOpen(true)}
@@ -435,7 +464,7 @@ export default function MileageReimbursement() {
                 )}
               </Field>
             )}
-            {isVisible("routeTo") && (
+            {isVisible("routeTo") && !isEdit && (
               <Field label="Route To">
                 <StaffEmailAutocomplete
                   value={routeRequestTo}
@@ -544,19 +573,21 @@ export default function MileageReimbursement() {
           </div>
         </div>
 
-        <Section title="Employee Signature" style={{ order: 91 }}>
-          <SignatureField
-            ref={signatureRef}
-            savedSignatureUrl={userProfile?.savedSignatureUrl}
-            fullName={userProfile?.fullName}
-            onSaveSignature={(dataUrl) => {
-              if (user)
-                createOrUpdateUserProfile(user.uid, {
-                  savedSignatureUrl: dataUrl,
-                })
-            }}
-          />
-        </Section>
+        {!isEdit && (
+          <Section title="Employee Signature" style={{ order: 91 }}>
+            <SignatureField
+              ref={signatureRef}
+              savedSignatureUrl={userProfile?.savedSignatureUrl}
+              fullName={userProfile?.fullName}
+              onSaveSignature={(dataUrl) => {
+                if (user)
+                  createOrUpdateUserProfile(user.uid, {
+                    savedSignatureUrl: dataUrl,
+                  })
+              }}
+            />
+          </Section>
+        )}
 
         {/* Actions */}
         <div
@@ -575,7 +606,15 @@ export default function MileageReimbursement() {
             <div className="svg-wrapper">
               <Send size={16} />
             </div>
-            <span>{submitting ? "Submitting…" : "Submit"}</span>
+            <span>
+              {submitting
+                ? isEdit
+                  ? "Saving…"
+                  : "Submitting…"
+                : isEdit
+                  ? "Save Changes"
+                  : "Submit"}
+            </span>
           </button>
         </div>
       </form>

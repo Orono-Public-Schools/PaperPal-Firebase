@@ -120,6 +120,9 @@ export default function TravelReimbursement() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resubmitId = searchParams.get("resubmit")
+  const editId = searchParams.get("edit")
+  const loadId = resubmitId || editId
+  const isEdit = !!editId
   const signatureRef = useRef<SignatureFieldRef>(null)
   const draft = useDraft<{
     submitterName: string
@@ -147,7 +150,7 @@ export default function TravelReimbursement() {
     estRegistration: number
     estSubstitute: number
     estOther: number
-  }>("paperpal-draft-travel", !!resubmitId)
+  }>("paperpal-draft-travel", !!loadId)
   const {
     save: saveDraft,
     load: loadDraft,
@@ -317,10 +320,10 @@ export default function TravelReimbursement() {
     })
   }, [userProfile?.homeAddress, budgetYear])
 
-  // Load existing submission for resubmit
+  // Load existing submission for resubmit or controller edit
   useEffect(() => {
-    if (!resubmitId) return
-    getSubmission(resubmitId).then((sub) => {
+    if (!loadId) return
+    getSubmission(loadId).then((sub) => {
       if (!sub || sub.formType !== "travel") return
       const fd = sub.formData as TravelData
       setSubmitterName(sub.submitterName)
@@ -411,7 +414,7 @@ export default function TravelReimbursement() {
         if (converted.length > 0) setExpenses(converted)
       }
     })
-  }, [resubmitId])
+  }, [loadId])
 
   function updateCarTrip(index: number, updates: Partial<TravelCarTrip>) {
     setCarTrips((trips) =>
@@ -542,8 +545,10 @@ export default function TravelReimbursement() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || !userProfile) return
-    const signatureUrl = signatureRef.current?.getDataUrl() ?? ""
-    if (!signatureUrl) {
+    const signatureUrl = isEdit
+      ? ""
+      : (signatureRef.current?.getDataUrl() ?? "")
+    if (!isEdit && !signatureUrl) {
       alert("Please add your signature before submitting.")
       return
     }
@@ -627,7 +632,20 @@ export default function TravelReimbursement() {
           }
         : {}
 
-      if (resubmitId) {
+      if (editId) {
+        await updateSubmission(editId, {
+          formData,
+          attachments: justificationFiles,
+          summary: `Travel — ${meetingTitle || location}`,
+          amount: finalClaim,
+          activityLog: arrayUnion({
+            action: "edited_by_controller",
+            by: user.email ?? "",
+            at: Timestamp.now(),
+          }),
+        })
+        setSubmissionId(editId)
+      } else if (resubmitId) {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
@@ -687,6 +705,10 @@ export default function TravelReimbursement() {
         setSubmissionId(id)
       }
       clearDraft()
+      if (isEdit && editId) {
+        navigate(`/forms/travel/${editId}`)
+        return
+      }
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -747,10 +769,12 @@ export default function TravelReimbursement() {
           className="text-xl font-bold sm:text-2xl"
           style={{ color: "#ffffff" }}
         >
-          Travel Reimbursement
+          {isEdit ? "Edit Travel Reimbursement" : "Travel Reimbursement"}
         </h1>
         <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-          Request reimbursement for travel expenses.{" "}
+          {isEdit
+            ? "Editing as controller — changes will not change the approval status. "
+            : "Request reimbursement for travel expenses. "}
           <button
             type="button"
             onClick={() => setPolicyOpen(true)}
@@ -920,7 +944,7 @@ export default function TravelReimbursement() {
               </Field>
             )}
           </div>
-          {isVisible("routeTo") && (
+          {isVisible("routeTo") && !isEdit && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Route Request To">
                 <StaffEmailAutocomplete
@@ -1721,19 +1745,21 @@ export default function TravelReimbursement() {
           </div>
         </div>
 
-        <Section title="Employee Signature" style={{ order: 91 }}>
-          <SignatureField
-            ref={signatureRef}
-            savedSignatureUrl={userProfile?.savedSignatureUrl}
-            fullName={userProfile?.fullName}
-            onSaveSignature={(dataUrl) => {
-              if (user)
-                createOrUpdateUserProfile(user.uid, {
-                  savedSignatureUrl: dataUrl,
-                })
-            }}
-          />
-        </Section>
+        {!isEdit && (
+          <Section title="Employee Signature" style={{ order: 91 }}>
+            <SignatureField
+              ref={signatureRef}
+              savedSignatureUrl={userProfile?.savedSignatureUrl}
+              fullName={userProfile?.fullName}
+              onSaveSignature={(dataUrl) => {
+                if (user)
+                  createOrUpdateUserProfile(user.uid, {
+                    savedSignatureUrl: dataUrl,
+                  })
+              }}
+            />
+          </Section>
+        )}
 
         {/* Actions */}
         <div
@@ -1752,7 +1778,15 @@ export default function TravelReimbursement() {
             <div className="svg-wrapper">
               <Send size={16} />
             </div>
-            <span>{submitting ? "Submitting…" : "Submit"}</span>
+            <span>
+              {submitting
+                ? isEdit
+                  ? "Saving…"
+                  : "Submitting…"
+                : isEdit
+                  ? "Save Changes"
+                  : "Submit"}
+            </span>
           </button>
         </div>
       </form>

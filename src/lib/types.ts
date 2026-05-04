@@ -278,6 +278,9 @@ export type ActivityAction =
   | "cancelled"
   | "redirected"
   | "marked_as_paid"
+  | "unmarked_as_paid"
+  | "returned_to_supervisor"
+  | "edited_by_controller"
 
 export interface ActivityLogEntry {
   action: ActivityAction
