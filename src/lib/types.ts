@@ -36,7 +36,7 @@ export interface StaffRecord {
   updatedAt: Timestamp
 }
 
-// ─── Supervisor Mappings ────────────────────────────────────────────────────
+// ─── Workflow Mapping ───────────────────────────────────────────────────────
 
 export interface SupervisorMapping {
   titles: string[]

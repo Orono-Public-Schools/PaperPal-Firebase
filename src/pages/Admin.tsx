@@ -16,10 +16,16 @@ import {
   HardDrive,
   ArrowUp,
   ArrowDown,
+  ArrowRight,
   Eye,
   EyeOff,
   SlidersHorizontal,
   Lock,
+  Search,
+  Pencil,
+  X,
+  Check,
+  Tag,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
@@ -149,7 +155,7 @@ export default function Admin() {
         <div className="space-y-6">
           <FormFieldsSection />
           <BudgetSegmentsSection />
-          <SupervisorMappingsSection />
+          <WorkflowMappingSection />
         </div>
       )}
 
@@ -1715,72 +1721,190 @@ function StaffSyncSection() {
   )
 }
 
-// ─── Supervisor Mappings ────────────────────────────────────────────────────
+// ─── Workflow Mapping ───────────────────────────────────────────────────────
 
-function SupervisorMappingsSection() {
+type WorkflowRow =
+  | {
+      kind: "building"
+      mapping: BuildingSupervisorMapping
+      staffCount: number
+      sortKey: string
+    }
+  | {
+      kind: "title"
+      mapping: SupervisorMapping
+      staffCount: number
+      sortKey: string
+    }
+
+function getRowId(row: WorkflowRow): string {
+  return row.kind === "building"
+    ? `building:${row.mapping.building}`
+    : `title:${row.mapping.supervisorEmail}`
+}
+
+function rowMatchesSearch(row: WorkflowRow, q: string): boolean {
+  const trimmed = q.trim().toLowerCase()
+  if (!trimmed) return true
+  const m = row.mapping
+  if (m.supervisorEmail.toLowerCase().includes(trimmed)) return true
+  if (m.supervisorName.toLowerCase().includes(trimmed)) return true
+  if (m.approverEmail?.toLowerCase().includes(trimmed)) return true
+  if (m.approverName?.toLowerCase().includes(trimmed)) return true
+  if (row.kind === "building") {
+    if (row.mapping.building.toLowerCase().includes(trimmed)) return true
+    if (row.mapping.buildingName.toLowerCase().includes(trimmed)) return true
+  } else {
+    if (row.mapping.titles.some((t) => t.toLowerCase().includes(trimmed)))
+      return true
+  }
+  return false
+}
+
+function buildTitleMapping(
+  supervisor: UserProfile,
+  approver: UserProfile | null | undefined,
+  titles: string[]
+): SupervisorMapping {
+  const result: SupervisorMapping = {
+    titles: [...titles],
+    supervisorEmail: supervisor.email,
+    supervisorName:
+      supervisor.fullName ||
+      `${supervisor.firstName} ${supervisor.lastName}`.trim(),
+  }
+  if (approver) {
+    result.approverEmail = approver.email
+    result.approverName =
+      approver.fullName ||
+      `${approver.firstName} ${approver.lastName}`.trim()
+  }
+  return result
+}
+
+function buildBuildingMapping(
+  supervisor: UserProfile,
+  approver: UserProfile | null | undefined,
+  buildingInitials: string,
+  buildingName: string
+): BuildingSupervisorMapping {
+  const result: BuildingSupervisorMapping = {
+    building: buildingInitials,
+    buildingName,
+    supervisorEmail: supervisor.email,
+    supervisorName:
+      supervisor.fullName ||
+      `${supervisor.firstName} ${supervisor.lastName}`.trim(),
+  }
+  if (approver) {
+    result.approverEmail = approver.email
+    result.approverName =
+      approver.fullName ||
+      `${approver.firstName} ${approver.lastName}`.trim()
+  }
+  return result
+}
+
+function WorkflowMappingSection() {
   const [mappings, setMappings] = useState<SupervisorMapping[]>([])
+  const [buildingMappings, setBuildingMappings] = useState<
+    BuildingSupervisorMapping[]
+  >([])
   const [titles, setTitles] = useState<string[]>([])
   const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([])
   const [buildings, setBuildings] = useState<Building[]>([])
   const [users, setUsers] = useState<UserProfile[]>([])
+  const [finalApproverName, setFinalApproverName] = useState("")
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [showAddOverride, setShowAddOverride] = useState(false)
-  const [addTitles, setAddTitles] = useState<string[]>([])
-  const [addSupervisor, setAddSupervisor] = useState("")
-  const [addApprover, setAddApprover] = useState("")
-  const [buildingMappings, setBuildingMappings] = useState<
-    BuildingSupervisorMapping[]
-  >([])
-  const [showAddBuilding, setShowAddBuilding] = useState(false)
-  const [addBuildingId, setAddBuildingId] = useState("")
-  const [addBuildingSupervisor, setAddBuildingSupervisor] = useState("")
-  const [addBuildingApprover, setAddBuildingApprover] = useState("")
+  const [search, setSearch] = useState("")
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showUncovered, setShowUncovered] = useState(false)
+  const [addMode, setAddMode] = useState<"building" | "title" | null>(null)
+
+  // Draft state shared by add and inline-edit forms
+  const [draftSupervisor, setDraftSupervisor] = useState("")
+  const [draftApprover, setDraftApprover] = useState("")
+  const [draftTitles, setDraftTitles] = useState<string[]>([])
+  const [draftBuilding, setDraftBuilding] = useState("")
 
   useEffect(() => {
     Promise.all([
       getSupervisorMappings(),
+      getBuildingSupervisorMappings(),
       getUniqueStaffTitles(),
       getAllUsers(),
       getBuildings(),
       getStaffRecords(),
-      getBuildingSupervisorMappings(),
-    ]).then(([m, t, u, b, s, bm]) => {
+      getAppSettings(),
+    ]).then(([m, bm, t, u, b, s, settings]) => {
       setMappings(m)
+      setBuildingMappings(bm)
       setTitles(t)
       setUsers(u)
       setBuildings(b)
       setStaffRecords(s)
-      setBuildingMappings(bm)
+      setFinalApproverName(
+        settings.finalApproverName || settings.finalApproverEmail || ""
+      )
       setLoading(false)
     })
   }, [])
 
-  // Compute coverage stats
   const titlesWithOverride = new Set(mappings.flatMap((m) => m.titles))
-
-  const overrideCount = staffRecords.filter((s) =>
-    titlesWithOverride.has(s.title)
-  ).length
   const buildingsWithMapping = new Set(
     buildingMappings.map((bm) => bm.building)
   )
-  const buildingCount = staffRecords.filter(
-    (s) =>
-      !titlesWithOverride.has(s.title) &&
-      s.building &&
-      buildingsWithMapping.has(s.building)
-  ).length
-  const uncoveredCount = staffRecords.length - overrideCount - buildingCount
 
-  // Titles available for new overrides (not already in a mapping)
-  const availableTitles = titles.filter((t) => !titlesWithOverride.has(t))
+  const uncoveredBuildings = buildings.filter(
+    (b) => !buildingsWithMapping.has(b.initials)
+  )
+  const uncoveredTitles = titles.filter((t) => !titlesWithOverride.has(t))
 
   const allUsersSorted = [...users].sort((a, b) =>
     (a.fullName || a.lastName).localeCompare(b.fullName || b.lastName)
   )
+
+  // Build unified row list: buildings first, then titles; sorted alphabetically within group
+  const rows: WorkflowRow[] = [
+    ...buildingMappings.map((bm) => ({
+      kind: "building" as const,
+      mapping: bm,
+      staffCount: staffRecords.filter(
+        (s) =>
+          (s.building === bm.building || s.building === bm.buildingName) &&
+          !titlesWithOverride.has(s.title)
+      ).length,
+      sortKey: bm.buildingName.toLowerCase(),
+    })),
+    ...mappings.map((m) => ({
+      kind: "title" as const,
+      mapping: m,
+      staffCount: staffRecords.filter((s) => m.titles.includes(s.title)).length,
+      sortKey: m.supervisorName.toLowerCase(),
+    })),
+  ].sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+
+  const buildingRows = rows.filter(
+    (r): r is Extract<WorkflowRow, { kind: "building" }> =>
+      r.kind === "building" && rowMatchesSearch(r, search)
+  )
+  const titleRows = rows.filter(
+    (r): r is Extract<WorkflowRow, { kind: "title" }> =>
+      r.kind === "title" && rowMatchesSearch(r, search)
+  )
+
+  // Titles available for a given row's title-picker.
+  // For an existing row, includes its own titles (so they remain checkable) plus any unmapped titles.
+  // For an empty currentTitles list (add flow), returns all unmapped titles.
+  function availableTitlesForRow(currentTitles: string[]): string[] {
+    const currentSet = new Set(currentTitles)
+    const otherMapped = new Set(
+      mappings.flatMap((m) => m.titles).filter((t) => !currentSet.has(t))
+    )
+    return titles.filter((t) => !otherMapped.has(t))
+  }
 
   async function ensureRole(
     email: string,
@@ -1817,145 +1941,215 @@ function SupervisorMappingsSection() {
     setUsers((prev) => [...prev, profile as UserProfile])
   }
 
-  async function handleAddOverride() {
-    if (!addSupervisor || addTitles.length === 0) return
-    const supervisor = users.find((u) => u.email === addSupervisor)
-    if (!supervisor) return
-    const approver = addApprover
-      ? users.find((u) => u.email === addApprover)
-      : null
+  function resetDraft() {
+    setDraftSupervisor("")
+    setDraftApprover("")
+    setDraftTitles([])
+    setDraftBuilding("")
+  }
 
-    const existing = mappings.find((m) => m.supervisorEmail === addSupervisor)
-    let updated: SupervisorMapping[]
-    if (existing) {
-      updated = mappings.map((m) =>
-        m.supervisorEmail === addSupervisor
-          ? {
-              ...m,
-              titles: [...m.titles, ...addTitles],
-              ...(approver && {
-                approverEmail: approver.email,
-                approverName:
-                  approver.fullName ||
-                  `${approver.firstName} ${approver.lastName}`,
-              }),
-            }
-          : m
-      )
+  function startEdit(row: WorkflowRow) {
+    setEditingId(getRowId(row))
+    setAddMode(null)
+    setDraftSupervisor(row.mapping.supervisorEmail)
+    setDraftApprover(row.mapping.approverEmail || "")
+    if (row.kind === "title") {
+      setDraftTitles([...row.mapping.titles])
+      setDraftBuilding("")
     } else {
-      updated = [
-        ...mappings,
-        {
-          titles: [...addTitles],
-          supervisorEmail: supervisor.email,
-          supervisorName:
-            supervisor.fullName ||
-            `${supervisor.firstName} ${supervisor.lastName}`,
-          ...(approver && {
-            approverEmail: approver.email,
-            approverName:
-              approver.fullName || `${approver.firstName} ${approver.lastName}`,
-          }),
-        },
-      ]
+      setDraftTitles([])
+      setDraftBuilding(row.mapping.building)
     }
-    setMappings(updated)
-    setAddTitles([])
-    setAddSupervisor("")
-    setAddApprover("")
-    setShowAddOverride(false)
-    await saveMappings(updated)
-    await ensureRole(supervisor.email, "supervisor")
-    if (approver) await ensureRole(approver.email, "approver")
   }
 
-  async function handleRemoveTitle(title: string, supervisorEmail: string) {
-    const updated = mappings
-      .map((m) =>
-        m.supervisorEmail === supervisorEmail
-          ? { ...m, titles: m.titles.filter((t) => t !== title) }
-          : m
-      )
-      .filter((m) => m.titles.length > 0)
-    setMappings(updated)
-    await saveMappings(updated)
+  function cancelEdit() {
+    setEditingId(null)
+    resetDraft()
   }
 
-  async function handleRemoveMapping(supervisorEmail: string) {
-    const updated = mappings.filter(
-      (m) => m.supervisorEmail !== supervisorEmail
-    )
-    setMappings(updated)
-    await saveMappings(updated)
-  }
-
-  async function saveMappings(updated: SupervisorMapping[]) {
-    setSaving(true)
-    await updateSupervisorMappings(updated)
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  async function handleSave() {
-    await saveMappings(mappings)
-    await saveBuildingMappings(buildingMappings)
-  }
-
-  async function saveBuildingMappings(updated: BuildingSupervisorMapping[]) {
-    setSaving(true)
-    await updateBuildingSupervisorMappings(updated)
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  async function handleAddBuildingMapping() {
-    if (!addBuildingId || !addBuildingSupervisor) return
-    const building = buildings.find((b) => b.id === addBuildingId)
-    const supervisor = users.find((u) => u.email === addBuildingSupervisor)
-    if (!building || !supervisor) return
-    const approver = addBuildingApprover
-      ? users.find((u) => u.email === addBuildingApprover)
+  async function saveEdit(row: WorkflowRow) {
+    if (!draftSupervisor) return
+    const supervisor = users.find((u) => u.email === draftSupervisor)
+    if (!supervisor) return
+    const approver = draftApprover
+      ? users.find((u) => u.email === draftApprover)
       : null
 
-    const updated = [
-      ...buildingMappings,
-      {
-        building: building.initials,
-        buildingName: building.name,
-        supervisorEmail: supervisor.email,
-        supervisorName:
-          supervisor.fullName ||
-          `${supervisor.firstName} ${supervisor.lastName}`,
-        ...(approver && {
-          approverEmail: approver.email,
-          approverName:
-            approver.fullName || `${approver.firstName} ${approver.lastName}`,
-        }),
-      },
-    ]
-    setBuildingMappings(updated)
-    setAddBuildingId("")
-    setAddBuildingSupervisor("")
-    setAddBuildingApprover("")
-    setShowAddBuilding(false)
-    await saveBuildingMappings(updated)
+    setSaving(true)
+    if (row.kind === "title") {
+      if (draftTitles.length === 0) {
+        setSaving(false)
+        return
+      }
+      const oldEmail = row.mapping.supervisorEmail
+      const newEmail = supervisor.email
+      const oldIndex = mappings.findIndex(
+        (m) => m.supervisorEmail === oldEmail
+      )
+      const withoutOld = mappings.filter((m) => m.supervisorEmail !== oldEmail)
+      const existingTarget = withoutOld.find(
+        (m) => m.supervisorEmail === newEmail
+      )
+      let updated: SupervisorMapping[]
+      if (existingTarget) {
+        // Merge into existing mapping for the new supervisor
+        updated = withoutOld.map((m) =>
+          m.supervisorEmail === newEmail
+            ? buildTitleMapping(supervisor, approver, [
+                ...m.titles,
+                ...draftTitles.filter((t) => !m.titles.includes(t)),
+              ])
+            : m
+        )
+      } else {
+        const newRow = buildTitleMapping(supervisor, approver, draftTitles)
+        updated = [
+          ...withoutOld.slice(0, oldIndex),
+          newRow,
+          ...withoutOld.slice(oldIndex),
+        ]
+      }
+      setMappings(updated)
+      await updateSupervisorMappings(updated)
+    } else {
+      const updated = buildingMappings.map((bm) =>
+        bm.building === row.mapping.building
+          ? buildBuildingMapping(
+              supervisor,
+              approver,
+              bm.building,
+              bm.buildingName
+            )
+          : bm
+      )
+      setBuildingMappings(updated)
+      await updateBuildingSupervisorMappings(updated)
+    }
     await ensureRole(supervisor.email, "supervisor")
     if (approver) await ensureRole(approver.email, "approver")
+    setSaving(false)
+    setEditingId(null)
+    resetDraft()
   }
 
-  async function handleRemoveBuildingMapping(buildingInitials: string) {
-    const updated = buildingMappings.filter(
-      (bm) => bm.building !== buildingInitials
-    )
-    setBuildingMappings(updated)
-    await saveBuildingMappings(updated)
+  async function deleteRow(row: WorkflowRow) {
+    setSaving(true)
+    if (row.kind === "title") {
+      const updated = mappings.filter(
+        (m) => m.supervisorEmail !== row.mapping.supervisorEmail
+      )
+      setMappings(updated)
+      await updateSupervisorMappings(updated)
+    } else {
+      const updated = buildingMappings.filter(
+        (bm) => bm.building !== row.mapping.building
+      )
+      setBuildingMappings(updated)
+      await updateBuildingSupervisorMappings(updated)
+    }
+    setSaving(false)
   }
+
+  async function handleAdd() {
+    if (!draftSupervisor) return
+    const supervisor = users.find((u) => u.email === draftSupervisor)
+    if (!supervisor) return
+    const approver = draftApprover
+      ? users.find((u) => u.email === draftApprover)
+      : null
+
+    setSaving(true)
+    if (addMode === "title") {
+      if (draftTitles.length === 0) {
+        setSaving(false)
+        return
+      }
+      const existing = mappings.find(
+        (m) => m.supervisorEmail === supervisor.email
+      )
+      let updated: SupervisorMapping[]
+      if (existing) {
+        updated = mappings.map((m) =>
+          m.supervisorEmail === supervisor.email
+            ? buildTitleMapping(supervisor, approver, [
+                ...m.titles,
+                ...draftTitles.filter((t) => !m.titles.includes(t)),
+              ])
+            : m
+        )
+      } else {
+        updated = [
+          ...mappings,
+          buildTitleMapping(supervisor, approver, draftTitles),
+        ]
+      }
+      setMappings(updated)
+      await updateSupervisorMappings(updated)
+    } else if (addMode === "building") {
+      if (!draftBuilding) {
+        setSaving(false)
+        return
+      }
+      const building = buildings.find((b) => b.id === draftBuilding)
+      if (!building) {
+        setSaving(false)
+        return
+      }
+      const updated = [
+        ...buildingMappings,
+        buildBuildingMapping(
+          supervisor,
+          approver,
+          building.initials,
+          building.name
+        ),
+      ]
+      setBuildingMappings(updated)
+      await updateBuildingSupervisorMappings(updated)
+    }
+    await ensureRole(supervisor.email, "supervisor")
+    if (approver) await ensureRole(approver.email, "approver")
+    setSaving(false)
+    setAddMode(null)
+    resetDraft()
+  }
+
+  function startAddBuildingFor(buildingInitials: string) {
+    setEditingId(null)
+    resetDraft()
+    setAddMode("building")
+    const b = buildings.find((x) => x.initials === buildingInitials)
+    setDraftBuilding(b?.id || "")
+  }
+
+  function startAddTitleFor(title: string) {
+    setEditingId(null)
+    resetDraft()
+    setAddMode("title")
+    setDraftTitles([title])
+  }
+
+  function toggleAdd(mode: "building" | "title") {
+    if (addMode === mode) {
+      setAddMode(null)
+      resetDraft()
+    } else {
+      setEditingId(null)
+      resetDraft()
+      setAddMode(mode)
+    }
+  }
+
+  const totalMappings = buildingMappings.length + mappings.length
+  const totalUncovered =
+    uncoveredBuildings.length +
+    uncoveredTitles.filter(
+      (t) => staffRecords.filter((s) => s.title === t).length > 0
+    ).length
 
   return (
     <Section
-      title="Supervisor Mappings"
+      title="Workflow Mapping"
       icon={Link2}
       expanded={expanded}
       onToggle={() => setExpanded(!expanded)}
@@ -1966,110 +2160,44 @@ function SupervisorMappingsSection() {
         </p>
       ) : (
         <>
-          <p className="mb-4 text-xs" style={{ color: "#64748b" }}>
-            Staff are routed to their building's approver by default. Add title
-            overrides below for roles that report to someone other than their
-            building approver (e.g., specialists, coaches, district staff).
+          <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
+            {staffRecords.length} staff routed via {totalMappings} mapping
+            {totalMappings === 1 ? "" : "s"}
+            {totalUncovered > 0 ? ` · ${totalUncovered} uncovered` : ""}. Title
+            overrides take precedence over building defaults.
           </p>
 
-          {/* Coverage summary */}
-          <div
-            className="mb-4 flex gap-4 rounded-lg p-3"
-            style={{
-              background: "#f8f9fb",
-              border: "1px solid rgba(180,185,195,0.25)",
-            }}
-          >
-            <div className="text-center">
-              <div className="text-lg font-bold" style={{ color: "#1d2a5d" }}>
-                {buildingCount}
-              </div>
-              <div
-                className="text-[10px] font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Building Default
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold" style={{ color: "#4356a9" }}>
-                {overrideCount}
-              </div>
-              <div
-                className="text-[10px] font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Title Override
-              </div>
-            </div>
-            {uncoveredCount > 0 && (
-              <div className="text-center">
-                <div className="text-lg font-bold" style={{ color: "#b45309" }}>
-                  {uncoveredCount}
-                </div>
-                <div
-                  className="text-[10px] font-semibold tracking-wider uppercase"
-                  style={{ color: "#64748b" }}
-                >
-                  No Supervisor
-                </div>
-              </div>
-            )}
-            <div className="text-center">
-              <div className="text-lg font-bold" style={{ color: "#64748b" }}>
-                {staffRecords.length}
-              </div>
-              <div
-                className="text-[10px] font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Total Staff
-              </div>
-            </div>
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search
+              size={13}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+              style={{ color: "#94a3b8" }}
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by supervisor, approver, building, or title…"
+              className="input-neu w-full pl-8 text-xs"
+            />
           </div>
 
-          {/* Building defaults */}
-          <div className="mb-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p
-                className="text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Building Defaults
-              </p>
-              <button
-                onClick={() => setShowAddBuilding(!showAddBuilding)}
-                className="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
-                style={{
-                  color: "#1d2a5d",
-                  background: showAddBuilding
-                    ? "rgba(29,42,93,0.1)"
-                    : "transparent",
-                  border: "1px solid rgba(180,185,195,0.25)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    "rgba(29,42,93,0.08)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = showAddBuilding
-                    ? "rgba(29,42,93,0.1)"
-                    : "transparent")
-                }
-              >
-                <Plus size={12} />
-                Add Building Default
-              </button>
-            </div>
-
-            {showAddBuilding && (
-              <div
-                className="mb-3 rounded-lg p-3"
-                style={{
-                  background: "#f8f9fb",
-                  border: "1px solid rgba(180,185,195,0.25)",
-                }}
-              >
+          {/* Building Defaults group */}
+          <MappingGroup
+            kind="building"
+            icon={Building2}
+            label="Building Defaults"
+            addLabel="Add Building Default"
+            mappingCount={buildingMappings.length}
+            isAdding={addMode === "building"}
+            onToggleAdd={() => toggleAdd("building")}
+            search={search}
+            rows={buildingRows}
+            emptyText="No building defaults yet."
+            emptyTextSearch="No building defaults match your search."
+            renderAddForm={() => (
+              <>
                 <div className="mb-3">
                   <p
                     className="mb-1 text-xs font-semibold tracking-wider uppercase"
@@ -2078,8 +2206,8 @@ function SupervisorMappingsSection() {
                     Building
                   </p>
                   <select
-                    value={addBuildingId}
-                    onChange={(e) => setAddBuildingId(e.target.value)}
+                    value={draftBuilding}
+                    onChange={(e) => setDraftBuilding(e.target.value)}
                     className="input-neu w-full text-xs"
                   >
                     <option value="">Select building…</option>
@@ -2097,49 +2225,18 @@ function SupervisorMappingsSection() {
                       ))}
                   </select>
                 </div>
-
-                <div className="mb-3">
-                  <p
-                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Supervisor
-                  </p>
-                  <UserSearchDropdown
-                    users={allUsersSorted}
-                    staffRecords={staffRecords}
-                    value={addBuildingSupervisor}
-                    onChange={setAddBuildingSupervisor}
-                    onCreateUser={handleCreateUser}
-                    placeholder="Search for supervisor…"
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <p
-                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Approver{" "}
-                    <span className="font-normal normal-case">(optional)</span>
-                  </p>
-                  <UserSearchDropdown
-                    users={allUsersSorted}
-                    staffRecords={staffRecords}
-                    value={addBuildingApprover}
-                    onChange={setAddBuildingApprover}
-                    onCreateUser={handleCreateUser}
-                    placeholder="Search for approver (optional)…"
-                  />
-                  <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
-                    If set, submissions route to this person first before the
-                    supervisor.
-                  </p>
-                </div>
-
+                <SupervisorApproverFields
+                  draftSupervisor={draftSupervisor}
+                  draftApprover={draftApprover}
+                  onSupervisorChange={setDraftSupervisor}
+                  onApproverChange={setDraftApprover}
+                  allUsersSorted={allUsersSorted}
+                  staffRecords={staffRecords}
+                  handleCreateUser={handleCreateUser}
+                />
                 <button
-                  onClick={handleAddBuildingMapping}
-                  disabled={!addBuildingId || !addBuildingSupervisor}
+                  onClick={handleAdd}
+                  disabled={saving || !draftSupervisor || !draftBuilding}
                   className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                   style={{
                     background:
@@ -2149,301 +2246,78 @@ function SupervisorMappingsSection() {
                   <Plus size={13} />
                   Add Building Default
                 </button>
-              </div>
+              </>
             )}
-
-            {buildingMappings.length === 0 ? (
-              <p className="text-xs" style={{ color: "#94a3b8" }}>
-                No building defaults configured. Add a building default above.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {buildingMappings.map((bm) => {
-                  const staffInBuilding = staffRecords.filter(
-                    (s) =>
-                      s.building === bm.building &&
-                      !titlesWithOverride.has(s.title)
-                  ).length
-                  return (
-                    <div
-                      key={bm.building}
-                      className="rounded-lg p-3"
-                      style={{
-                        background: "#eef2ff",
-                        border: "1px solid rgba(67,86,169,0.2)",
-                      }}
-                    >
-                      <div className="mb-1 flex items-start justify-between">
-                        <div>
-                          <p
-                            className="flex items-center gap-2 text-sm font-semibold"
-                            style={{ color: "#1d2a5d" }}
-                          >
-                            <Building2 size={13} style={{ color: "#4356a9" }} />
-                            {bm.buildingName}
-                            <span
-                              className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
-                              style={{
-                                background: "rgba(29,42,93,0.1)",
-                                color: "#1d2a5d",
-                              }}
-                            >
-                              {bm.building}
-                            </span>
-                          </p>
-                          <p
-                            className="text-[11px]"
-                            style={{ color: "#64748b" }}
-                          >
-                            {bm.supervisorName} ({bm.supervisorEmail}) ·{" "}
-                            {staffInBuilding} staff
-                          </p>
-                          {bm.approverEmail && (
-                            <p
-                              className="text-[11px]"
-                              style={{ color: "#4356a9" }}
-                            >
-                              Approver: {bm.approverName || bm.approverEmail}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() =>
-                            handleRemoveBuildingMapping(bm.building)
-                          }
-                          className="cursor-pointer rounded p-1 transition-colors"
-                          style={{ color: "#94a3b8" }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.color = "#ad2122")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.color = "#94a3b8")
-                          }
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+            renderRow={(row) => (
+              <WorkflowRowCard
+                key={getRowId(row)}
+                row={row}
+                editing={editingId === getRowId(row)}
+                saving={saving}
+                finalApproverName={finalApproverName}
+                onStartEdit={() => startEdit(row)}
+                onCancelEdit={cancelEdit}
+                onSaveEdit={() => saveEdit(row)}
+                onDelete={() => deleteRow(row)}
+                draftSupervisor={draftSupervisor}
+                draftApprover={draftApprover}
+                draftTitles={draftTitles}
+                onSupervisorChange={setDraftSupervisor}
+                onApproverChange={setDraftApprover}
+                onTitlesChange={setDraftTitles}
+                allUsersSorted={allUsersSorted}
+                staffRecords={staffRecords}
+                availableTitles={[]}
+                handleCreateUser={handleCreateUser}
+              />
             )}
+          />
 
-            {(() => {
-              const uncoveredBuildings = buildings.filter(
-                (b) =>
-                  !buildingMappings.some((bm) => bm.building === b.initials)
-              )
-              if (uncoveredBuildings.length === 0) return null
-              return (
-                <div className="mt-3">
-                  <p
-                    className="mb-1.5 text-[10px] font-semibold tracking-wider uppercase"
-                    style={{ color: "#b45309" }}
-                  >
-                    Uncovered Buildings
-                  </p>
-                  <div className="space-y-1">
-                    {uncoveredBuildings.map((b) => {
-                      const staffInBuilding = staffRecords.filter(
-                        (s) =>
-                          (s.building === b.initials ||
-                            s.building === b.name) &&
-                          !titlesWithOverride.has(s.title)
-                      ).length
-                      return (
-                        <div
-                          key={b.id}
-                          className="flex items-center justify-between rounded-lg px-3 py-2"
-                          style={{
-                            background: "#fffbeb",
-                            border: "1px solid rgba(234,179,8,0.25)",
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Building2 size={13} style={{ color: "#b45309" }} />
-                            <span
-                              className="text-sm font-medium"
-                              style={{ color: "#1d2a5d" }}
-                            >
-                              {b.name}
-                            </span>
-                            <span
-                              className="text-xs"
-                              style={{ color: "#94a3b8" }}
-                            >
-                              ({staffInBuilding} staff)
-                            </span>
-                          </div>
-                          <span
-                            className="text-xs"
-                            style={{ color: "#b45309" }}
-                          >
-                            No supervisor set
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
+          <div className="my-4 h-px" style={{ background: "rgba(180,185,195,0.25)" }} />
 
-          {/* Title overrides */}
-          <div className="mb-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p
-                className="text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Title Overrides
-              </p>
-              <button
-                onClick={() => setShowAddOverride(!showAddOverride)}
-                className="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
-                style={{
-                  color: "#1d2a5d",
-                  background: showAddOverride
-                    ? "rgba(29,42,93,0.1)"
-                    : "transparent",
-                  border: "1px solid rgba(180,185,195,0.25)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    "rgba(29,42,93,0.08)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = showAddOverride
-                    ? "rgba(29,42,93,0.1)"
-                    : "transparent")
-                }
-              >
-                <Plus size={12} />
-                Add Override
-              </button>
-            </div>
-
-            {/* Add override form */}
-            {showAddOverride && (
-              <div
-                className="mb-3 rounded-lg p-3"
-                style={{
-                  background: "#f8f9fb",
-                  border: "1px solid rgba(180,185,195,0.25)",
-                }}
-              >
-                <div className="mb-2">
-                  <p
-                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Select Titles
-                  </p>
-                  <div
-                    className="max-h-40 overflow-y-auto rounded-lg p-2"
-                    style={{
-                      background: "#ffffff",
-                      border: "1px solid rgba(180,185,195,0.25)",
-                    }}
-                  >
-                    {availableTitles.length === 0 ? (
-                      <p
-                        className="py-2 text-center text-xs"
-                        style={{ color: "#94a3b8" }}
-                      >
-                        All titles have overrides assigned.
-                      </p>
-                    ) : (
-                      availableTitles.map((title) => {
-                        const count = staffRecords.filter(
-                          (s) => s.title === title
-                        ).length
-                        const checked = addTitles.includes(title)
-                        return (
-                          <label
-                            key={title}
-                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() =>
-                                setAddTitles((prev) =>
-                                  checked
-                                    ? prev.filter((t) => t !== title)
-                                    : [...prev, title]
-                                )
-                              }
-                              className="accent-[#1d2a5d]"
-                            />
-                            <span
-                              className="flex-1 text-xs"
-                              style={{ color: "#334155" }}
-                            >
-                              {title}
-                            </span>
-                            <span
-                              className="text-[10px]"
-                              style={{ color: "#94a3b8" }}
-                            >
-                              {count} staff
-                            </span>
-                          </label>
-                        )
-                      })
-                    )}
-                  </div>
-                  {addTitles.length > 0 && (
-                    <p className="mt-1 text-xs" style={{ color: "#1d2a5d" }}>
-                      {addTitles.length} title
-                      {addTitles.length !== 1 && "s"} selected
-                    </p>
-                  )}
-                </div>
-
+          {/* Title Overrides group */}
+          <MappingGroup
+            kind="title"
+            icon={Tag}
+            label="Title Overrides"
+            addLabel="Add Title Override"
+            mappingCount={mappings.length}
+            isAdding={addMode === "title"}
+            onToggleAdd={() => toggleAdd("title")}
+            search={search}
+            rows={titleRows}
+            emptyText="No title overrides. Staff use their building's default."
+            emptyTextSearch="No title overrides match your search."
+            renderAddForm={() => (
+              <>
                 <div className="mb-3">
                   <p
                     className="mb-1 text-xs font-semibold tracking-wider uppercase"
                     style={{ color: "#64748b" }}
                   >
-                    Supervisor
+                    Titles
                   </p>
-                  <UserSearchDropdown
-                    users={allUsersSorted}
+                  <TitlePicker
+                    available={availableTitlesForRow(draftTitles)}
+                    selected={draftTitles}
+                    onChange={setDraftTitles}
                     staffRecords={staffRecords}
-                    value={addSupervisor}
-                    onChange={setAddSupervisor}
-                    onCreateUser={handleCreateUser}
-                    placeholder="Search for supervisor…"
                   />
                 </div>
-
-                <div className="mb-3">
-                  <p
-                    className="mb-1 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "#64748b" }}
-                  >
-                    Approver{" "}
-                    <span className="font-normal normal-case">(optional)</span>
-                  </p>
-                  <UserSearchDropdown
-                    users={allUsersSorted}
-                    staffRecords={staffRecords}
-                    value={addApprover}
-                    onChange={setAddApprover}
-                    onCreateUser={handleCreateUser}
-                    placeholder="Search for approver (optional)…"
-                  />
-                  <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
-                    If set, submissions route to this person first before the
-                    supervisor.
-                  </p>
-                </div>
-
+                <SupervisorApproverFields
+                  draftSupervisor={draftSupervisor}
+                  draftApprover={draftApprover}
+                  onSupervisorChange={setDraftSupervisor}
+                  onApproverChange={setDraftApprover}
+                  allUsersSorted={allUsersSorted}
+                  staffRecords={staffRecords}
+                  handleCreateUser={handleCreateUser}
+                />
                 <button
-                  onClick={handleAddOverride}
-                  disabled={!addSupervisor || addTitles.length === 0}
+                  onClick={handleAdd}
+                  disabled={
+                    saving || !draftSupervisor || draftTitles.length === 0
+                  }
                   className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                   style={{
                     background:
@@ -2451,116 +2325,695 @@ function SupervisorMappingsSection() {
                   }}
                 >
                   <Plus size={13} />
-                  Add Override
+                  Add Title Override
                 </button>
-              </div>
+              </>
             )}
+            renderRow={(row) => (
+              <WorkflowRowCard
+                key={getRowId(row)}
+                row={row}
+                editing={editingId === getRowId(row)}
+                saving={saving}
+                finalApproverName={finalApproverName}
+                onStartEdit={() => startEdit(row)}
+                onCancelEdit={cancelEdit}
+                onSaveEdit={() => saveEdit(row)}
+                onDelete={() => deleteRow(row)}
+                draftSupervisor={draftSupervisor}
+                draftApprover={draftApprover}
+                draftTitles={draftTitles}
+                onSupervisorChange={setDraftSupervisor}
+                onApproverChange={setDraftApprover}
+                onTitlesChange={setDraftTitles}
+                allUsersSorted={allUsersSorted}
+                staffRecords={staffRecords}
+                availableTitles={
+                  row.kind === "title"
+                    ? availableTitlesForRow(row.mapping.titles)
+                    : []
+                }
+                handleCreateUser={handleCreateUser}
+              />
+            )}
+          />
 
-            {/* Existing overrides */}
-            {mappings.length === 0 ? (
-              <p className="text-xs" style={{ color: "#94a3b8" }}>
-                No title overrides. All staff use their building's default
-                approver.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {mappings.map((mapping) => {
-                  const staffCount = staffRecords.filter((s) =>
-                    mapping.titles.includes(s.title)
-                  ).length
-                  return (
-                    <div
-                      key={mapping.supervisorEmail}
-                      className="rounded-lg p-3"
-                      style={{
-                        background: "#eef2ff",
-                        border: "1px solid rgba(67,86,169,0.2)",
-                      }}
-                    >
-                      <div className="mb-2 flex items-start justify-between">
-                        <div>
-                          <p
-                            className="text-sm font-semibold"
+          {/* Uncovered banner (combined) */}
+          {(uncoveredBuildings.length > 0 || uncoveredTitles.length > 0) && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowUncovered(!showUncovered)}
+                className="flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+                style={{
+                  background: "#fffbeb",
+                  border: "1px solid rgba(234,179,8,0.25)",
+                  color: "#b45309",
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className="inline-flex h-1.5 w-1.5 rounded-full"
+                    style={{ background: "#b45309" }}
+                  />
+                  {uncoveredBuildings.length} building
+                  {uncoveredBuildings.length === 1 ? "" : "s"} +{" "}
+                  {uncoveredTitles.length} title
+                  {uncoveredTitles.length === 1 ? "" : "s"} uncovered
+                </span>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: showUncovered
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+              {showUncovered && (
+                <div
+                  className="mt-2 space-y-1 rounded-lg p-2"
+                  style={{
+                    background: "#fffbeb",
+                    border: "1px solid rgba(234,179,8,0.25)",
+                  }}
+                >
+                  {uncoveredBuildings.map((b) => {
+                    const count = staffRecords.filter(
+                      (s) =>
+                        (s.building === b.initials || s.building === b.name) &&
+                        !titlesWithOverride.has(s.title)
+                    ).length
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => startAddBuildingFor(b.initials)}
+                        className="flex w-full cursor-pointer items-center justify-between rounded px-2 py-1.5 text-left transition-colors hover:bg-white/60"
+                      >
+                        <span className="flex items-center gap-2 text-xs">
+                          <Building2 size={12} style={{ color: "#b45309" }} />
+                          <span
+                            className="font-medium"
                             style={{ color: "#1d2a5d" }}
                           >
-                            {mapping.supervisorName}
-                          </p>
-                          <p
-                            className="text-[11px]"
-                            style={{ color: "#64748b" }}
-                          >
-                            {mapping.supervisorEmail} · {staffCount} staff
-                          </p>
-                          {mapping.approverEmail && (
-                            <p
-                              className="text-[11px]"
-                              style={{ color: "#4356a9" }}
-                            >
-                              Approver:{" "}
-                              {mapping.approverName || mapping.approverEmail}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() =>
-                            handleRemoveMapping(mapping.supervisorEmail)
-                          }
-                          className="cursor-pointer rounded p-1 transition-colors"
-                          style={{ color: "#94a3b8" }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.color = "#ad2122")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.color = "#94a3b8")
-                          }
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {mapping.titles.map((title) => (
-                          <span
-                            key={title}
-                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-                            style={{
-                              background: "rgba(29,42,93,0.1)",
-                              color: "#1d2a5d",
-                            }}
-                          >
-                            {title}
-                            <button
-                              onClick={() =>
-                                handleRemoveTitle(
-                                  title,
-                                  mapping.supervisorEmail
-                                )
-                              }
-                              className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-red-100"
-                              style={{ color: "#94a3b8" }}
-                            >
-                              ×
-                            </button>
+                            {b.name}
                           </span>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-save flex items-center gap-2"
-          >
-            <Save size={14} />
-            {saving ? "Saving…" : saved ? "Saved!" : "Save Mappings"}
-          </button>
+                          <span style={{ color: "#94a3b8" }}>
+                            ({count} staff)
+                          </span>
+                        </span>
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-semibold"
+                          style={{ color: "#b45309" }}
+                        >
+                          <Plus size={10} />
+                          Add
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {uncoveredTitles.map((t) => {
+                    const count = staffRecords.filter(
+                      (s) => s.title === t
+                    ).length
+                    if (count === 0) return null
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => startAddTitleFor(t)}
+                        className="flex w-full cursor-pointer items-center justify-between rounded px-2 py-1.5 text-left transition-colors hover:bg-white/60"
+                      >
+                        <span className="flex items-center gap-2 text-xs">
+                          <Tag size={12} style={{ color: "#b45309" }} />
+                          <span
+                            className="font-medium"
+                            style={{ color: "#1d2a5d" }}
+                          >
+                            {t}
+                          </span>
+                          <span style={{ color: "#94a3b8" }}>
+                            ({count} staff)
+                          </span>
+                        </span>
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-semibold"
+                          style={{ color: "#b45309" }}
+                        >
+                          <Plus size={10} />
+                          Add
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </Section>
+  )
+}
+
+function MappingGroup<R extends WorkflowRow>({
+  icon: Icon,
+  label,
+  addLabel,
+  mappingCount,
+  isAdding,
+  onToggleAdd,
+  search,
+  rows,
+  emptyText,
+  emptyTextSearch,
+  renderAddForm,
+  renderRow,
+}: {
+  kind: "building" | "title"
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>
+  label: string
+  addLabel: string
+  mappingCount: number
+  isAdding: boolean
+  onToggleAdd: () => void
+  search: string
+  rows: R[]
+  emptyText: string
+  emptyTextSearch: string
+  renderAddForm: () => React.ReactNode
+  renderRow: (row: R) => React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon size={13} style={{ color: "#1d2a5d" }} />
+          <p
+            className="text-xs font-semibold tracking-wider uppercase"
+            style={{ color: "#1d2a5d" }}
+          >
+            {label}
+          </p>
+          <span className="text-[11px]" style={{ color: "#94a3b8" }}>
+            · {mappingCount} mapping{mappingCount === 1 ? "" : "s"}
+          </span>
+        </div>
+        <button
+          onClick={onToggleAdd}
+          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+          style={
+            isAdding
+              ? {
+                  color: "#64748b",
+                  background: "transparent",
+                  border: "1px solid rgba(180,185,195,0.4)",
+                }
+              : {
+                  color: "#ffffff",
+                  background:
+                    "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  border: "1px solid transparent",
+                  boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                }
+          }
+        >
+          {isAdding ? <X size={12} /> : <Plus size={12} />}
+          {isAdding ? "Cancel" : addLabel}
+        </button>
+      </div>
+
+      {isAdding && (
+        <div
+          className="mb-2 rounded-lg p-3"
+          style={{
+            background: "#f8f9fb",
+            border: "1px solid rgba(29,42,93,0.25)",
+          }}
+        >
+          {renderAddForm()}
+        </div>
+      )}
+
+      {rows.length === 0 ? (
+        <p
+          className="rounded-lg py-3 text-center text-xs"
+          style={{
+            color: "#94a3b8",
+            background: "#f8f9fb",
+            border: "1px solid rgba(180,185,195,0.25)",
+          }}
+        >
+          {search ? emptyTextSearch : emptyText}
+        </p>
+      ) : (
+        <div className="space-y-2">{rows.map(renderRow)}</div>
+      )}
+    </div>
+  )
+}
+
+function SupervisorApproverFields({
+  draftSupervisor,
+  draftApprover,
+  onSupervisorChange,
+  onApproverChange,
+  allUsersSorted,
+  staffRecords,
+  handleCreateUser,
+}: {
+  draftSupervisor: string
+  draftApprover: string
+  onSupervisorChange: (v: string) => void
+  onApproverChange: (v: string) => void
+  allUsersSorted: UserProfile[]
+  staffRecords: StaffRecord[]
+  handleCreateUser: (email: string) => Promise<void>
+}) {
+  return (
+    <>
+      <div className="mb-3">
+        <p
+          className="mb-1 text-xs font-semibold tracking-wider uppercase"
+          style={{ color: "#64748b" }}
+        >
+          Supervisor
+        </p>
+        <UserSearchDropdown
+          users={allUsersSorted}
+          staffRecords={staffRecords}
+          value={draftSupervisor}
+          onChange={onSupervisorChange}
+          onCreateUser={handleCreateUser}
+          placeholder="Search for supervisor…"
+        />
+      </div>
+      <div className="mb-3">
+        <div className="mb-1 flex items-center justify-between">
+          <p
+            className="text-xs font-semibold tracking-wider uppercase"
+            style={{ color: "#64748b" }}
+          >
+            Approver{" "}
+            <span className="font-normal normal-case">(optional)</span>
+          </p>
+          {draftApprover && (
+            <button
+              onClick={() => onApproverChange("")}
+              className="cursor-pointer text-[10px] font-semibold"
+              style={{ color: "#ad2122" }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        <UserSearchDropdown
+          users={allUsersSorted}
+          staffRecords={staffRecords}
+          value={draftApprover}
+          onChange={onApproverChange}
+          onCreateUser={handleCreateUser}
+          placeholder="Search for approver (optional)…"
+        />
+        <p className="mt-1 text-[10px]" style={{ color: "#94a3b8" }}>
+          If set, submissions route to this person before the supervisor.
+        </p>
+      </div>
+    </>
+  )
+}
+
+function TitlePicker({
+  available,
+  selected,
+  onChange,
+  staffRecords,
+}: {
+  available: string[]
+  selected: string[]
+  onChange: (titles: string[]) => void
+  staffRecords: StaffRecord[]
+}) {
+  return (
+    <>
+      <div
+        className="max-h-40 overflow-y-auto rounded-lg p-2"
+        style={{
+          background: "#ffffff",
+          border: "1px solid rgba(180,185,195,0.25)",
+        }}
+      >
+        {available.length === 0 ? (
+          <p
+            className="py-2 text-center text-xs"
+            style={{ color: "#94a3b8" }}
+          >
+            All titles have mappings assigned.
+          </p>
+        ) : (
+          [...available].sort().map((title) => {
+            const count = staffRecords.filter((s) => s.title === title).length
+            const checked = selected.includes(title)
+            return (
+              <label
+                key={title}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() =>
+                    onChange(
+                      checked
+                        ? selected.filter((t) => t !== title)
+                        : [...selected, title]
+                    )
+                  }
+                  className="accent-[#1d2a5d]"
+                />
+                <span className="flex-1 text-xs" style={{ color: "#334155" }}>
+                  {title}
+                </span>
+                <span className="text-[10px]" style={{ color: "#94a3b8" }}>
+                  {count} staff
+                </span>
+              </label>
+            )
+          })
+        )}
+      </div>
+      {selected.length > 0 && (
+        <p className="mt-1 text-xs" style={{ color: "#1d2a5d" }}>
+          {selected.length} title{selected.length !== 1 && "s"} selected
+        </p>
+      )}
+    </>
+  )
+}
+
+function RoutingChain({
+  approverName,
+  supervisorName,
+  finalApproverName,
+}: {
+  approverName?: string
+  supervisorName: string
+  finalApproverName: string
+}) {
+  const steps: { label: string; name: string }[] = []
+  if (approverName) steps.push({ label: "Approver", name: approverName })
+  steps.push({ label: "Supervisor", name: supervisorName })
+  if (finalApproverName)
+    steps.push({ label: "Final", name: finalApproverName })
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+      {steps.map((step, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          <span
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5"
+            style={{
+              background: "rgba(255,255,255,0.6)",
+              color: "#334155",
+              border: "1px solid rgba(180,185,195,0.3)",
+            }}
+          >
+            <span
+              className="text-[9px] font-semibold tracking-wider uppercase"
+              style={{ color: "#94a3b8" }}
+            >
+              {step.label}
+            </span>
+            <span style={{ color: "#1d2a5d" }}>{step.name}</span>
+          </span>
+          {i < steps.length - 1 && (
+            <ArrowRight size={11} style={{ color: "#94a3b8" }} />
+          )}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function WorkflowRowCard({
+  row,
+  editing,
+  saving,
+  finalApproverName,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
+  draftSupervisor,
+  draftApprover,
+  draftTitles,
+  onSupervisorChange,
+  onApproverChange,
+  onTitlesChange,
+  allUsersSorted,
+  staffRecords,
+  availableTitles,
+  handleCreateUser,
+}: {
+  row: WorkflowRow
+  editing: boolean
+  saving: boolean
+  finalApproverName: string
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSaveEdit: () => void
+  onDelete: () => void
+  draftSupervisor: string
+  draftApprover: string
+  draftTitles: string[]
+  onSupervisorChange: (v: string) => void
+  onApproverChange: (v: string) => void
+  onTitlesChange: (v: string[]) => void
+  allUsersSorted: UserProfile[]
+  staffRecords: StaffRecord[]
+  availableTitles: string[]
+  handleCreateUser: (email: string) => Promise<void>
+}) {
+  const TypeIcon = row.kind === "building" ? Building2 : Tag
+  const typeLabel = row.kind === "building" ? "Building" : "Title"
+  const titleMapping =
+    row.kind === "title" ? (row.mapping as SupervisorMapping) : null
+  const buildingMapping =
+    row.kind === "building"
+      ? (row.mapping as BuildingSupervisorMapping)
+      : null
+
+  return (
+    <div
+      className="rounded-lg p-3"
+      style={{
+        background: editing ? "#ffffff" : "#eef2ff",
+        border: editing
+          ? "1px solid rgba(29,42,93,0.4)"
+          : "1px solid rgba(67,86,169,0.2)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase"
+              style={{
+                background:
+                  row.kind === "building"
+                    ? "rgba(29,42,93,0.1)"
+                    : "rgba(67,86,169,0.12)",
+                color: row.kind === "building" ? "#1d2a5d" : "#4356a9",
+              }}
+            >
+              <TypeIcon size={10} />
+              {typeLabel}
+            </span>
+            <span
+              className="text-sm font-semibold"
+              style={{ color: "#1d2a5d" }}
+            >
+              {buildingMapping
+                ? `${buildingMapping.buildingName} (${buildingMapping.building})`
+                : `${titleMapping?.titles.length ?? 0} title${
+                    (titleMapping?.titles.length ?? 0) === 1 ? "" : "s"
+                  }`}
+            </span>
+            {row.mapping.approverEmail && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  background: "rgba(67,86,169,0.12)",
+                  color: "#4356a9",
+                }}
+              >
+                + Approver
+              </span>
+            )}
+            <span className="text-[11px]" style={{ color: "#94a3b8" }}>
+              · {row.staffCount} staff
+            </span>
+          </div>
+          {!editing && (
+            <RoutingChain
+              approverName={row.mapping.approverName}
+              supervisorName={row.mapping.supervisorName}
+              finalApproverName={finalApproverName}
+            />
+          )}
+          {!editing && titleMapping && titleMapping.titles.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {titleMapping.titles.map((t) => (
+                <span
+                  key={t}
+                  className="inline-block rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  style={{
+                    background: "rgba(29,42,93,0.08)",
+                    color: "#1d2a5d",
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        {!editing && (
+          <div className="flex shrink-0 gap-1">
+            <button
+              onClick={onStartEdit}
+              className="cursor-pointer rounded p-1 transition-colors"
+              style={{ color: "#64748b" }}
+              title="Edit"
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "#1d2a5d")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "#64748b")
+              }
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              onClick={onDelete}
+              className="cursor-pointer rounded p-1 transition-colors"
+              style={{ color: "#94a3b8" }}
+              title="Delete"
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "#ad2122")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "#94a3b8")
+              }
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing && (
+        <div
+          className="mt-3 rounded-lg p-3"
+          style={{
+            background: "#f8f9fb",
+            border: "1px solid rgba(180,185,195,0.25)",
+          }}
+        >
+          {row.kind === "title" && (
+            <div className="mb-3">
+              <p
+                className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Titles
+              </p>
+              <TitlePicker
+                available={availableTitles}
+                selected={draftTitles}
+                onChange={onTitlesChange}
+                staffRecords={staffRecords}
+              />
+            </div>
+          )}
+
+          <div className="mb-3">
+            <p
+              className="mb-1 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Supervisor
+            </p>
+            <UserSearchDropdown
+              users={allUsersSorted}
+              staffRecords={staffRecords}
+              value={draftSupervisor}
+              onChange={onSupervisorChange}
+              onCreateUser={handleCreateUser}
+              placeholder="Search for supervisor…"
+            />
+          </div>
+
+          <div className="mb-3">
+            <div className="mb-1 flex items-center justify-between">
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Approver{" "}
+                <span className="font-normal normal-case">(optional)</span>
+              </p>
+              {draftApprover && (
+                <button
+                  onClick={() => onApproverChange("")}
+                  className="cursor-pointer text-[10px] font-semibold"
+                  style={{ color: "#ad2122" }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <UserSearchDropdown
+              users={allUsersSorted}
+              staffRecords={staffRecords}
+              value={draftApprover}
+              onChange={onApproverChange}
+              onCreateUser={handleCreateUser}
+              placeholder="Search for approver (optional)…"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={onSaveEdit}
+              disabled={
+                saving ||
+                !draftSupervisor ||
+                (row.kind === "title" && draftTitles.length === 0)
+              }
+              className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+              style={{
+                background:
+                  "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+              }}
+            >
+              <Check size={13} />
+              Save
+            </button>
+            <button
+              onClick={onCancelEdit}
+              className="cursor-pointer rounded px-3 py-2 text-xs font-semibold transition-colors"
+              style={{
+                color: "#64748b",
+                background: "transparent",
+                border: "1px solid rgba(180,185,195,0.25)",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
