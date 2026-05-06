@@ -1,31 +1,5 @@
 # PaperPal — Plan
 
-## Current Phase: Email Latency Investigation
-
-Users have reported that approval/submission emails take longer than expected to arrive. The submission → email path runs server-side: `onSubmissionCreated` (or `onSubmissionStatusChange`) generates the PDF, then `sendMail` writes a doc to `mail/` for the `firestore-send-email` extension to dispatch via SMTP.
-
-**Already deployed** (production):
-- `[timing]` log lines on `onSubmissionCreated`, `onSubmissionStatusChange`, and `sendMail` showing: settings fetch ms, PDF generation ms, attachment encode ms, mail-doc write ms, total ms, and `pdfBytes`.
-
-**Next steps**
-
-1. Pull recent `[timing]` log lines after a real production submission (use `firebase functions:log` or `gcloud logging read`). Compare against the time the email actually arrived to isolate which segment is slow.
-2. Likely culprits, in order of suspicion:
-   - **PDF generation** dominated by receipt image embedding (look for high `pdf=Xms` with large `pdfBytes`).
-   - **Attachment encoding** — `pdfBuffer.toString("base64")` on a large buffer; check `encode=Xms`.
-   - **Mail-doc-to-delivery gap** — the extension's queue lag. The `[timing]` logs end at the mail-doc write; compare write timestamp vs `Delivered message:` log from `ext-firestore-send-email-processqueue`.
-3. Once the bottleneck is identified, candidate fixes:
-   - **Fast-path the email**: write the mail doc immediately on submission (no PDF), then patch the doc with the attachment after PDF generation finishes. User sees the notification within seconds; PDF arrives shortly after either via update or follow-up email.
-   - **Parallelize**: run PDF generation in parallel with settings fetch / sandbox-route resolution.
-   - **Compress receipts** more aggressively or skip embedding (link to Drive instead) if PDF size is the dominant cost.
-   - **Bump Function memory** if PDF generation is CPU-bound (currently 256Mi).
-
-**Files of interest**
-
-- `functions/index.js` — the two trigger functions
-- `functions/helpers/pdf.js` — PDF rendering (image embedding is the heavy bit)
-- `functions/helpers/email.js` — `sendMail` and the per-status email senders
-
 ## Future
 
 - Notification preferences (user opt-in/out from profile)
@@ -35,6 +9,7 @@ Users have reported that approval/submission emails take longer than expected to
 
 ## Done
 
+- Email latency fix (link-based workflow notifications, receipt compression via sharp): Gmail log diagnosis showed Workspace's pre-delivery scanning was the bottleneck — not our code, and not file size (compression to 91KB still triggered 4+ minute delays). Pivoted to link-only emails for every workflow status; only the final-approval submitter copy still carries a PDF. Result: end-to-end delivery dropped from 4+ minutes (sometimes never arriving) to ~10 seconds.
 - Travel form polish (per-line notes, per-trip mileage detail with date/from/to, Final Claim category breakdown, PDF legacy fallback wording, submission validation)
 - Approver/supervisor edit access (mirror controller-edit flow; activity log distinguishes edited_by_approver / edited_by_supervisor / edited_by_controller)
 - Email timing instrumentation (`[timing]` logs on onSubmissionCreated, onSubmissionStatusChange, sendMail)

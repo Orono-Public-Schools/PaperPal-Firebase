@@ -728,23 +728,39 @@ export default function FormView() {
             >
               Attachments
             </p>
-            <div className="space-y-2">
-              {submission.attachments.map((a, i) => (
-                <a
-                  key={i}
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-gray-50"
-                  style={{
-                    color: "#4356a9",
-                    border: "1px solid rgba(180,185,195,0.25)",
-                  }}
-                >
-                  <FileText size={14} />
-                  {a.name}
-                </a>
-              ))}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {submission.attachments.map((a, i) => {
+                const isImage = a.mimeType?.startsWith("image/")
+                return (
+                  <a
+                    key={i}
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={a.name}
+                    className="group block aspect-square overflow-hidden rounded-lg transition-all hover:shadow-md"
+                    style={{ border: "1px solid rgba(180,185,195,0.25)" }}
+                  >
+                    {isImage ? (
+                      <img
+                        src={a.url}
+                        alt={a.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center"
+                        style={{ color: "#4356a9", background: "#f8f9fb" }}
+                      >
+                        <FileText size={28} />
+                        <span className="line-clamp-2 text-xs font-medium break-all">
+                          {a.name}
+                        </span>
+                      </div>
+                    )}
+                  </a>
+                )
+              })}
             </div>
           </div>
         )}
