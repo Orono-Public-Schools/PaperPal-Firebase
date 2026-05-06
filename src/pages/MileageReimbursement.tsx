@@ -38,7 +38,7 @@ import {
 } from "@/lib/firestore"
 import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
-import { formatBudgetCode } from "@/lib/utils"
+import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
 const RATE = 0.725
@@ -141,11 +141,19 @@ export default function MileageReimbursement() {
     })
   }, [userProfile?.homeAddress])
 
-  // Load existing submission for resubmit or controller edit
+  // Load existing submission for resubmit or staff/approver/supervisor/controller edit
+  const editTargetRef = useRef<{
+    approverEmail?: string
+    supervisorEmail?: string
+  }>({})
   useEffect(() => {
     if (!loadId) return
     getSubmission(loadId).then((sub) => {
       if (!sub || sub.formType !== "mileage") return
+      editTargetRef.current = {
+        approverEmail: sub.approverEmail,
+        supervisorEmail: sub.supervisorEmail,
+      }
       const fd = sub.formData as MileageData
       setSubmitterName(sub.submitterName)
       setRouteRequestTo(sub.supervisorEmail)
@@ -230,7 +238,11 @@ export default function MileageReimbursement() {
           summary: `Mileage — ${totalMiles.toFixed(1)} mi`,
           amount: totalReimbursement,
           activityLog: arrayUnion({
-            action: "edited_by_controller",
+            action: editActionForRole(
+              user.email ?? "",
+              editTargetRef.current.approverEmail,
+              editTargetRef.current.supervisorEmail
+            ),
             by: user.email ?? "",
             at: Timestamp.now(),
           }),

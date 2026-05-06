@@ -804,27 +804,29 @@ export default function FormView() {
                     </button>
                   </>
                 )}
+                {(canApproverAct ||
+                  canSupervisorAct ||
+                  canFinalApproverAct) && (
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/forms/${submission.formType}?edit=${submission.id}`
+                      )
+                    }
+                    className="btn-action-revisions"
+                  >
+                    <Pencil size={16} />
+                    Edit
+                  </button>
+                )}
                 {canFinalApproverAct && (
-                  <>
-                    <button
-                      onClick={() => setActionMode("return_to_supervisor")}
-                      className="btn-action-revisions"
-                    >
-                      <RotateCcw size={16} />
-                      Return to Supervisor
-                    </button>
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/forms/${submission.formType}?edit=${submission.id}`
-                        )
-                      }
-                      className="btn-action-revisions"
-                    >
-                      <Pencil size={16} />
-                      Edit
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setActionMode("return_to_supervisor")}
+                    className="btn-action-revisions"
+                  >
+                    <RotateCcw size={16} />
+                    Return to Supervisor
+                  </button>
                 )}
                 <button
                   onClick={() => setActionMode("deny")}
@@ -1273,6 +1275,8 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
     label: "Returned to Supervisor",
     color: "#c2410c",
   },
+  edited_by_approver: { label: "Edited by Approver", color: "#4356a9" },
+  edited_by_supervisor: { label: "Edited by Supervisor", color: "#4356a9" },
   edited_by_controller: { label: "Edited by Controller", color: "#4356a9" },
 }
 

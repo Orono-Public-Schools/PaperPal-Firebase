@@ -308,43 +308,100 @@ export function TravelView({ data }: { data: TravelData }) {
         <div>
           <SectionHeading>Expenses</SectionHeading>
           <Table headers={["Date", "Category", "Detail", "Amount", "Receipt"]}>
-            {data.actuals.miles > 0 && (
-              <tr
-                className="border-t"
-                style={{ borderColor: "rgba(180,185,195,0.25)" }}
-              >
-                <td className="py-2 pr-4">—</td>
-                <td className="py-2 pr-4">Mileage</td>
-                <td className="py-2 pr-4">
-                  {data.actuals.miles.toFixed(1)} mi × $
-                  {MILEAGE_RATE.toFixed(3)}
-                </td>
-                <td className="py-2 pr-4">
-                  {currency(data.actuals.miles * MILEAGE_RATE)}
-                </td>
-                <td />
-              </tr>
-            )}
+            {data.carTrips && data.carTrips.length > 0
+              ? data.carTrips.map((trip, i) => {
+                  const effective = trip.isRoundTrip
+                    ? trip.miles * 2
+                    : trip.miles
+                  if (effective <= 0) return null
+                  return (
+                    <tr
+                      key={`trip-${i}`}
+                      className="border-t"
+                      style={{ borderColor: "rgba(180,185,195,0.25)" }}
+                    >
+                      <td className="py-2 pr-4 align-top whitespace-nowrap">
+                        {trip.date ? formatDate(trip.date) : "—"}
+                      </td>
+                      <td className="py-2 pr-4 align-top">Mileage</td>
+                      <td className="py-2 pr-4 align-top">
+                        <div>
+                          {trip.from && trip.to
+                            ? `${trip.from} → ${trip.to}`
+                            : "—"}
+                          {trip.isRoundTrip && (
+                            <span
+                              className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                              style={{
+                                background: "#e0e7ff",
+                                color: "#1d2a5d",
+                              }}
+                            >
+                              Round Trip
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="mt-0.5 text-xs"
+                          style={{ color: "#64748b" }}
+                        >
+                          {effective.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(3)}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4 align-top">
+                        {currency(effective * MILEAGE_RATE)}
+                      </td>
+                      <td />
+                    </tr>
+                  )
+                })
+              : data.actuals.miles > 0 && (
+                  <tr
+                    className="border-t"
+                    style={{ borderColor: "rgba(180,185,195,0.25)" }}
+                  >
+                    <td className="py-2 pr-4">—</td>
+                    <td className="py-2 pr-4">Mileage</td>
+                    <td className="py-2 pr-4">
+                      {data.actuals.miles.toFixed(1)} mi × $
+                      {MILEAGE_RATE.toFixed(3)}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {currency(data.actuals.miles * MILEAGE_RATE)}
+                    </td>
+                    <td />
+                  </tr>
+                )}
             {data.expenses!.map((exp, i) => (
               <tr
                 key={i}
                 className="border-t"
                 style={{ borderColor: "rgba(180,185,195,0.25)" }}
               >
-                <td className="py-2 pr-4 whitespace-nowrap">
+                <td className="py-2 pr-4 align-top whitespace-nowrap">
                   {formatDate(exp.date)}
                 </td>
-                <td className="py-2 pr-4">
+                <td className="py-2 pr-4 align-top">
                   {EXPENSE_CATEGORY_LABELS[exp.category]}
                 </td>
-                <td className="py-2 pr-4">
-                  {exp.mealType
-                    ? exp.mealType.charAt(0).toUpperCase() +
-                      exp.mealType.slice(1)
-                    : exp.location || exp.description || "—"}
+                <td className="py-2 pr-4 align-top">
+                  <div>
+                    {exp.mealType
+                      ? exp.mealType.charAt(0).toUpperCase() +
+                        exp.mealType.slice(1)
+                      : exp.location || exp.description || "—"}
+                  </div>
+                  {exp.notes && (
+                    <div
+                      className="mt-1 text-xs whitespace-pre-wrap italic"
+                      style={{ color: "#64748b" }}
+                    >
+                      {exp.notes}
+                    </div>
+                  )}
                 </td>
-                <td className="py-2 pr-4">{currency(exp.amount)}</td>
-                <td className="py-2 pr-4">
+                <td className="py-2 pr-4 align-top">{currency(exp.amount)}</td>
+                <td className="py-2 pr-4 align-top">
                   <ExpenseReceiptThumb receipt={exp.receipt} />
                 </td>
               </tr>
