@@ -40,9 +40,9 @@ import {
   createOrUpdateUserProfile,
   resolveSupervisor,
 } from "@/lib/firestore"
-import type { TravelData, TravelExpenseItem } from "@/lib/types"
+import type { TravelData, TravelExpenseItem, TravelCarTrip } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
-import { formatBudgetCode } from "@/lib/utils"
+import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import { storage, functions } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
@@ -57,15 +57,8 @@ function todayStr() {
 
 type ExpenseCategory = TravelExpenseItem["category"]
 
-type TravelCarTrip = {
-  from: string
-  to: string
-  miles: number
-  isRoundTrip: boolean
-}
-
 function emptyCarTrip(): TravelCarTrip {
-  return { from: "", to: "", miles: 0, isRoundTrip: false }
+  return { date: "", from: "", to: "", miles: 0, isRoundTrip: false }
 }
 
 const EXPENSE_CATEGORIES: {
@@ -320,11 +313,19 @@ export default function TravelReimbursement() {
     })
   }, [userProfile?.homeAddress, budgetYear])
 
-  // Load existing submission for resubmit or controller edit
+  // Load existing submission for resubmit or staff/approver/supervisor/controller edit
+  const editTargetRef = useRef<{
+    approverEmail?: string
+    supervisorEmail?: string
+  }>({})
   useEffect(() => {
     if (!loadId) return
     getSubmission(loadId).then((sub) => {
       if (!sub || sub.formType !== "travel") return
+      editTargetRef.current = {
+        approverEmail: sub.approverEmail,
+        supervisorEmail: sub.supervisorEmail,
+      }
       const fd = sub.formData as TravelData
       setSubmitterName(sub.submitterName)
       setRouteRequestTo(sub.supervisorEmail)
@@ -347,10 +348,18 @@ export default function TravelReimbursement() {
       setEstRegistration(fd.estimated.registration)
       setEstSubstitute(fd.estimated.substitute)
       setEstOther(fd.estimated.other)
-      // Seed a single trip from legacy submission's flat mileage total
-      if (fd.actuals.miles > 0) {
+      // Restore car trips: prefer the saved array; fall back to a single legacy row from actuals.miles
+      if (fd.carTrips && fd.carTrips.length > 0) {
+        setCarTrips(fd.carTrips)
+      } else if (fd.actuals.miles > 0) {
         setCarTrips([
-          { from: "", to: "", miles: fd.actuals.miles, isRoundTrip: false },
+          {
+            date: "",
+            from: "",
+            to: "",
+            miles: fd.actuals.miles,
+            isRoundTrip: false,
+          },
         ])
       }
       if (fd.expenses && fd.expenses.length > 0) {
@@ -552,6 +561,15 @@ export default function TravelReimbursement() {
       alert("Please add your signature before submitting.")
       return
     }
+    const incompleteTrip = carTrips.find(
+      (t) => t.miles > 0 && (!t.date || !t.from || !t.to)
+    )
+    if (incompleteTrip) {
+      alert(
+        "Each mileage trip needs a date, origin, and destination so reviewers can audit it."
+      )
+      return
+    }
     setSubmitting(true)
     try {
       // Build legacy actuals from new expenses for backward compat
@@ -617,6 +635,9 @@ export default function TravelReimbursement() {
         },
         meals: Array.from(mealsByDate.values()),
         expenses,
+        carTrips: carTrips.filter(
+          (t) => t.miles > 0 || t.from || t.to || t.date
+        ),
         taxExemptAcknowledged,
         advanceRequested,
         finalClaim,
@@ -639,7 +660,11 @@ export default function TravelReimbursement() {
           summary: `Travel — ${meetingTitle || location}`,
           amount: finalClaim,
           activityLog: arrayUnion({
-            action: "edited_by_controller",
+            action: editActionForRole(
+              user.email ?? "",
+              editTargetRef.current.approverEmail,
+              editTargetRef.current.supervisorEmail
+            ),
             by: user.email ?? "",
             at: Timestamp.now(),
           }),
@@ -1193,6 +1218,14 @@ export default function TravelReimbursement() {
                 trip.from.length >= 5 && trip.to.length >= 5 && !isCalcing
               return (
                 <div key={idx} className="py-3 first:pt-0 last:pb-0">
+                  <div className="mb-3 sm:max-w-xs">
+                    <Field label="Date">
+                      <DatePicker
+                        value={trip.date}
+                        onChange={(v) => updateCarTrip(idx, { date: v })}
+                      />
+                    </Field>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Field label="From">
                       <AddressAutocomplete
@@ -1611,6 +1644,70 @@ export default function TravelReimbursement() {
                           </div>
                         )}
                       </div>
+                      {/* Notes */}
+                      <div className="mt-2">
+                        {expense.notes !== undefined ? (
+                          <div>
+                            <div className="mb-1 flex items-center justify-between">
+                              <span
+                                className="text-[10px] font-semibold tracking-wider uppercase"
+                                style={{ color: "#64748b" }}
+                              >
+                                Note
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateExpense(expense._idx, {
+                                    notes: undefined,
+                                  })
+                                }
+                                className="cursor-pointer text-[10px] font-semibold"
+                                style={{ color: "#94a3b8" }}
+                                onMouseEnter={(e) =>
+                                  (e.currentTarget.style.color = "#ad2122")
+                                }
+                                onMouseLeave={(e) =>
+                                  (e.currentTarget.style.color = "#94a3b8")
+                                }
+                              >
+                                Remove note
+                              </button>
+                            </div>
+                            <textarea
+                              value={expense.notes}
+                              onChange={(e) =>
+                                updateExpense(expense._idx, {
+                                  notes: e.target.value,
+                                })
+                              }
+                              rows={2}
+                              placeholder="Context for this line — e.g., shared with colleague, conference fee includes meals…"
+                              className="input-neu w-full text-xs"
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateExpense(expense._idx, { notes: "" })
+                            }
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors"
+                            style={{ color: "#4356a9" }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.backgroundColor =
+                                "rgba(67,86,169,0.06)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.backgroundColor =
+                                "transparent")
+                            }
+                          >
+                            <Plus size={11} />
+                            Add note
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1706,6 +1803,68 @@ export default function TravelReimbursement() {
             order: 90,
           }}
         >
+          {(() => {
+            const breakdown: {
+              key: string
+              label: string
+              amount: number
+              meta?: string
+            }[] = []
+            const mileageCost = effectiveActMiles * MILEAGE_RATE
+            if (mileageCost > 0) {
+              breakdown.push({
+                key: "mileage",
+                label: "Mileage",
+                amount: mileageCost,
+                meta: `${effectiveActMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`,
+              })
+            }
+            for (const cat of EXPENSE_CATEGORIES) {
+              const sum = expenses
+                .filter((e) => e.category === cat.value)
+                .reduce((s, e) => s + (e.amount || 0), 0)
+              const count = expenses.filter(
+                (e) => e.category === cat.value
+              ).length
+              if (sum > 0) {
+                breakdown.push({
+                  key: cat.value,
+                  label: cat.label,
+                  amount: sum,
+                  meta: count > 1 ? `${count} items` : undefined,
+                })
+              }
+            }
+            if (breakdown.length === 0) return null
+            return (
+              <div
+                className="mb-2 space-y-1 border-b pb-3"
+                style={{ borderColor: "rgba(180,185,195,0.4)" }}
+              >
+                {breakdown.map((row) => (
+                  <div
+                    key={row.key}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span style={{ color: "#64748b" }}>
+                      {row.label}
+                      {row.meta && (
+                        <span
+                          className="ml-2 text-xs"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          {row.meta}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ color: "#334155" }}>
+                      ${row.amount.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: "#64748b" }}>Total Actual Expenses</span>
             <span className="font-semibold" style={{ color: "#1d2a5d" }}>

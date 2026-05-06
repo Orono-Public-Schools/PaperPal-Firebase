@@ -33,7 +33,7 @@ import {
   resolveSupervisor,
 } from "@/lib/firestore"
 import type { CheckRequestData, Attachment } from "@/lib/types"
-import { formatBudgetCode } from "@/lib/utils"
+import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import type { CheckRequestExpense } from "@/lib/types"
@@ -171,11 +171,19 @@ export default function CheckRequest() {
     receipts,
   ])
 
-  // Load existing submission for resubmit or controller edit
+  // Load existing submission for resubmit or staff/approver/supervisor/controller edit
+  const editTargetRef = useRef<{
+    approverEmail?: string
+    supervisorEmail?: string
+  }>({})
   useEffect(() => {
     if (!loadId) return
     getSubmission(loadId).then((sub) => {
       if (!sub || sub.formType !== "check") return
+      editTargetRef.current = {
+        approverEmail: sub.approverEmail,
+        supervisorEmail: sub.supervisorEmail,
+      }
       const fd = sub.formData as CheckRequestData
       setSubmitterName(sub.submitterName)
       setRouteRequestTo(sub.supervisorEmail)
@@ -272,7 +280,11 @@ export default function CheckRequest() {
           summary: `Check Request — ${payee}`,
           amount: grandTotal,
           activityLog: arrayUnion({
-            action: "edited_by_controller",
+            action: editActionForRole(
+              user.email ?? "",
+              editTargetRef.current.approverEmail,
+              editTargetRef.current.supervisorEmail
+            ),
             by: user.email ?? "",
             at: Timestamp.now(),
           }),

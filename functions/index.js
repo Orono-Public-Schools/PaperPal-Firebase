@@ -270,14 +270,25 @@ exports.onSubmissionCreated = onDocumentCreated(
     const submission = event.data.data()
     if (submission.status !== "pending") return
 
+    const t0 = Date.now()
     try {
+      const tSettings = Date.now()
       const settingsSnap = await db.doc("settings/app").get()
       const settings = settingsSnap.data() || {}
+      const settingsMs = Date.now() - tSettings
 
+      const tPdf = Date.now()
       const pdfBuffer = await generatePdf(submission)
-      await sendSubmitEmails(submission, settings, pdfBuffer)
+      const pdfMs = Date.now() - tPdf
 
-      console.log(`Submit emails sent for ${submission.id}`)
+      const tMail = Date.now()
+      await sendSubmitEmails(submission, settings, pdfBuffer)
+      const mailMs = Date.now() - tMail
+
+      const totalMs = Date.now() - t0
+      console.log(
+        `[timing] onSubmissionCreated ${submission.id} pdfBytes=${pdfBuffer.length} settings=${settingsMs}ms pdf=${pdfMs}ms mail=${mailMs}ms total=${totalMs}ms`
+      )
     } catch (err) {
       console.error(`Error on submit for ${submission.id}:`, err)
     }
@@ -316,27 +327,36 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
     if (before.status === after.status && !isRedirect && !isResubmitFromPending)
       return
 
+    const t0 = Date.now()
     try {
+      const tSettings = Date.now()
       const settingsSnap = await db.doc("settings/app").get()
       const settings = settingsSnap.data() || {}
+      const settingsMs = Date.now() - tSettings
 
       // Handle redirect before the status switch
       if (isRedirect) {
+        const tPdf = Date.now()
         const pdfBuffer = await generatePdf(after)
+        const pdfMs = Date.now() - tPdf
+        const tMail = Date.now()
         await sendRedirectedEmails(
           after,
           settings,
           before.supervisorEmail,
           pdfBuffer
         )
+        const mailMs = Date.now() - tMail
         console.log(
-          `Redirect emails sent for ${after.id}: ${before.supervisorEmail} → ${after.supervisorEmail}`
+          `[timing] onSubmissionStatusChange ${after.id} branch=redirect pdfBytes=${pdfBuffer.length} settings=${settingsMs}ms pdf=${pdfMs}ms mail=${mailMs}ms total=${Date.now() - t0}ms`
         )
         return
       }
 
       // Generate PDF with current signatures
+      const tPdf = Date.now()
       const pdfBuffer = await generatePdf(after)
+      const pdfMs = Date.now() - tPdf
 
       switch (after.status) {
         case "pending":
@@ -433,6 +453,9 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
           console.log(`Revision emails sent for ${after.id}`)
           break
       }
+      console.log(
+        `[timing] onSubmissionStatusChange ${after.id} status=${after.status} pdfBytes=${pdfBuffer.length} settings=${settingsMs}ms pdf=${pdfMs}ms total=${Date.now() - t0}ms`
+      )
     } catch (err) {
       console.error(`Error processing status change for ${after.id}:`, err)
       await event.data.after.ref

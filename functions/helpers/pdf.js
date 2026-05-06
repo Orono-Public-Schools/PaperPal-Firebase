@@ -503,17 +503,42 @@ function renderTravel(doc, data) {
     const expCols = [60, 90, 130, 70]
     drawTableHeaders(doc, ["Date", "Category", "Detail", "Amount"], expCols, 50)
 
-    const mileageCost = data.actuals.miles * MILEAGE_RATE
     let expTotal = 0
 
-    if (data.actuals.miles > 0) {
+    if (data.carTrips && data.carTrips.length > 0) {
+      for (const trip of data.carTrips) {
+        const effective = trip.isRoundTrip ? trip.miles * 2 : trip.miles
+        if (effective <= 0) continue
+        const route =
+          trip.from && trip.to
+            ? `${trip.from} → ${trip.to}${trip.isRoundTrip ? " (round trip)" : ""}`
+            : trip.isRoundTrip
+              ? "Round trip"
+              : "—"
+        const detail = `${route}\n${effective.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+        ensureSpace(doc, 18)
+        drawTableRow(
+          doc,
+          [
+            formatDate(trip.date) || "—",
+            "Mileage",
+            detail,
+            currency(effective * MILEAGE_RATE),
+          ],
+          expCols,
+          50
+        )
+        expTotal += effective * MILEAGE_RATE
+      }
+    } else if (data.actuals.miles > 0) {
+      const mileageCost = data.actuals.miles * MILEAGE_RATE
       ensureSpace(doc, 18)
       drawTableRow(
         doc,
         [
           "—",
           "Mileage",
-          `${data.actuals.miles} mi × $${MILEAGE_RATE.toFixed(3)}`,
+          `${data.actuals.miles} mi × $${MILEAGE_RATE.toFixed(3)}\n(Per-trip detail not recorded — request resubmission for audit)`,
           currency(mileageCost),
         ],
         expCols,
@@ -524,9 +549,12 @@ function renderTravel(doc, data) {
 
     for (const exp of data.expenses) {
       ensureSpace(doc, 18)
-      const detail = exp.mealType
+      const baseDetail = exp.mealType
         ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
         : exp.location || exp.description || "—"
+      const detail = exp.notes
+        ? `${baseDetail}\nNote: ${exp.notes}`
+        : baseDetail
       drawTableRow(
         doc,
         [

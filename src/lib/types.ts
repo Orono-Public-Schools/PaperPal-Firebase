@@ -185,6 +185,7 @@ export interface TravelExpenseItem {
   mealType?: "breakfast" | "lunch" | "dinner"
   location?: string
   description?: string
+  notes?: string
   receipt?: Attachment
 }
 
@@ -198,6 +199,14 @@ export interface TravelMeal {
 export interface TravelActualOther {
   desc: string
   amount: number
+}
+
+export interface TravelCarTrip {
+  date: string
+  from: string
+  to: string
+  miles: number
+  isRoundTrip: boolean
 }
 
 export interface TravelData {
@@ -234,6 +243,7 @@ export interface TravelData {
   }
   meals: TravelMeal[]
   expenses?: TravelExpenseItem[]
+  carTrips?: TravelCarTrip[]
   taxExemptAcknowledged?: boolean
   advanceRequested: number
   finalClaim: number
@@ -280,6 +290,8 @@ export type ActivityAction =
   | "marked_as_paid"
   | "unmarked_as_paid"
   | "returned_to_supervisor"
+  | "edited_by_approver"
+  | "edited_by_supervisor"
   | "edited_by_controller"
 
 export interface ActivityLogEntry {

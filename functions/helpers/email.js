@@ -64,6 +64,7 @@ async function sendMail(to, subject, html, pdfBuffer, pdfFilename) {
     createdAt: FieldValue.serverTimestamp(),
   }
 
+  const tEncode = Date.now()
   if (pdfBuffer && pdfFilename) {
     doc.message.attachments = [
       {
@@ -74,8 +75,15 @@ async function sendMail(to, subject, html, pdfBuffer, pdfFilename) {
       },
     ]
   }
+  const encodeMs = Date.now() - tEncode
 
-  await db.collection("mail").add(doc)
+  const tWrite = Date.now()
+  const ref = await db.collection("mail").add(doc)
+  const writeMs = Date.now() - tWrite
+
+  console.log(
+    `[timing] sendMail to=${Array.isArray(to) ? to.join(",") : to} pdfBytes=${pdfBuffer ? pdfBuffer.length : 0} encode=${encodeMs}ms write=${writeMs}ms mailDoc=${ref.id}`
+  )
 }
 
 function pdfFilename(submission) {

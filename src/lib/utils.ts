@@ -1,8 +1,25 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { ActivityAction } from "./types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export function editActionForRole(
+  editorEmail: string,
+  approverEmail: string | undefined,
+  supervisorEmail: string | undefined
+): Extract<
+  ActivityAction,
+  "edited_by_approver" | "edited_by_supervisor" | "edited_by_controller"
+> {
+  const e = editorEmail.toLowerCase()
+  if (approverEmail && e === approverEmail.toLowerCase())
+    return "edited_by_approver"
+  if (supervisorEmail && e === supervisorEmail.toLowerCase())
+    return "edited_by_supervisor"
+  return "edited_by_controller"
 }
 
 /**
