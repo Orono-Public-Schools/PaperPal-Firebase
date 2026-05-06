@@ -93,9 +93,8 @@ function pdfFilename(submission) {
 
 // ─── On Submit (pending) ─────────────────────────────────────────────────────
 
-async function sendSubmitEmails(submission, settings, pdfBuffer) {
+async function sendSubmitEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -103,7 +102,6 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
 
   // Send review notification to approver (if exists) or supervisor
   const reviewerEmail = submission.approverEmail || submission.supervisorEmail
-  const reviewerRole = submission.approverEmail ? "approver" : "supervisor"
   if (reviewerEmail) {
     await sendMail(
       sandboxTo(submission, reviewerEmail),
@@ -117,9 +115,7 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
         `,
         link,
         linkLabel: "Review Request",
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 
@@ -135,17 +131,14 @@ async function sendSubmitEmails(submission, settings, pdfBuffer) {
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 }
 
 // ─── On Supervisor Approve (reviewed) ────────────────────────────────────────
 
-async function sendReviewedEmails(submission, settings, pdfBuffer) {
+async function sendReviewedEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -164,9 +157,7 @@ async function sendReviewedEmails(submission, settings, pdfBuffer) {
         `,
         link,
         linkLabel: "Review & Approve",
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 
@@ -181,9 +172,7 @@ async function sendReviewedEmails(submission, settings, pdfBuffer) {
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 
   // Supervisor confirmation
@@ -198,9 +187,7 @@ async function sendReviewedEmails(submission, settings, pdfBuffer) {
           <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
         `,
         link,
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 }
@@ -215,7 +202,7 @@ async function sendApprovedEmails(submission, settings, pdfBuffer) {
 
   if (!settings.notifyOnApproval) return
 
-  // Submitter
+  // Submitter — gets the official PDF copy
   await sendMail(
     submission.submitterEmail,
     `${tag}[PaperPal] Approved — ${formLabel} ${submission.id}`,
@@ -231,7 +218,7 @@ async function sendApprovedEmails(submission, settings, pdfBuffer) {
     fname
   )
 
-  // Supervisor
+  // Supervisor — confirmation only, no attachment
   if (submission.supervisorEmail) {
     await sendMail(
       sandboxTo(submission, submission.supervisorEmail),
@@ -243,18 +230,15 @@ async function sendApprovedEmails(submission, settings, pdfBuffer) {
           <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
         `,
         link,
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 }
 
 // ─── On Deny ─────────────────────────────────────────────────────────────────
 
-async function sendDeniedEmails(submission, settings, pdfBuffer) {
+async function sendDeniedEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -274,17 +258,14 @@ async function sendDeniedEmails(submission, settings, pdfBuffer) {
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 }
 
 // ─── On Revisions Requested ──────────────────────────────────────────────────
 
-async function sendRevisionsEmails(submission, settings, pdfBuffer) {
+async function sendRevisionsEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -305,17 +286,14 @@ async function sendRevisionsEmails(submission, settings, pdfBuffer) {
       `,
       link,
       linkLabel: "Edit & Resubmit",
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 }
 
 // ─── On Resubmit (revisions_requested → pending) ────────────────────────────
 
-async function sendResubmittedEmails(submission, settings, pdfBuffer) {
+async function sendResubmittedEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -336,9 +314,7 @@ async function sendResubmittedEmails(submission, settings, pdfBuffer) {
         `,
         link,
         linkLabel: "Review Request",
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 
@@ -354,9 +330,7 @@ async function sendResubmittedEmails(submission, settings, pdfBuffer) {
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 }
 
@@ -365,11 +339,9 @@ async function sendResubmittedEmails(submission, settings, pdfBuffer) {
 async function sendRedirectedEmails(
   submission,
   settings,
-  previousSupervisorEmail,
-  pdfBuffer
+  previousSupervisorEmail
 ) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -387,9 +359,7 @@ async function sendRedirectedEmails(
         `,
         link,
         linkLabel: "Review Request",
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 
@@ -405,18 +375,15 @@ async function sendRedirectedEmails(
           <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
         `,
         link,
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 }
 
 // ─── On Returned to Supervisor (controller sends back) ────────────────────
 
-async function sendReturnedToSupervisorEmails(submission, settings, pdfBuffer) {
+async function sendReturnedToSupervisorEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
   const note = submission.revisionComments || ""
@@ -435,18 +402,15 @@ async function sendReturnedToSupervisorEmails(submission, settings, pdfBuffer) {
         `,
         link,
         linkLabel: "Review Request",
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 }
 
 // ─── On Approver Approve (approved_by_approver) ────────────────────────────
 
-async function sendApproverApprovedEmails(submission, settings, pdfBuffer) {
+async function sendApproverApprovedEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -464,9 +428,7 @@ async function sendApproverApprovedEmails(submission, settings, pdfBuffer) {
         `,
         link,
         linkLabel: "Review Request",
-      }),
-      pdfBuffer,
-      fname
+      })
     )
   }
 
@@ -481,17 +443,14 @@ async function sendApproverApprovedEmails(submission, settings, pdfBuffer) {
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 }
 
 // ─── On Paid (approved → paid) ──────────────────────────────────────────────
 
-async function sendPaidEmails(submission, settings, pdfBuffer) {
+async function sendPaidEmails(submission, settings) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
-  const fname = pdfFilename(submission)
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
@@ -505,9 +464,7 @@ async function sendPaidEmails(submission, settings, pdfBuffer) {
         <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
       `,
       link,
-    }),
-    pdfBuffer,
-    fname
+    })
   )
 }
 

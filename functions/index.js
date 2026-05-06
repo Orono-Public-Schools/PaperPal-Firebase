@@ -277,17 +277,13 @@ exports.onSubmissionCreated = onDocumentCreated(
       const settings = settingsSnap.data() || {}
       const settingsMs = Date.now() - tSettings
 
-      const tPdf = Date.now()
-      const pdfBuffer = await generatePdf(submission)
-      const pdfMs = Date.now() - tPdf
-
       const tMail = Date.now()
-      await sendSubmitEmails(submission, settings, pdfBuffer)
+      await sendSubmitEmails(submission, settings)
       const mailMs = Date.now() - tMail
 
       const totalMs = Date.now() - t0
       console.log(
-        `[timing] onSubmissionCreated ${submission.id} pdfBytes=${pdfBuffer.length} settings=${settingsMs}ms pdf=${pdfMs}ms mail=${mailMs}ms total=${totalMs}ms`
+        `[timing] onSubmissionCreated ${submission.id} settings=${settingsMs}ms mail=${mailMs}ms total=${totalMs}ms`
       )
     } catch (err) {
       console.error(`Error on submit for ${submission.id}:`, err)
@@ -334,58 +330,52 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
       const settings = settingsSnap.data() || {}
       const settingsMs = Date.now() - tSettings
 
-      // Handle redirect before the status switch
+      // Handle redirect before the status switch — link-only, no PDF
       if (isRedirect) {
-        const tPdf = Date.now()
-        const pdfBuffer = await generatePdf(after)
-        const pdfMs = Date.now() - tPdf
         const tMail = Date.now()
-        await sendRedirectedEmails(
-          after,
-          settings,
-          before.supervisorEmail,
-          pdfBuffer
-        )
+        await sendRedirectedEmails(after, settings, before.supervisorEmail)
         const mailMs = Date.now() - tMail
         console.log(
-          `[timing] onSubmissionStatusChange ${after.id} branch=redirect pdfBytes=${pdfBuffer.length} settings=${settingsMs}ms pdf=${pdfMs}ms mail=${mailMs}ms total=${Date.now() - t0}ms`
+          `[timing] onSubmissionStatusChange ${after.id} branch=redirect settings=${settingsMs}ms mail=${mailMs}ms total=${Date.now() - t0}ms`
         )
         return
       }
 
-      // Generate PDF with current signatures
-      const tPdf = Date.now()
-      const pdfBuffer = await generatePdf(after)
-      const pdfMs = Date.now() - tPdf
+      let pdfMs = 0
+      let pdfBytes = 0
 
       switch (after.status) {
         case "pending":
           if (isReturnedToSupervisor) {
-            await sendReturnedToSupervisorEmails(after, settings, pdfBuffer)
+            await sendReturnedToSupervisorEmails(after, settings)
             console.log(`Return-to-supervisor emails sent for ${after.id}`)
           } else if (
             before.status === "revisions_requested" ||
             isResubmitFromPending
           ) {
-            // Resubmit: revisions_requested → pending, or pending → pending (edit & resubmit)
-            await sendResubmittedEmails(after, settings, pdfBuffer)
+            await sendResubmittedEmails(after, settings)
             console.log(`Resubmit emails sent for ${after.id}`)
           }
           break
 
         case "approved_by_approver":
-          await sendApproverApprovedEmails(after, settings, pdfBuffer)
+          await sendApproverApprovedEmails(after, settings)
           console.log(`Approver-approved emails sent for ${after.id}`)
           break
 
         case "reviewed":
-          await sendReviewedEmails(after, settings, pdfBuffer)
+          await sendReviewedEmails(after, settings)
           console.log(`Reviewed emails sent for ${after.id}`)
           break
 
         case "approved": {
+          // PDF needed: Drive upload + submitter's official copy + undo-paid revert
+          const tPdf = Date.now()
+          const pdfBuffer = await generatePdf(after)
+          pdfMs = Date.now() - tPdf
+          pdfBytes = pdfBuffer.length
+
           if (before.status === "paid") {
-            // Undo paid: regenerate PDF without watermark and update Drive
             if (!after.sandbox && after.pdfDriveId) {
               await updateDriveFile(after.pdfDriveId, pdfBuffer)
               console.log(
@@ -398,7 +388,6 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
             }
             console.log(`Submission ${after.id} reverted from paid to approved`)
           } else {
-            // Normal approval: upload to shared drive + log sheet (skip in sandbox)
             if (!after.pdfDriveId && !after.sandbox) {
               const { fileId, webViewLink, yearFolderId } = await uploadToDrive(
                 pdfBuffer,
@@ -424,11 +413,15 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
         }
 
         case "paid": {
-          // Regenerate PDF with PAID watermark
+          // PDF needed: Drive watermark update only — email is link-only
+          const tPdf = Date.now()
+          const pdfBuffer = await generatePdf(after)
+          pdfMs = Date.now() - tPdf
+          pdfBytes = pdfBuffer.length
+
           const paidPdf = await stampPaidWatermark(pdfBuffer)
 
           if (!after.sandbox) {
-            // Update existing Drive file with watermarked PDF
             if (after.pdfDriveId) {
               await updateDriveFile(after.pdfDriveId, paidPdf)
               console.log(
@@ -438,23 +431,23 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
             await markPaidInLog(after, settings)
             console.log(`Log sheet updated with paid date for ${after.id}`)
           }
-          await sendPaidEmails(after, settings, paidPdf)
+          await sendPaidEmails(after, settings)
           console.log(`Paid emails sent for ${after.id}`)
           break
         }
 
         case "denied":
-          await sendDeniedEmails(after, settings, pdfBuffer)
+          await sendDeniedEmails(after, settings)
           console.log(`Denial emails sent for ${after.id}`)
           break
 
         case "revisions_requested":
-          await sendRevisionsEmails(after, settings, pdfBuffer)
+          await sendRevisionsEmails(after, settings)
           console.log(`Revision emails sent for ${after.id}`)
           break
       }
       console.log(
-        `[timing] onSubmissionStatusChange ${after.id} status=${after.status} pdfBytes=${pdfBuffer.length} settings=${settingsMs}ms pdf=${pdfMs}ms total=${Date.now() - t0}ms`
+        `[timing] onSubmissionStatusChange ${after.id} status=${after.status} settings=${settingsMs}ms pdf=${pdfMs}ms pdfBytes=${pdfBytes} total=${Date.now() - t0}ms`
       )
     } catch (err) {
       console.error(`Error processing status change for ${after.id}:`, err)

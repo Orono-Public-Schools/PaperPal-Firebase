@@ -9,6 +9,10 @@
 
 ## Done
 
+- Email latency fix (link-based workflow notifications, receipt compression via sharp): Gmail log diagnosis showed Workspace's pre-delivery scanning was the bottleneck — not our code, and not file size (compression to 91KB still triggered 4+ minute delays). Pivoted to link-only emails for every workflow status; only the final-approval submitter copy still carries a PDF. Result: end-to-end delivery dropped from 4+ minutes (sometimes never arriving) to ~10 seconds.
+- Travel form polish (per-line notes, per-trip mileage detail with date/from/to, Final Claim category breakdown, PDF legacy fallback wording, submission validation)
+- Approver/supervisor edit access (mirror controller-edit flow; activity log distinguishes edited_by_approver / edited_by_supervisor / edited_by_controller)
+- Email timing instrumentation (`[timing]` logs on onSubmissionCreated, onSubmissionStatusChange, sendMail)
 - Workflow Mapping overhaul (rename Supervisor Mappings → Workflow Mapping, inline edit, search, routing chain, condensed uncovered banner, prominent per-group add buttons)
 - Business office feedback round (mileage rate $0.725, Airfare expense category, meal certification, Travel Policy slide-out drawer)
 - Dashboard tab state persisted in URL (back button restores correct tab/sub-view)

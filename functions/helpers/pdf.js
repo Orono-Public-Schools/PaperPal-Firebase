@@ -1,5 +1,6 @@
 const PDFDocument = require("pdfkit")
 const https = require("https")
+const sharp = require("sharp")
 const { PDFDocument: PDFLib, rgb, degrees } = require("pdf-lib")
 
 const MILEAGE_RATE = 0.725
@@ -29,6 +30,19 @@ function formatTimestamp(ts) {
   if (!ts) return "—"
   const d = ts.toDate ? ts.toDate() : new Date(ts)
   return d.toLocaleDateString("en-US")
+}
+
+async function compressReceiptImage(buffer) {
+  if (!buffer) return null
+  try {
+    return await sharp(buffer)
+      .rotate()
+      .resize({ width: 1600, withoutEnlargement: true })
+      .jpeg({ quality: 75, mozjpeg: true })
+      .toBuffer()
+  } catch {
+    return buffer
+  }
 }
 
 async function fetchImageBuffer(url) {
@@ -743,7 +757,8 @@ async function generatePdf(submission) {
 
   for (const att of allAttachments) {
     if (att.mimeType?.startsWith("image/")) {
-      const imgBuf = await fetchImageBuffer(att.url)
+      const rawBuf = await fetchImageBuffer(att.url)
+      const imgBuf = await compressReceiptImage(rawBuf)
       if (imgBuf) {
         doc.addPage()
         doc
