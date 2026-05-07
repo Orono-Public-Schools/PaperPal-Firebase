@@ -872,7 +872,7 @@ export default function FormView() {
                         setBudgetCode(formatBudgetCode(e.target.value))
                       }
                       placeholder="##-###-###-###-###-###"
-                      maxLength={20}
+                      maxLength={22}
                       className="input-neu w-full font-mono sm:w-72"
                     />
                     <BudgetCodeBuilder

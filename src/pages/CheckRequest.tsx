@@ -894,7 +894,7 @@ function ExpenseRow({
             onChange={(e) =>
               onChange(index, "code", formatBudgetCode(e.target.value))
             }
-            maxLength={20}
+            maxLength={22}
             className="input-neu font-mono"
             disabled={isStaff}
             style={
