@@ -167,7 +167,7 @@ Each form page:
 
 ### Budget Code Builder
 
-- Full-screen modal, 6-segment step-by-step flow (Fund → Org → Proj → Fin → Course → Obj)
+- Full-screen modal, 6-segment step-by-step flow (Fund → Org → Program → Fin → Course → Obj)
 - Format: `##-###-###-###-###-###`
 - Segments stored in Firestore `settings/budgetSegments` doc
 - Auto-seeded from `defaultBudgetSegments.ts` on first load

@@ -1044,7 +1044,7 @@ function FormFieldsSection() {
 const SEGMENT_LABELS: Record<BudgetSegmentType, string> = {
   fund: "Fund",
   org: "Organization",
-  proj: "Project",
+  proj: "Program",
   fin: "Finance",
   course: "Course",
   obj: "Object",
