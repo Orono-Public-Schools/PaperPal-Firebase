@@ -93,6 +93,9 @@ export interface UserProfile {
   buildingOverride?: string
   supervisorEmail?: string
   homeAddress?: string
+  commuteMiles?: number
+  commuteCachedHomeAddress?: string
+  commuteCachedSchoolAddress?: string
   savedSignatureUrl?: string
   photoURL?: string
   role: UserRole
