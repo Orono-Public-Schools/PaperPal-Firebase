@@ -170,6 +170,7 @@ export interface MileageTrip {
   purpose: string
   miles: number
   isRoundTrip: boolean
+  isWorkingDay?: boolean
 }
 
 export interface MileageData {
@@ -179,6 +180,9 @@ export interface MileageData {
   trips: MileageTrip[]
   totalMiles: number
   totalReimbursement: number
+  commuteMilesUsed?: number
+  totalCommuteDeduction?: number
+  reimbursableMiles?: number
 }
 
 export interface TravelExpenseItem {

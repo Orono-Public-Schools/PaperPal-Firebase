@@ -38,6 +38,7 @@ import {
 } from "@/lib/firestore"
 import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
+import { getCommuteMiles } from "@/lib/commute"
 import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
@@ -51,6 +52,31 @@ function emptyTrip(): MileageTrip {
     purpose: "",
     miles: 0,
     isRoundTrip: false,
+    isWorkingDay: true,
+  }
+}
+
+function computeMileageTotals(trips: MileageTrip[], commuteMiles: number | null) {
+  const totalMiles = trips.reduce(
+    (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
+    0
+  )
+  const totalCommuteDeduction =
+    commuteMiles && commuteMiles > 0
+      ? trips.reduce((sum, t) => {
+          if (t.isWorkingDay === false) return sum
+          const tripMiles = t.isRoundTrip ? t.miles * 2 : t.miles
+          if (tripMiles <= 0) return sum
+          return sum + Math.min(tripMiles, commuteMiles * 2)
+        }, 0)
+      : 0
+  const reimbursableMiles = Math.max(0, totalMiles - totalCommuteDeduction)
+  const totalReimbursement = reimbursableMiles * RATE
+  return {
+    totalMiles,
+    totalCommuteDeduction,
+    reimbursableMiles,
+    totalReimbursement,
   }
 }
 
@@ -102,6 +128,22 @@ export default function MileageReimbursement() {
   const [policyOpen, setPolicyOpen] = useState(false)
   const [calculatingMiles, setCalculatingMiles] = useState<number | null>(null)
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+  const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!userProfile) return
+    let cancelled = false
+    const load = async () => {
+      const settings = await getAppSettings()
+      if (cancelled) return
+      const miles = await getCommuteMiles(userProfile, settings.schoolAddress)
+      if (!cancelled) setCommuteMiles(miles)
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [userProfile])
 
   // Auto-save draft
   useEffect(() => {
@@ -177,11 +219,12 @@ export default function MileageReimbursement() {
     }
   }
 
-  const totalMiles = trips.reduce(
-    (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
-    0
-  )
-  const totalReimbursement = totalMiles * RATE
+  const {
+    totalMiles,
+    totalCommuteDeduction,
+    reimbursableMiles,
+    totalReimbursement,
+  } = computeMileageTotals(trips, commuteMiles)
 
   function updateTrip<K extends keyof MileageTrip>(
     index: number,
@@ -213,13 +256,20 @@ export default function MileageReimbursement() {
     }
     setSubmitting(true)
     try {
-      const formData = {
+      const formData: MileageData = {
         name: submitterName,
         employeeId,
         accountCode,
         trips,
         totalMiles,
         totalReimbursement,
+        ...(commuteMiles && totalCommuteDeduction > 0
+          ? {
+              commuteMilesUsed: commuteMiles,
+              totalCommuteDeduction,
+              reimbursableMiles,
+            }
+          : {}),
       }
 
       // Resolve approval chain to check for optional approver step
@@ -347,7 +397,8 @@ export default function MileageReimbursement() {
             className="mt-1 text-sm font-semibold"
             style={{ color: "#4356a9" }}
           >
-            ${totalReimbursement.toFixed(2)} for {totalMiles.toFixed(1)} miles
+            ${totalReimbursement.toFixed(2)} for{" "}
+            {reimbursableMiles.toFixed(1)} miles
           </p>
           <button
             onClick={() => navigate("/")}
@@ -527,6 +578,7 @@ export default function MileageReimbursement() {
                 calculatingMiles={calculatingMiles === i}
                 quickFills={quickFills}
                 showAddHome={!userProfile?.homeAddress}
+                showWorkingDayToggle={!!commuteMiles && commuteMiles > 0}
               />
             ))}
           </div>
@@ -564,6 +616,40 @@ export default function MileageReimbursement() {
               {totalMiles.toFixed(1)} mi
             </span>
           </div>
+          {totalCommuteDeduction > 0 && (
+            <>
+              <div className="mt-2 flex items-center justify-between">
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "#64748b" }}
+                >
+                  Less commute deduction
+                  {commuteMiles && (
+                    <span
+                      className="ml-1 text-xs"
+                      style={{ color: "#94a3b8" }}
+                    >
+                      ({commuteMiles.toFixed(1)} mi × 2 per working day)
+                    </span>
+                  )}
+                </span>
+                <span className="font-semibold" style={{ color: "#ad2122" }}>
+                  −{totalCommuteDeduction.toFixed(1)} mi
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "#64748b" }}
+                >
+                  Reimbursable Miles
+                </span>
+                <span className="font-semibold" style={{ color: "#1d2a5d" }}>
+                  {reimbursableMiles.toFixed(1)} mi
+                </span>
+              </div>
+            </>
+          )}
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm font-medium" style={{ color: "#64748b" }}>
               Rate
@@ -701,6 +787,7 @@ function TripRow({
   calculatingMiles,
   quickFills,
   showAddHome,
+  showWorkingDayToggle,
 }: {
   trip: MileageTrip
   index: number
@@ -714,6 +801,7 @@ function TripRow({
   calculatingMiles: boolean
   quickFills: QuickFill[]
   showAddHome: boolean
+  showWorkingDayToggle: boolean
 }) {
   function handleFromChange(val: string) {
     onChange(index, "from", val)
@@ -814,26 +902,47 @@ function TripRow({
           />
         </Field>
         <div className="flex items-end justify-between gap-4">
-          <label
-            className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-            style={{ color: "#334155" }}
-          >
-            <input
-              type="checkbox"
-              checked={trip.isRoundTrip}
-              onChange={(e) => onChange(index, "isRoundTrip", e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-[#4356a9]"
-            />
-            Round trip
-            {trip.isRoundTrip && trip.miles > 0 && (
-              <span
-                className="text-xs font-semibold"
-                style={{ color: "#4356a9" }}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <label
+              className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+              style={{ color: "#334155" }}
+            >
+              <input
+                type="checkbox"
+                checked={trip.isRoundTrip}
+                onChange={(e) =>
+                  onChange(index, "isRoundTrip", e.target.checked)
+                }
+                className="h-4 w-4 cursor-pointer accent-[#4356a9]"
+              />
+              Round trip
+              {trip.isRoundTrip && trip.miles > 0 && (
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: "#4356a9" }}
+                >
+                  ({(trip.miles * 2).toFixed(1)} mi total)
+                </span>
+              )}
+            </label>
+            {showWorkingDayToggle && (
+              <label
+                className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                style={{ color: "#334155" }}
+                title="Uncheck for non-working days (weekend PD, holiday travel, etc.). When checked, your commute is deducted from this trip."
               >
-                ({(trip.miles * 2).toFixed(1)} mi total)
-              </span>
+                <input
+                  type="checkbox"
+                  checked={trip.isWorkingDay !== false}
+                  onChange={(e) =>
+                    onChange(index, "isWorkingDay", e.target.checked)
+                  }
+                  className="h-4 w-4 cursor-pointer accent-[#4356a9]"
+                />
+                Working day
+              </label>
             )}
-          </label>
+          </div>
           {onRemove && (
             <button
               type="button"
