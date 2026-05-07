@@ -38,6 +38,10 @@ export default function Profile() {
     if (!userProfile || !appSettings) return
     let cancelled = false
     const load = async () => {
+      if (!appSettings.commuteDeductionEnabled) {
+        if (!cancelled) setCommuteMiles(null)
+        return
+      }
       setCommuteLoading(true)
       try {
         const miles = await getCommuteMiles(
@@ -181,7 +185,11 @@ export default function Profile() {
       const homeChanged =
         trimmedHome &&
         trimmedHome !== (userProfile?.commuteCachedHomeAddress ?? "")
-      if (homeChanged && trimmedSchool) {
+      if (
+        appSettings?.commuteDeductionEnabled &&
+        homeChanged &&
+        trimmedSchool
+      ) {
         const miles = await computeCommuteMiles(trimmedHome, trimmedSchool)
         if (miles !== null) {
           commuteUpdate = {
@@ -292,18 +300,20 @@ export default function Profile() {
                   onChange={setHomeAddress}
                   placeholder="Used as default 'From' on mileage forms"
                 />
-                {homeAddress.trim() && appSettings?.schoolAddress.trim() && (
-                  <p
-                    className="mt-2 text-xs"
-                    style={{ color: "#64748b", lineHeight: 1.5 }}
-                  >
-                    {commuteLoading
-                      ? "Calculating commute distance…"
-                      : commuteMiles !== null
-                        ? `Commute to school: ${commuteMiles} mi one-way. This will be deducted from your mileage on working-day trips.`
-                        : "Could not calculate commute distance."}
-                  </p>
-                )}
+                {appSettings?.commuteDeductionEnabled &&
+                  homeAddress.trim() &&
+                  appSettings.schoolAddress.trim() && (
+                    <p
+                      className="mt-2 text-xs"
+                      style={{ color: "#64748b", lineHeight: 1.5 }}
+                    >
+                      {commuteLoading
+                        ? "Calculating commute distance…"
+                        : commuteMiles !== null
+                          ? `Commute to school: ${commuteMiles} mi one-way. This will be deducted from your mileage on working-day trips.`
+                          : "Could not calculate commute distance."}
+                    </p>
+                  )}
               </Field>
             </div>
             <Field label="Email">

@@ -203,6 +203,7 @@ function GeneralSettingsSection() {
       finalApproverEmail: settings.finalApproverEmail,
       finalApproverName: settings.finalApproverName,
       fiscalYearStartMonth: settings.fiscalYearStartMonth,
+      commuteDeductionEnabled: settings.commuteDeductionEnabled ?? false,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
@@ -283,6 +284,39 @@ function GeneralSettingsSection() {
                 />
               </Field>
             </div>
+          </div>
+
+          <div
+            className="mt-5 border-t pt-5"
+            style={{ borderColor: "rgba(180,185,195,0.25)" }}
+          >
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Commute Deduction
+            </p>
+            <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+              When enabled, the mileage form deducts each user's home↔school
+              commute from working-day trips (the distance they would have
+              driven anyway). Users can toggle the deduction per trip on the
+              form, and a one-way trip deducts one-way commute while a
+              round-trip deducts the full commute. Existing submissions keep
+              the math they were submitted with.
+            </p>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={settings.commuteDeductionEnabled ?? false}
+                onChange={(e) =>
+                  update("commuteDeductionEnabled", e.target.checked)
+                }
+                className="h-4 w-4 cursor-pointer accent-[#1d2a5d]"
+              />
+              <span className="text-sm font-medium" style={{ color: "#334155" }}>
+                Deduct commute from working-day mileage
+              </span>
+            </label>
           </div>
 
           <div

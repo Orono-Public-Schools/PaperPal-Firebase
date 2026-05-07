@@ -346,6 +346,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   finalApproverEmail: "",
   finalApproverName: "",
   fiscalYearStartMonth: 6, // July
+  commuteDeductionEnabled: false,
 }
 
 export async function getAppSettings(): Promise<AppSettings> {

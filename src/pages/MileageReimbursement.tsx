@@ -137,6 +137,10 @@ export default function MileageReimbursement() {
     const load = async () => {
       const settings = await getAppSettings()
       if (cancelled) return
+      if (!settings.commuteDeductionEnabled) {
+        setCommuteMiles(null)
+        return
+      }
       const miles = await getCommuteMiles(userProfile, settings.schoolAddress)
       if (!cancelled) setCommuteMiles(miles)
     }

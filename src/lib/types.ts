@@ -70,6 +70,7 @@ export interface AppSettings {
   finalApproverEmail: string
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
+  commuteDeductionEnabled?: boolean
   paperpalDriveFolderId?: string
   paperpalLogSheetId?: string
   staffSheetId?: string
