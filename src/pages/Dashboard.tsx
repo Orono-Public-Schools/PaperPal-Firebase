@@ -158,15 +158,9 @@ export default function Dashboard() {
   const tabParam = searchParams.get("tab")
   const viewParam = searchParams.get("view")
   const validTabs = ["pending", "history", "approvals"]
-  const derivedTab = validTabs.includes(tabParam ?? "") ? tabParam! : "new"
-  const [activeTab, setActiveTabState] = useState(derivedTab)
-
-  useEffect(() => {
-    setActiveTabState(derivedTab)
-  }, [derivedTab])
+  const activeTab = validTabs.includes(tabParam ?? "") ? tabParam! : "new"
 
   function setActiveTab(tab: string) {
-    setActiveTabState(tab)
     const params: Record<string, string> = {}
     if (tab !== "new") params.tab = tab
     setSearchParams(params, { replace: true })
@@ -213,17 +207,10 @@ export default function Dashboard() {
   )
 
   // Approvals — submissions assigned to this user for review
-  const derivedView = viewParam === "completed" ? "completed" : "pending"
-  const [approvalView, setApprovalViewState] = useState<
-    "pending" | "completed"
-  >(derivedView)
-
-  useEffect(() => {
-    setApprovalViewState(derivedView)
-  }, [derivedView])
+  const approvalView: "pending" | "completed" =
+    viewParam === "completed" ? "completed" : "pending"
 
   function setApprovalView(view: "pending" | "completed") {
-    setApprovalViewState(view)
     const params: Record<string, string> = { tab: "approvals" }
     if (view !== "pending") params.view = view
     setSearchParams(params, { replace: true })
