@@ -908,7 +908,7 @@ export default function TravelReimbursement() {
                   onChange={(e) =>
                     setAccountCode(formatBudgetCode(e.target.value))
                   }
-                  maxLength={20}
+                  maxLength={22}
                   className="input-neu font-mono"
                   disabled={userProfile?.role === "staff"}
                   style={

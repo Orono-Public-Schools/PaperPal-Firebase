@@ -454,7 +454,7 @@ export default function MileageReimbursement() {
                     setAccountCode(formatBudgetCode(e.target.value))
                   }
                   placeholder="##-###-###-###-###-###"
-                  maxLength={20}
+                  maxLength={22}
                   className="input-neu w-full font-mono"
                   disabled={userProfile?.role === "staff"}
                   style={
