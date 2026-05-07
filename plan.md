@@ -10,7 +10,6 @@
 
 These came up during the work and were intentionally deferred — pick up if/when they're worth the time, no rush:
 
-- **`firebase.json` predeploy hook** — small operational fix. Add a predeploy step that runs `npm run build` so `firebase deploy --only hosting` can't ship a stale `dist/` again. (Caught us today: hosting deploy succeeded but used the morning's bundle, so the FormView change shipped 30 minutes late after a manual rebuild + redeploy.)
 - **PDF page-1 thumbnails in FormView attachments** — currently PDF receipts render as file-icon cards. Real page previews would need PDF.js + a worker (~150KB bundle hit). Worth doing for reviewer UX, but not urgent.
 - **Bundle size warning** — `dist/assets/index-*.js` is ~870KB pre-gzip and trips Vite's 500KB warning every build. Cosmetic, but a `React.lazy` split on FormView and Admin would chunk it cleanly.
 - **Legacy "Per-trip detail not recorded" submissions** — old in-flight Travel forms still show this text on their PDFs. Supervisors can fix via the Edit button if any block final approval; nothing to code unless it becomes a real friction point.
