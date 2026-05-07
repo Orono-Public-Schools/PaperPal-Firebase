@@ -217,7 +217,8 @@ export function MileageView({ data }: { data: MileageData }) {
                       className="ml-1 text-xs"
                       style={{ color: "#94a3b8" }}
                     >
-                      ({data.commuteMilesUsed.toFixed(1)} mi × 2 per working day)
+                      ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
+                      working leg)
                     </span>
                   )}
                 </td>

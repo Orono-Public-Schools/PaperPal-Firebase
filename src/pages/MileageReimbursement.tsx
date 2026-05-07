@@ -67,7 +67,8 @@ function computeMileageTotals(trips: MileageTrip[], commuteMiles: number | null)
           if (t.isWorkingDay === false) return sum
           const tripMiles = t.isRoundTrip ? t.miles * 2 : t.miles
           if (tripMiles <= 0) return sum
-          return sum + Math.min(tripMiles, commuteMiles * 2)
+          const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
+          return sum + Math.min(tripMiles, commuteCap)
         }, 0)
       : 0
   const reimbursableMiles = Math.max(0, totalMiles - totalCommuteDeduction)
@@ -629,7 +630,7 @@ export default function MileageReimbursement() {
                       className="ml-1 text-xs"
                       style={{ color: "#94a3b8" }}
                     >
-                      ({commuteMiles.toFixed(1)} mi × 2 per working day)
+                      ({commuteMiles.toFixed(1)} mi one-way × each working leg)
                     </span>
                   )}
                 </span>
