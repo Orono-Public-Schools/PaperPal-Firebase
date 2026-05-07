@@ -15,7 +15,7 @@ const SEGMENT_ORDER: {
 }[] = [
   { type: "fund", label: "Fund", size: 2 },
   { type: "org", label: "Org", size: 3 },
-  { type: "proj", label: "Proj", size: 3 },
+  { type: "proj", label: "Program", size: 3 },
   { type: "fin", label: "Fin", size: 3 },
   { type: "course", label: "Course", size: 3 },
   { type: "obj", label: "Obj", size: 3 },
