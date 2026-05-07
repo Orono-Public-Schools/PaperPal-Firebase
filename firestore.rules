@@ -13,6 +13,9 @@ service cloud.firestore {
     function isAdminOrBO() {
       return userRole() in ['admin', 'business_office', 'controller'];
     }
+    function isApproverOrAbove() {
+      return userRole() in ['approver', 'supervisor', 'business_office', 'controller', 'admin'];
+    }
 
     // Users can read and write their own profile
     // Admins can read all profiles and create/update roles
@@ -20,7 +23,7 @@ service cloud.firestore {
       allow read: if request.auth != null
                   && (request.auth.uid == uid || isAdminOrBO());
       allow write: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && isAdmin();
+      allow create, update: if request.auth != null && isAdminOrBO();
     }
 
     // Any authenticated user can check if their email is on the allowlist
@@ -57,17 +60,17 @@ service cloud.firestore {
       allow write: if request.auth != null && isAdmin();
     }
 
-    // Staff records: anyone authenticated can read their own; admins can read/write all
+    // Staff records: anyone authenticated can read their own; approver+ can read all (for autocomplete); admins can write
     match /staff/{email} {
       allow read: if request.auth != null
-                  && (request.auth.token.email == email || isAdminOrBO());
+                  && (request.auth.token.email == email || isApproverOrAbove());
       allow write: if request.auth != null && isAdmin();
     }
 
-    // App settings: admins can read/write
+    // App settings: anyone authenticated can read; admin/BO/controller can write
     match /settings/{settingId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin();
+      allow write: if request.auth != null && isAdminOrBO();
     }
 
     // Mail trigger docs: authenticated users can create (for notifications)
