@@ -309,6 +309,9 @@ function ExpenseReceiptThumb({
 
 export function TravelView({ data }: { data: TravelData }) {
   const hasNewExpenses = data.expenses && data.expenses.length > 0
+  const hasCommuteDeduction =
+    typeof data.totalCommuteDeduction === "number" &&
+    data.totalCommuteDeduction > 0
 
   return (
     <div className="space-y-6">
@@ -399,6 +402,19 @@ export function TravelView({ data }: { data: TravelData }) {
                               Round Trip
                             </span>
                           )}
+                          {hasCommuteDeduction &&
+                            trip.isWorkingDay !== false && (
+                              <span
+                                className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                                style={{
+                                  background: "#fef3c7",
+                                  color: "#92400e",
+                                }}
+                                title="Commute deducted for this trip"
+                              >
+                                Working
+                              </span>
+                            )}
                         </div>
                         <div
                           className="mt-0.5 text-xs"
@@ -465,6 +481,37 @@ export function TravelView({ data }: { data: TravelData }) {
                 </td>
               </tr>
             ))}
+            {hasCommuteDeduction && (
+              <tr
+                className="border-t"
+                style={{
+                  color: "#ad2122",
+                  borderColor: "rgba(180,185,195,0.25)",
+                }}
+              >
+                <td className="py-2 pr-4">—</td>
+                <td className="py-2 pr-4">Commute</td>
+                <td className="py-2 pr-4 text-sm">
+                  Less commute deduction
+                  {data.commuteMilesUsed && (
+                    <span
+                      className="ml-1 text-xs"
+                      style={{ color: "#94a3b8" }}
+                    >
+                      ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
+                      working leg)
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-4 font-semibold">
+                  −
+                  {currency(
+                    (data.totalCommuteDeduction ?? 0) * MILEAGE_RATE
+                  )}
+                </td>
+                <td />
+              </tr>
+            )}
             <tr
               className="border-t font-bold"
               style={{
@@ -475,12 +522,7 @@ export function TravelView({ data }: { data: TravelData }) {
               <td className="py-2 pr-4" colSpan={3}>
                 Total
               </td>
-              <td className="py-2 pr-4">
-                {currency(
-                  data.expenses!.reduce((s, e) => s + (e.amount || 0), 0) +
-                    data.actuals.miles * MILEAGE_RATE
-                )}
-              </td>
+              <td className="py-2 pr-4">{currency(data.actuals.total)}</td>
               <td />
             </tr>
           </Table>

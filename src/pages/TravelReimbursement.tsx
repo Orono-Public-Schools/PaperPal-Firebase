@@ -42,6 +42,7 @@ import {
 } from "@/lib/firestore"
 import type { TravelData, TravelExpenseItem, TravelCarTrip } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
+import { getCommuteMiles } from "@/lib/commute"
 import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import { storage, functions } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -58,7 +59,14 @@ function todayStr() {
 type ExpenseCategory = TravelExpenseItem["category"]
 
 function emptyCarTrip(): TravelCarTrip {
-  return { date: "", from: "", to: "", miles: 0, isRoundTrip: false }
+  return {
+    date: "",
+    from: "",
+    to: "",
+    miles: 0,
+    isRoundTrip: false,
+    isWorkingDay: true,
+  }
 }
 
 const EXPENSE_CATEGORIES: {
@@ -189,6 +197,7 @@ export default function TravelReimbursement() {
     null
   )
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+  const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
 
   // File uploads
   const [justificationFiles, setJustificationFiles] = useState<Attachment[]>(
@@ -312,6 +321,25 @@ export default function TravelReimbursement() {
       setQuickFills(fills)
     })
   }, [userProfile?.homeAddress, budgetYear])
+
+  useEffect(() => {
+    if (!userProfile) return
+    let cancelled = false
+    const load = async () => {
+      const settings = await getAppSettings()
+      if (cancelled) return
+      if (!settings.commuteDeductionEnabled) {
+        setCommuteMiles(null)
+        return
+      }
+      const miles = await getCommuteMiles(userProfile, settings.schoolAddress)
+      if (!cancelled) setCommuteMiles(miles)
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [userProfile])
 
   // Load existing submission for resubmit or staff/approver/supervisor/controller edit
   const editTargetRef = useRef<{
@@ -527,8 +555,22 @@ export default function TravelReimbursement() {
     (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
     0
   )
+  const totalCommuteDeduction =
+    commuteMiles && commuteMiles > 0
+      ? carTrips.reduce((sum, t) => {
+          if (t.isWorkingDay === false) return sum
+          const tripMiles = t.isRoundTrip ? t.miles * 2 : t.miles
+          if (tripMiles <= 0) return sum
+          const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
+          return sum + Math.min(tripMiles, commuteCap)
+        }, 0)
+      : 0
+  const reimbursableMiles = Math.max(
+    0,
+    effectiveActMiles - totalCommuteDeduction
+  )
   const expensesTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
-  const actTotal = effectiveActMiles * MILEAGE_RATE + expensesTotal
+  const actTotal = reimbursableMiles * MILEAGE_RATE + expensesTotal
 
   const estTotal =
     estTransport +
@@ -601,7 +643,7 @@ export default function TravelReimbursement() {
         else if (e.mealType === "dinner") m.dinner += e.amount || 0
       }
 
-      const formData = {
+      const formData: TravelData = {
         name: submitterName,
         employeeId,
         formDate,
@@ -641,6 +683,13 @@ export default function TravelReimbursement() {
         taxExemptAcknowledged,
         advanceRequested,
         finalClaim,
+        ...(commuteMiles && totalCommuteDeduction > 0
+          ? {
+              commuteMilesUsed: commuteMiles,
+              totalCommuteDeduction,
+              reimbursableMiles,
+            }
+          : {}),
       }
 
       // Resolve approval chain to check for optional approver step
@@ -1302,28 +1351,51 @@ export default function TravelReimbursement() {
                     </Field>
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-4">
-                    <label
-                      className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-                      style={{ color: "#334155" }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={trip.isRoundTrip}
-                        onChange={(e) =>
-                          updateCarTrip(idx, { isRoundTrip: e.target.checked })
-                        }
-                        className="h-4 w-4 cursor-pointer accent-[#4356a9]"
-                      />
-                      Round trip
-                      {trip.isRoundTrip && trip.miles > 0 && (
-                        <span
-                          className="text-xs font-semibold"
-                          style={{ color: "#4356a9" }}
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                      <label
+                        className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                        style={{ color: "#334155" }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={trip.isRoundTrip}
+                          onChange={(e) =>
+                            updateCarTrip(idx, {
+                              isRoundTrip: e.target.checked,
+                            })
+                          }
+                          className="h-4 w-4 cursor-pointer accent-[#4356a9]"
+                        />
+                        Round trip
+                        {trip.isRoundTrip && trip.miles > 0 && (
+                          <span
+                            className="text-xs font-semibold"
+                            style={{ color: "#4356a9" }}
+                          >
+                            ({(trip.miles * 2).toFixed(1)} mi total)
+                          </span>
+                        )}
+                      </label>
+                      {commuteMiles !== null && commuteMiles > 0 && (
+                        <label
+                          className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                          style={{ color: "#334155" }}
+                          title="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
                         >
-                          ({(trip.miles * 2).toFixed(1)} mi total)
-                        </span>
+                          <input
+                            type="checkbox"
+                            checked={trip.isWorkingDay !== false}
+                            onChange={(e) =>
+                              updateCarTrip(idx, {
+                                isWorkingDay: e.target.checked,
+                              })
+                            }
+                            className="h-4 w-4 cursor-pointer accent-[#4356a9]"
+                          />
+                          Working day
+                        </label>
                       )}
-                    </label>
+                    </div>
                     {carTrips.length > 1 && (
                       <button
                         type="button"
@@ -1356,21 +1428,77 @@ export default function TravelReimbursement() {
             <Plus size={14} />
             Add another trip
           </button>
-          {carTrips.length > 1 && (
+          {(carTrips.length > 1 || totalCommuteDeduction > 0) && (
             <div
-              className="mt-4 flex items-center justify-between rounded-lg px-3 py-2"
+              className="mt-4 space-y-1.5 rounded-lg px-3 py-2.5"
               style={{ background: "#f8f9fb" }}
             >
-              <span
-                className="text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  Total Mileage
+                </span>
+                <span
+                  className="text-sm font-semibold"
+                  style={{ color: "#1d2a5d" }}
+                >
+                  {effectiveActMiles.toFixed(1)} mi
+                </span>
+              </div>
+              {totalCommuteDeduction > 0 && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: "#64748b" }}>
+                      Less commute deduction
+                      {commuteMiles && (
+                        <span
+                          className="ml-1 text-[11px]"
+                          style={{ color: "#94a3b8" }}
+                        >
+                          ({commuteMiles.toFixed(1)} mi one-way × each working
+                          leg)
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: "#ad2122" }}
+                    >
+                      −{totalCommuteDeduction.toFixed(1)} mi
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-xs font-semibold tracking-wider uppercase"
+                      style={{ color: "#64748b" }}
+                    >
+                      Reimbursable
+                    </span>
+                    <span
+                      className="text-sm font-bold"
+                      style={{ color: "#1d2a5d" }}
+                    >
+                      {reimbursableMiles.toFixed(1)} mi
+                    </span>
+                  </div>
+                </>
+              )}
+              <div
+                className="flex items-center justify-between border-t pt-1.5"
+                style={{ borderColor: "rgba(180,185,195,0.3)" }}
               >
-                Total Mileage
-              </span>
-              <span className="text-sm font-bold" style={{ color: "#1d2a5d" }}>
-                {effectiveActMiles.toFixed(1)} mi · $
-                {(effectiveActMiles * MILEAGE_RATE).toFixed(2)}
-              </span>
+                <span
+                  className="text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  Mileage Reimbursement
+                </span>
+                <span className="text-sm font-bold" style={{ color: "#1d2a5d" }}>
+                  ${(reimbursableMiles * MILEAGE_RATE).toFixed(2)}
+                </span>
+              </div>
             </div>
           )}
         </Section>
@@ -1810,13 +1938,17 @@ export default function TravelReimbursement() {
               amount: number
               meta?: string
             }[] = []
-            const mileageCost = effectiveActMiles * MILEAGE_RATE
-            if (mileageCost > 0) {
+            const mileageCost = reimbursableMiles * MILEAGE_RATE
+            if (mileageCost > 0 || effectiveActMiles > 0) {
+              const meta =
+                totalCommuteDeduction > 0
+                  ? `${reimbursableMiles.toFixed(1)} mi reimbursable (${effectiveActMiles.toFixed(1)} gross − ${totalCommuteDeduction.toFixed(1)} commute) × $${MILEAGE_RATE.toFixed(3)}`
+                  : `${effectiveActMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
               breakdown.push({
                 key: "mileage",
                 label: "Mileage",
                 amount: mileageCost,
-                meta: `${effectiveActMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`,
+                meta,
               })
             }
             for (const cat of EXPENSE_CATEGORIES) {

@@ -215,6 +215,7 @@ export interface TravelCarTrip {
   to: string
   miles: number
   isRoundTrip: boolean
+  isWorkingDay?: boolean
 }
 
 export interface TravelData {
@@ -255,6 +256,9 @@ export interface TravelData {
   taxExemptAcknowledged?: boolean
   advanceRequested: number
   finalClaim: number
+  commuteMilesUsed?: number
+  totalCommuteDeduction?: number
+  reimbursableMiles?: number
 }
 
 // ─── Submission ───────────────────────────────────────────────────────────────
