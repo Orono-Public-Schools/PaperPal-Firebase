@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import {
   FileText,
@@ -42,7 +42,12 @@ import {
   getApprovedSubmissions,
   resolveRoutingChain,
 } from "@/lib/firestore"
-import type { AppSettings, Submission, SubmissionStatus } from "@/lib/types"
+import type {
+  AppSettings,
+  FormType,
+  Submission,
+  SubmissionStatus,
+} from "@/lib/types"
 import { getCurrentAssignee } from "@/lib/utils"
 
 const FORM_TYPES = [
@@ -333,6 +338,41 @@ export default function Dashboard() {
     if (approvalView !== "all") return
     getAppSettings().then(setOversightSettings).catch(console.error)
   }, [approvalView])
+
+  // All Open filters
+  const [filterSubmitter, setFilterSubmitter] = useState("")
+  const [filterFormType, setFilterFormType] = useState<FormType | "">("")
+  const [filterStatus, setFilterStatus] = useState<SubmissionStatus | "">("")
+
+  const allInFlightSubmitters = useMemo(() => {
+    const map = new Map<string, string>()
+    ;(allInFlightData ?? []).forEach((s) => {
+      const email = s.submitterEmail.toLowerCase()
+      if (!map.has(email)) map.set(email, s.submitterName)
+    })
+    return Array.from(map.entries())
+      .map(([email, name]) => ({ email, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [allInFlightData])
+
+  const allInFlightFiltered = useMemo(() => {
+    return (allInFlightData ?? [])
+      .filter((s) => (sandbox ? s.sandbox === true : !s.sandbox))
+      .filter(
+        (s) =>
+          !filterSubmitter || s.submitterEmail.toLowerCase() === filterSubmitter
+      )
+      .filter((s) => !filterFormType || s.formType === filterFormType)
+      .filter((s) => !filterStatus || s.status === filterStatus)
+      .sort((a, b) => {
+        const aMs = a.updatedAt?.toMillis?.() ?? 0
+        const bMs = b.updatedAt?.toMillis?.() ?? 0
+        return aMs - bMs
+      })
+  }, [allInFlightData, sandbox, filterSubmitter, filterFormType, filterStatus])
+
+  const hasActiveFilters =
+    filterSubmitter !== "" || filterFormType !== "" || filterStatus !== ""
 
   // Resend reminder + inline redirect state (All Open only)
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set())
@@ -734,28 +774,129 @@ export default function Dashboard() {
               showSubmitter
             />
           ) : approvalView === "all" ? (
-            <SubmissionList
-              submissions={(allInFlightData ?? []).filter((s) =>
-                sandbox ? s.sandbox === true : !s.sandbox
-              )}
-              loading={loadingAllInFlight}
-              emptyIcon={ClipboardCheck}
-              emptyTitle="No open submissions"
-              emptySubtitle="All in-flight submissions across the district appear here so you can redirect or edit any that are stuck."
-              showSubmitter
-              showAssignee
-              appSettings={oversightSettings}
-              onResend={handleResend}
-              onRedirect={(s) => {
-                setRedirectTarget(s)
-                setRedirectEmail("")
-              }}
-              onEditNavigate={(s) =>
-                navigate(`/forms/${s.formType}?edit=${s.id}`)
-              }
-              resendingIds={resendingIds}
-              resendStatus={resendStatus}
-            />
+            <>
+              <div
+                className="mb-4 flex flex-wrap items-center gap-2 rounded-xl px-2 py-2"
+                style={{ background: "rgba(255,255,255,0.06)" }}
+              >
+                <select
+                  value={filterSubmitter}
+                  onChange={(e) => setFilterSubmitter(e.target.value)}
+                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#ffffff",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    outline: "none",
+                    colorScheme: "dark",
+                  }}
+                >
+                  <option value="">All submitters</option>
+                  {allInFlightSubmitters.map((s) => (
+                    <option key={s.email} value={s.email}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={filterFormType}
+                  onChange={(e) =>
+                    setFilterFormType(e.target.value as FormType | "")
+                  }
+                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#ffffff",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    outline: "none",
+                    colorScheme: "dark",
+                  }}
+                >
+                  <option value="">All form types</option>
+                  <option value="check">Check Request</option>
+                  <option value="mileage">Mileage</option>
+                  <option value="travel">Travel</option>
+                </select>
+                <select
+                  value={filterStatus}
+                  onChange={(e) =>
+                    setFilterStatus(e.target.value as SubmissionStatus | "")
+                  }
+                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#ffffff",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    outline: "none",
+                    colorScheme: "dark",
+                  }}
+                >
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved_by_approver">
+                    Approver Approved
+                  </option>
+                  <option value="reviewed">Awaiting Final Approval</option>
+                  <option value="revisions_requested">
+                    Revisions Requested
+                  </option>
+                </select>
+                <span
+                  className="ml-auto text-xs"
+                  style={{ color: "rgba(255,255,255,0.45)" }}
+                >
+                  {allInFlightFiltered.length} of{" "}
+                  {(allInFlightData ?? []).length} · oldest first
+                </span>
+                {hasActiveFilters && (
+                  <button
+                    onClick={() => {
+                      setFilterSubmitter("")
+                      setFilterFormType("")
+                      setFilterStatus("")
+                    }}
+                    className="flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                    style={{
+                      color: "rgba(255,255,255,0.7)",
+                      background: "rgba(255,255,255,0.08)",
+                    }}
+                    title="Clear filters"
+                  >
+                    <X size={12} />
+                    Clear
+                  </button>
+                )}
+              </div>
+              <SubmissionList
+                submissions={allInFlightFiltered}
+                loading={loadingAllInFlight}
+                emptyIcon={ClipboardCheck}
+                emptyTitle={
+                  hasActiveFilters
+                    ? "No submissions match these filters"
+                    : "No open submissions"
+                }
+                emptySubtitle={
+                  hasActiveFilters
+                    ? "Try clearing one of the filters above."
+                    : "All in-flight submissions across the district appear here so you can redirect or edit any that are stuck."
+                }
+                showSubmitter
+                showAssignee
+                showAge
+                appSettings={oversightSettings}
+                onResend={handleResend}
+                onRedirect={(s) => {
+                  setRedirectTarget(s)
+                  setRedirectEmail("")
+                }}
+                onEditNavigate={(s) =>
+                  navigate(`/forms/${s.formType}?edit=${s.id}`)
+                }
+                resendingIds={resendingIds}
+                resendStatus={resendStatus}
+              />
+            </>
           ) : (
             <>
               {isController && approvedForPayment.length > 0 && (
@@ -914,6 +1055,7 @@ function SubmissionList({
   selectedIds,
   onToggleSelect,
   showAssignee,
+  showAge,
   appSettings,
   onResend,
   onRedirect,
@@ -932,6 +1074,7 @@ function SubmissionList({
   selectedIds?: Set<string>
   onToggleSelect?: (id: string) => void
   showAssignee?: boolean
+  showAge?: boolean
   appSettings?: AppSettings | null
   onResend?: (id: string) => void
   onRedirect?: (s: Submission) => void
@@ -940,6 +1083,7 @@ function SubmissionList({
   resendStatus?: Record<string, "sent" | "error">
 }) {
   const navigate = useNavigate()
+  const [nowMs] = useState(() => Date.now())
   if (loading) {
     return (
       <div className="space-y-3">
@@ -993,6 +1137,23 @@ function SubmissionList({
           : ""
         const canSelect = selectable && s.status === "approved"
         const isSelected = canSelect && selectedIds?.has(s.id)
+        const updMs = showAge ? (s.updatedAt?.toMillis?.() ?? 0) : 0
+        const waitingDays = updMs
+          ? Math.floor((nowMs - updMs) / (24 * 60 * 60 * 1000))
+          : 0
+        const isStale = showAge && waitingDays >= 7
+        const waitingLabel =
+          waitingDays <= 0
+            ? "today"
+            : waitingDays === 1
+              ? "1 day waiting"
+              : `${waitingDays} days waiting`
+        const waitingColor =
+          waitingDays >= 7
+            ? "#fca5a5"
+            : waitingDays >= 3
+              ? "#fcd34d"
+              : "rgba(255,255,255,0.55)"
         return (
           <div
             key={s.id}
@@ -1006,7 +1167,9 @@ function SubmissionList({
               boxShadow: `0 2px 12px ${statusStyle.cardGlow}`,
               outline: isSelected
                 ? "2px solid rgba(5,150,105,0.6)"
-                : "2px solid transparent",
+                : isStale
+                  ? "2px solid rgba(252,165,165,0.6)"
+                  : "2px solid transparent",
             }}
           >
             {/* Checkbox for selectable approved submissions */}
@@ -1038,6 +1201,14 @@ function SubmissionList({
                 <p className="mt-0.5 text-xs text-white/50">
                   {showSubmitter && <>{s.submitterName} · </>}
                   {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
+                  {showAge && (
+                    <>
+                      {" · "}
+                      <span style={{ color: waitingColor, fontWeight: 600 }}>
+                        {waitingLabel}
+                      </span>
+                    </>
+                  )}
                 </p>
                 {showAssignee &&
                   (() => {
