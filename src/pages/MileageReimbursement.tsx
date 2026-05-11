@@ -34,8 +34,9 @@ import {
   updateSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
-  resolveSupervisor,
+  resolveRoutingChain,
 } from "@/lib/firestore"
+import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { getCommuteMiles } from "@/lib/commute"
@@ -122,7 +123,6 @@ export default function MileageReimbursement() {
   const [trips, setTrips] = useState<MileageTrip[]>(
     saved?.trips?.length ? saved.trips : [emptyTrip()]
   )
-  const [sandboxApproverStep, setSandboxApproverStep] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
@@ -277,13 +277,46 @@ export default function MileageReimbursement() {
           : {}),
       }
 
-      // Resolve approval chain to check for optional approver step
-      const chain = await resolveSupervisor(user.email ?? "")
-      const hasApprover = sandbox ? sandboxApproverStep : !!chain?.approverEmail
-      const approverFields = hasApprover
+      // Resolve approval chain from the Route To value's role.
+      // Sandbox: route everything to self; the user's own role decides flow.
+      // Production: look up the routeRequestTo user. If they're an approver,
+      // the chain is 4-step (approver → their supervisor → controller).
+      // Otherwise it's 2-step (supervisor → controller).
+      let chain: {
+        approverEmail?: string
+        approverName?: string
+        supervisorEmail: string
+        supervisorName: string
+      }
+      if (sandbox) {
+        if (userProfile.role === "approver") {
+          chain = {
+            approverEmail: user.email ?? "",
+            approverName: userProfile.fullName,
+            supervisorEmail: user.email ?? "",
+            supervisorName: userProfile.fullName,
+          }
+        } else {
+          chain = {
+            supervisorEmail: user.email ?? "",
+            supervisorName: userProfile.fullName,
+          }
+        }
+      } else {
+        const resolved = await resolveRoutingChain(
+          routeRequestTo || userProfile.supervisorEmail || ""
+        )
+        chain = {
+          approverEmail: resolved.approverEmail,
+          approverName: resolved.approverName,
+          supervisorEmail: resolved.supervisorEmail,
+          supervisorName: resolved.supervisorName,
+        }
+      }
+      const approverFields = chain.approverEmail
         ? {
-            approverEmail: sandbox ? (user.email ?? "") : chain!.approverEmail!,
-            approverName: chain?.approverName ?? "",
+            approverEmail: chain.approverEmail,
+            approverName: chain.approverName ?? "",
           }
         : {}
 
@@ -307,9 +340,8 @@ export default function MileageReimbursement() {
         await updateSubmission(resubmitId, {
           status: "pending",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox
-            ? (user.email ?? "")
-            : routeRequestTo || userProfile.supervisorEmail || "",
+          supervisorEmail: chain.supervisorEmail,
+          supervisorName: chain.supervisorName,
           ...approverFields,
           employeeSignatureUrl: signatureUrl,
           formData,
@@ -340,9 +372,8 @@ export default function MileageReimbursement() {
           submitterUid: user.uid,
           submitterEmail: user.email ?? "",
           submitterName: userProfile.fullName,
-          supervisorEmail: sandbox
-            ? (user.email ?? "")
-            : routeRequestTo || userProfile.supervisorEmail || "",
+          supervisorEmail: chain.supervisorEmail,
+          supervisorName: chain.supervisorName,
           ...approverFields,
           employeeSignatureUrl: signatureUrl,
           formData,
@@ -532,37 +563,27 @@ export default function MileageReimbursement() {
                 )}
               </Field>
             )}
-            {isVisible("routeTo") && !isEdit && (
+            {isVisible("routeTo") && !isEdit && !sandbox && (
               <Field label="Route To">
                 <StaffEmailAutocomplete
                   value={routeRequestTo}
                   onChange={setRouteRequestTo}
-                  placeholder="Supervisor email"
+                  placeholder="Supervisor or approver email"
                   className="input-neu"
                 />
                 <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                  Your form will be sent to this person for approval.
+                  Route to a supervisor for a 2-step approval, or to an
+                  approver to add their supervisor as a middle step.
                 </p>
+                <RoutingChainPreview routeToEmail={routeRequestTo} />
               </Field>
             )}
           </div>
-          {sandbox && (
-            <div className="mt-4">
-              <Field label="Approval Flow (Sandbox)">
-                <select
-                  value={sandboxApproverStep ? "4-step" : "2-step"}
-                  onChange={(e) =>
-                    setSandboxApproverStep(e.target.value === "4-step")
-                  }
-                  className="input-neu cursor-pointer text-sm"
-                >
-                  <option value="2-step">Supervisor → Final Approver</option>
-                  <option value="4-step">
-                    Approver → Supervisor → Final Approver
-                  </option>
-                </select>
-              </Field>
-            </div>
+          {sandbox && !isEdit && (
+            <p className="mt-3 text-[11px]" style={{ color: "#94a3b8" }}>
+              Sandbox: all approval steps will be routed to your own email.
+              Flow follows your role ({userProfile?.role ?? "staff"}).
+            </p>
           )}
         </Section>
 

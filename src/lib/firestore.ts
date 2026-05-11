@@ -447,6 +447,67 @@ export async function updateBuildingSupervisorMappings(
   await setDoc(ref, { buildingMappings }, { merge: true })
 }
 
+export async function getUserProfileByEmail(
+  email: string
+): Promise<UserProfile | null> {
+  const trimmed = email.trim().toLowerCase()
+  if (!trimmed) return null
+  const snap = await getDocs(
+    query(collection(db, "users"), where("email", "==", trimmed))
+  )
+  if (snap.empty) return null
+  return snap.docs[0].data() as UserProfile
+}
+
+export interface RoutingChain {
+  flow: "2-step" | "4-step"
+  approverEmail?: string
+  approverName?: string
+  supervisorEmail: string
+  supervisorName: string
+  routeToRole?: UserProfile["role"]
+  routeToFound: boolean
+}
+
+export async function resolveRoutingChain(
+  routeToEmail: string
+): Promise<RoutingChain> {
+  const trimmed = routeToEmail.trim().toLowerCase()
+  const routeTo = trimmed ? await getUserProfileByEmail(trimmed) : null
+
+  if (!routeTo) {
+    return {
+      flow: "2-step",
+      supervisorEmail: trimmed,
+      supervisorName: "",
+      routeToFound: false,
+    }
+  }
+
+  if (routeTo.role === "approver") {
+    const nextSupervisor = routeTo.supervisorEmail
+      ? await getUserProfileByEmail(routeTo.supervisorEmail)
+      : null
+    return {
+      flow: "4-step",
+      approverEmail: routeTo.email,
+      approverName: routeTo.fullName,
+      supervisorEmail: nextSupervisor?.email || routeTo.supervisorEmail || "",
+      supervisorName: nextSupervisor?.fullName || "",
+      routeToRole: routeTo.role,
+      routeToFound: true,
+    }
+  }
+
+  return {
+    flow: "2-step",
+    supervisorEmail: routeTo.email,
+    supervisorName: routeTo.fullName,
+    routeToRole: routeTo.role,
+    routeToFound: true,
+  }
+}
+
 export async function resolveSupervisor(email: string): Promise<{
   email: string
   name: string
