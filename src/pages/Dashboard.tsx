@@ -346,14 +346,16 @@ export default function Dashboard() {
 
   const allInFlightSubmitters = useMemo(() => {
     const map = new Map<string, string>()
-    ;(allInFlightData ?? []).forEach((s) => {
-      const email = s.submitterEmail.toLowerCase()
-      if (!map.has(email)) map.set(email, s.submitterName)
-    })
+    ;(allInFlightData ?? [])
+      .filter((s) => (sandbox ? s.sandbox === true : !s.sandbox))
+      .forEach((s) => {
+        const email = s.submitterEmail.toLowerCase()
+        if (!map.has(email)) map.set(email, s.submitterName)
+      })
     return Array.from(map.entries())
       .map(([email, name]) => ({ email, name }))
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [allInFlightData])
+  }, [allInFlightData, sandbox])
 
   const allInFlightFiltered = useMemo(() => {
     return (allInFlightData ?? [])
