@@ -225,6 +225,22 @@ export default function FormView() {
     !canSupervisorAct &&
     !canFinalApproverAct
 
+  // Whether the submission is missing any budget code the approver might need
+  // to fill in. If everything's set, the approve form skips prompting for it.
+  const needsBudgetCode = (() => {
+    if (submission.formType === "check") {
+      const fd = submission.formData as CheckRequestData
+      return fd.expenses.some((e) => !e.code?.trim())
+    }
+    if (submission.formType === "mileage") {
+      return !(submission.formData as MileageData).accountCode?.trim()
+    }
+    if (submission.formType === "travel") {
+      return !(submission.formData as TravelData).accountCode?.trim()
+    }
+    return false
+  })()
+
   const statusCfg = STATUS_CONFIG[submission.status]
   const StatusIcon = statusCfg.icon
   const FormIcon = FORM_ICONS[submission.formType] ?? FileText
@@ -910,7 +926,7 @@ export default function FormView() {
             {/* Approve mode — signature */}
             {actionMode === "approve" && (
               <div>
-                {(canApproverAct || canSupervisorAct) && (
+                {(canApproverAct || canSupervisorAct) && needsBudgetCode && (
                   <div className="mb-4">
                     <label
                       className="mb-1 block text-xs font-semibold tracking-wider uppercase"
@@ -918,6 +934,14 @@ export default function FormView() {
                     >
                       Account / Budget Code
                     </label>
+                    <p
+                      className="mb-2 text-[11px]"
+                      style={{ color: "#94a3b8" }}
+                    >
+                      {submission.formType === "check"
+                        ? "Some expense lines are missing a budget code. Enter one to apply to those lines (existing codes are kept)."
+                        : "The submitter didn't enter a budget code. Enter one to fill it in."}
+                    </p>
                     <input
                       type="text"
                       value={budgetCode}
