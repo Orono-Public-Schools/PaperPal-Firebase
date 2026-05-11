@@ -28,6 +28,7 @@ import {
   getSubmission,
   updateSubmission,
   getAppSettings,
+  resolveRoutingChain,
 } from "@/lib/firestore"
 import type {
   Submission,
@@ -413,8 +414,14 @@ export default function FormView() {
     if (!submission || !redirectEmail.trim()) return
     setActing(true)
     try {
-      await updateSubmission(submission.id, {
-        supervisorEmail: redirectEmail.trim().toLowerCase(),
+      // Resolve the new chain from the Route To person's role — this drops
+      // any stale approver step from the original chain. If the new person
+      // is an approver, the flow becomes 4-step with their supervisor as
+      // the next step.
+      const chain = await resolveRoutingChain(redirectEmail.trim())
+      const update: Record<string, unknown> = {
+        supervisorEmail: chain.supervisorEmail,
+        supervisorName: chain.supervisorName,
         status: "pending",
         activityLog: arrayUnion({
           action: "redirected",
@@ -422,11 +429,26 @@ export default function FormView() {
           at: Timestamp.now(),
           comments: `Redirected to ${redirectEmail.trim().toLowerCase()}`,
         }),
-      })
-      const updated = {
+      }
+      if (chain.approverEmail) {
+        update.approverEmail = chain.approverEmail
+        update.approverName = chain.approverName ?? ""
+      } else {
+        update.approverEmail = deleteField()
+        update.approverName = deleteField()
+      }
+      await updateSubmission(submission.id, update)
+      const updated: Submission = {
         ...submission,
-        supervisorEmail: redirectEmail.trim().toLowerCase(),
-        status: "pending" as SubmissionStatus,
+        supervisorEmail: chain.supervisorEmail,
+        supervisorName: chain.supervisorName,
+        status: "pending",
+        ...(chain.approverEmail
+          ? {
+              approverEmail: chain.approverEmail,
+              approverName: chain.approverName ?? "",
+            }
+          : { approverEmail: undefined, approverName: undefined }),
       }
       setSubmission(updated)
       setActionMode(null)
