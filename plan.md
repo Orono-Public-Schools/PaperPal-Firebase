@@ -1,53 +1,37 @@
 # PaperPal — Plan
 
-## Production state (2026-05-06 EOD)
+## Production state (2026-05-11 EOD)
 
-- Functions live with Plan B link-based emails + sharp receipt compression
-- Hosting live with FormView attachment thumbnail grid
-- PR #19 merged to main; `dev-joel` and `main` are in sync
-
-## Bugs to investigate
-
-- **REQ-67380: routing didn't match user expectation.** Rachel submitted, expected Nick Taintor (her chosen supervisor) to be the first recipient, but the system emailed Kristin Palm first. Investigated 2026-05-07: system worked as configured, but the configuration was a surprise. Rachel's title `FINANCE-UNAF` has no title-level mapping, so the District Office building default kicked in (approver = Kristin, supervisor = Aaron). Rachel overrode the supervisor to Nick but didn't see/touch the approver, so the 4-step flow ran with Kristin getting the first email.
-
-  **Policy clarification (2026-05-07):** Building Mappings and Title Overrides are supposed to be **prefill, never enforcement**. If a submitter changes any part of the routing, the system shouldn't silently keep other inherited values invisibly applied. The mapping config exists to save the submitter typing — it's not a workflow rule the user can't override.
-
-  **Implementation outline for next session:**
-  1. **Surface the full routing chain in every form** (CheckRequest, MileageReimbursement, TravelReimbursement). Show: Approver → Supervisor → Final Approver with names and emails. Currently the supervisor is editable via `routeRequestTo` but the approver is set silently via `chain.approverEmail` — see [TravelReimbursement.tsx:646-654](src/pages/TravelReimbursement.tsx#L646).
-  2. **Make every routing field editable.** Currently only supervisor has an override field. Add equivalent override controls for approver — including the ability to **remove the approver step entirely** (collapsing to 2-step flow). A small "Remove approver" or "X" button on the approver row, or a "this submission needs an approver review" toggle that defaults to whatever the prefill says but is user-controlled.
-  3. **Treat each routing field as independent.** Manual changes to one field shouldn't auto-clear the others, but the user must SEE all of them so they can make conscious choices.
-  4. **Extend the same chain display to FormView** so reviewers see who else is in the chain — currently they can only see the next step (themselves) and don't know who's after them.
-  5. **Same logic should govern Mileage and Check Request forms** — the routing logic is replicated across all three form pages.
-
-  **Resolution for REQ-67380 specifically:** doesn't need a code change — the submission can be edited (controller has edit access) to remove `approverEmail`/`approverName`, which would skip Kristin and route directly to Nick on the next status change. Plan B link-only emails make this re-route cheap.
+- All commute deduction phases shipped (admin-gated, default off): Profile commute display, per-trip Working day toggle on Mileage + Travel, totals breakdown, PDF deduction rows, FormView "Working" badges
+- Role-based routing chain replaces the old silent approver injection — Route To user's role determines 2-step vs 4-step. RoutingChainPreview shows the resolved flow on Mileage/Travel/Check Request before submit. Workflow Mapping is purely prefill now
+- All Open oversight sub-tab visible to controller/business_office/admin — every in-flight submission across the district with assignee + inline resend/redirect/edit
+- New `resendNotification` Cloud Function callable (controller+ only) for nudging the current reviewer
+- FormView "Administrative Actions" group for controllers viewing a stuck submission they're not assigned to (Redirect/Edit/Request Revisions/Deny)
+- Approval flow polish: budget code prompt only renders when the submission actually has missing codes; empty signatures blocked at approval time (matches submit-form guard); SignatureField reactive to userProfile load; Type-mode signatures await Caveat webfont before drawing
+- Firestore rules: `/users/{uid}` read opened to any authenticated user (needed for client-side routing chain resolution)
+- PRs #27, #28, #29, #30 all merged. `dev-joel` and `main` in sync
 
 ## Up next (start of new session)
 
-User explicitly flagged these as the next things to tackle:
+**Recommended: All Open list filters + age sort** (~1-2 hr). Direct compound on what just shipped:
 
-1. **Rename "Project" → "Program" in budget codes** (small, do first). Affects:
-   - `BudgetCodeBuilder.tsx` — segment label "Proj" + step heading
-   - `defaultBudgetSegments.ts` — segment metadata
-   - Firestore `settings/budgetSegments` doc — has a `proj` array key. Decision needed: keep the internal key as `proj` and only change display labels (cheap, no migration), OR migrate the key to `prog` (cleaner, requires touching every read/write site + a one-time data migration). Recommend keeping internal `proj`, only renaming display strings, unless there's a reason to be strict.
-   - Anywhere the format guide says "Fund / Org / Proj / Fin / Course / Obj"
-   - PDF rendering and FormView display of the breakdown
-   - Travel PDF mileage detail parity (separate Follow-up below) might intersect
-2. **Commute subtraction automation for Mileage + Travel forms.** Policy: on working days, the user's commute (home ↔ school distance) is _not_ reimbursable — they'd drive that anyway. Off-toggle for non-working days (PD on a Saturday, conference travel that doesn't replace a workday, etc.).
-   - **Default toggle**: per-submission (or per-trip?) "This is a working day" checkbox, default ON.
-   - **When ON**: subtract the commute distance from total reimbursable miles. Need a decision on the rule: simplest is "subtract one round-trip commute per working day from the submission total." More accurate but complex is "first leg from home → subtract one-way commute from that leg; last leg back to home → subtract one-way commute from that leg; middle legs full."
-   - **When OFF**: full mileage reimbursable (today's behavior).
-   - **Inputs**: needs `userProfile.homeAddress` and `AppSettings.schoolAddress` (both already exist) and a Routes API call for the commute distance (already wired via `googleMaps.ts`). Could cache the per-user commute distance once it's computed.
-   - **UI**: applies to both Mileage Reimbursement and Travel Reimbursement (carTrips section).
-   - **Display**: PDF + FormView should show both the raw total and the subtracted reimbursable total, so the controller can audit the math.
+1. Sort the All Open list by age, oldest in-flight first, so stuck submissions surface
+2. Display "X days waiting" inline on each row (use `updatedAt` or last status-change activity log entry)
+3. Filter row above the list: by submitter, by form type, by status
+4. Optional polish: stale highlight (red border / pill) if waiting > 7 days
 
-## Follow-ups queued from email-latency phase
+Files: `src/pages/Dashboard.tsx` (Approvals tab, All Open branch — see the `approvalView === "all"` block), and probably a small filter UI component. `getAllInFlightSubmissions()` already returns desc by createdAt — likely want to switch the All Open variant to sort by oldest in-flight age instead. The SubmissionList renders rows; you may want to thread an additional badge for the "X days waiting" display.
 
-These came up during the work and were intentionally deferred — pick up if/when they're worth the time, no rush:
+## Follow-ups queued
 
-- **PDF page-1 thumbnails in FormView attachments** — currently PDF receipts render as file-icon cards. Real page previews would need PDF.js + a worker (~150KB bundle hit). Worth doing for reviewer UX, but not urgent.
-- **Bundle size warning** — `dist/assets/index-*.js` is ~870KB pre-gzip and trips Vite's 500KB warning every build. Cosmetic, but a `React.lazy` split on FormView and Admin would chunk it cleanly.
+Pick up if/when they're worth the time, no rush:
+
+- **Travel PDF mileage detail parity with Mileage form** — Travel's PDF squashes carTrips into the unified Expenses 4-col table ("Date / Category / Detail / Amount") where the route lives inside Detail. Mileage's PDF renders the dedicated 5-col Trips table (Date / From / To / Purpose / Miles) — see [pdf.js:382-432](functions/helpers/pdf.js#L382). Travel should add a separate "Trips" section above the Expenses table mirroring that layout. Same fix needed in `FormDataView.tsx`'s TravelView.
+- **PDF page-1 thumbnails in FormView attachments** — currently PDF receipts render as file-icon cards. Real page previews would need PDF.js + a worker (~150KB bundle hit). Worth doing for reviewer UX, not urgent.
+- **Bundle size warning** — `dist/assets/index-*.js` is ~890KB pre-gzip and trips Vite's 500KB warning every build. Cosmetic, but a `React.lazy` split on FormView and Admin would chunk it cleanly.
 - **Legacy "Per-trip detail not recorded" submissions** — old in-flight Travel forms still show this text on their PDFs. Supervisors can fix via the Edit button if any block final approval; nothing to code unless it becomes a real friction point.
-- **Travel PDF mileage detail parity with Mileage form** — when a Travel Reimbursement has carTrips, the PDF currently squashes them into the unified Expenses table's 4-col format ("Date / Category / Detail / Amount") where the route lives inside the Detail cell. The dedicated Mileage Reimbursement form renders trips in a clean 5-col table: **Date / From / To / Purpose / Miles** — see [pdf.js:367-373](functions/helpers/pdf.js#L367). Travel should add a separate "Trips" section above the Expenses table mirroring that layout (the carTrips data already has from/to; per-trip purpose probably defaults to the parent meetingTitle since Travel forms don't capture it per trip). Same fix needed in FormView's TravelView via FormDataView.tsx.
+- **Verify Nick's typed-signature fix** — reportedly Type-mode signatures weren't coming through for him specifically. Today we added `await document.fonts.load("48px Caveat")` before canvas draw + empty-signature guard at approval. Should be fixed; passive verification next time he approves with Type mode.
+- **Stuck-submission migration script** — submissions redirected with the pre-fix code still carry stale `approverEmail`/`approverName`. Users can fix individually via the new in-row Redirect (which re-resolves the chain). A one-shot Firestore script could batch-clear the stale state if it becomes tedious.
 
 ## Future
 
@@ -58,6 +42,15 @@ These came up during the work and were intentionally deferred — pick up if/whe
 
 ## Done
 
+- **Approval flow polish (2026-05-11)**: budget code prompt at approval time hides when submitter already filled in every code (mileage/travel `accountCode`, check-request per-expense `code`); empty-signature guard added to all three approve handlers in FormView (alerts and bails — matches the submit-form guard); SignatureField now reactive to `savedSignatureUrl` prop changes (was caching once on mount, so the "Saved" tab never appeared when userProfile loaded after first render); typed signatures await Caveat webfont via `document.fonts.load` before drawing the canvas (some browsers don't fall back synchronously, which left typed sigs blank). `getDataUrl` is async now; all 7 callers await.
+- **All Open oversight (2026-05-11)**: new sub-tab in Approvals visible to controller/business_office/admin showing every in-flight submission across the district (`pending`, `approved_by_approver`, `reviewed`, `revisions_requested`). Per-row Assignee line (derived from status + chain + AppSettings.finalApprover). Inline Mail/Redirect/Edit icons with hover effects: Mail calls the new `resendNotification` callable Cloud Function (gated to controller+) that reuses `sendReviewerReminder` to ping the current step's reviewer; Redirect opens a modal that calls `resolveRoutingChain` so the chain re-evaluates from the new Route To role (clears stale approver state); Edit jumps to the form-page edit URL. Row-click vs button-click resolved via `target.closest("button")` guard.
+- **FormView administrative actions (2026-05-11)**: controllers viewing a stuck submission they're not personally assigned to now see an "Administrative Actions" group with Redirect/Edit/Request Revisions/Deny. Previously the whole approval-actions block was hidden when the viewer wasn't in the chain.
+- **Role-based routing chain (2026-05-11)**: replaces the old silent approver injection from the submitter's own title/building mapping. Route To user's role determines flow — supervisor (or higher) → 2-step; approver → 4-step where the approver's own `userProfile.supervisorEmail` provides the next step. New `resolveRoutingChain()` helper in `firestore.ts` + `RoutingChainPreview` component shown below the Route To input on all three forms (Mileage, Travel, Check Request), debounced 400ms, displays each step + flow type. `handleRedirect` in FormView now re-resolves the chain so redirecting to a supervisor clears any stale 4-step approver state. Sandbox: dropped the 2-step/4-step dropdown — flow follows the user's actual role. Firestore rule `/users/{uid}` read loosened to any authenticated user (needed for client-side resolution; signature URLs governed separately by Storage rules).
+- **Commute deduction (2026-05-11, phases 1-4)**: admin-gated subtraction of the user's home↔school commute from working-day mileage on Mileage + Travel forms. Round-trip working-day trip deducts 2× commute; one-way trip deducts 1× commute, both capped at the trip's own miles (no negative). Existing submissions render exactly as before — math is frozen at submit time. Phase 1: Profile shows commute, cached on UserProfile with auto-invalidation when home/school addresses change. Phase 2: Mileage form per-trip Working day checkbox + totals breakdown (Total Miles → Less commute deduction → Reimbursable Miles → Rate → Total Reimbursement). Phase 3: Travel form carTrips with same toggle + breakdown + Final Claim meta. Phase 4: PDF mileage/travel deduction breakdown rows. FormDataView shows "Working" badge per row that contributed. Admin toggle in General Settings (`commuteDeductionEnabled`, default OFF).
+- **Budget segment "Project" → "Program"** (2026-05-11): display-only rename across BudgetCodeBuilder + Admin segment label + CLAUDE.md format guide. Internal Firestore key stays `proj`, no migration needed.
+- **Budget code maxLength fix (2026-05-11)**: input field's `maxLength={20}` was cutting off the last two chars of the 22-char `##-###-###-###-###-###` format. Bumped to 22 across all 4 input sites.
+- **Dashboard URL→state mirror cleanup (2026-05-11)**: dropped redundant `useState`+`useEffect` pairs that mirrored search params into local state. Pre-empts the new `react-hooks/set-state-in-effect` rule from eslint-plugin-react-hooks 7 and makes the URL the single source of truth for tab/sub-view.
+- **Dependabot batch (2026-05-11)**: merged the weekly minor-and-patch groups (root + functions). Closed eslint 10 / @eslint/js 10 PRs (blocked by eslint-plugin-react-hooks not yet supporting eslint 10).
 - Firestore rules fix (2026-05-07): added `isApproverOrAbove()` helper. Loosened `staff/{email}` read so approver+ can list the directory (was failing silently for non-admin/BO users — empty staff array → no autocomplete suggestions in redirect dialog and other StaffEmailAutocomplete uses). Loosened `settings/{settingId}` write and `users/{uid}` create/update from `isAdmin()` to `isAdminOrBO()` so controllers (not just admins) can edit workflow mappings + the auto-role-promotion that runs when assigning someone as a supervisor in a mapping. Diagnosed when Rachel (controller) couldn't add to workflow mappings while Joel (admin) could. Deployed via `firebase deploy --only firestore:rules`.
 - Email latency fix (link-based workflow notifications, receipt compression via sharp): Gmail log diagnosis showed Workspace's pre-delivery scanning was the bottleneck — not our code, and not file size (compression to 91KB still triggered 4+ minute delays). Pivoted to link-only emails for every workflow status; only the final-approval submitter copy still carries a PDF. Result: end-to-end delivery dropped from 4+ minutes (sometimes never arriving) to ~10 seconds.
 - Travel form polish (per-line notes, per-trip mileage detail with date/from/to, Final Claim category breakdown, PDF legacy fallback wording, submission validation)
