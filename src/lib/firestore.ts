@@ -197,6 +197,21 @@ export async function getReviewedSubmissions(): Promise<Submission[]> {
   return snap.docs.map((d) => d.data() as Submission)
 }
 
+export async function getAllInFlightSubmissions(): Promise<Submission[]> {
+  const q = query(
+    collection(db, "submissions"),
+    where("status", "in", [
+      "pending",
+      "approved_by_approver",
+      "reviewed",
+      "revisions_requested",
+    ]),
+    orderBy("createdAt", "desc")
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => d.data() as Submission)
+}
+
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
