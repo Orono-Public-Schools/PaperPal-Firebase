@@ -1090,6 +1090,17 @@ function SubmissionList({
                       onResend(s.id)
                     }}
                     disabled={resendingIds?.has(s.id)}
+                    onMouseEnter={(e) => {
+                      if (resendStatus?.[s.id]) return
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.18)"
+                      e.currentTarget.style.color = "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      if (resendStatus?.[s.id]) return
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                    }}
                     className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150 disabled:cursor-default"
                     style={{
                       color:
@@ -1126,6 +1137,15 @@ function SubmissionList({
                       e.stopPropagation()
                       onRedirect(s)
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.18)"
+                      e.currentTarget.style.color = "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                    }}
                     className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
                     style={{ color: "rgba(255,255,255,0.7)" }}
                     title="Redirect to another reviewer"
@@ -1138,6 +1158,15 @@ function SubmissionList({
                     onClick={(e) => {
                       e.stopPropagation()
                       onEditNavigate(s)
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.18)"
+                      e.currentTarget.style.color = "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "rgba(255,255,255,0.7)"
                     }}
                     className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
                     style={{ color: "rgba(255,255,255,0.7)" }}
