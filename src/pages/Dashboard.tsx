@@ -751,7 +751,7 @@ export default function Dashboard() {
                 setRedirectEmail("")
               }}
               onEditNavigate={(s) =>
-                navigate(`/forms/${s.formType}/${s.id}?edit=${s.id}`)
+                navigate(`/forms/${s.formType}?edit=${s.id}`)
               }
               resendingIds={resendingIds}
               resendStatus={resendStatus}
@@ -996,7 +996,10 @@ function SubmissionList({
         return (
           <div
             key={s.id}
-            onClick={() => navigate(`/forms/${s.formType}/${s.id}`)}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button")) return
+              navigate(`/forms/${s.formType}/${s.id}`)
+            }}
             className="group flex cursor-pointer items-center overflow-hidden rounded-xl transition-all duration-200 hover:-translate-y-0.5"
             style={{
               background: statusStyle.cardBg,

@@ -212,6 +212,19 @@ export default function FormView() {
   const canMarkPaid = isControllerOrAbove && submission.status === "approved"
   const canUnmarkPaid = isControllerOrAbove && submission.status === "paid"
 
+  const isInFlight = [
+    "pending",
+    "approved_by_approver",
+    "reviewed",
+    "revisions_requested",
+  ].includes(submission.status)
+  const canControllerOverride =
+    isControllerOrAbove &&
+    isInFlight &&
+    !canApproverAct &&
+    !canSupervisorAct &&
+    !canFinalApproverAct
+
   const statusCfg = STATUS_CONFIG[submission.status]
   const StatusIcon = statusCfg.icon
   const FormIcon = FORM_ICONS[submission.formType] ?? FileText
@@ -794,7 +807,10 @@ export default function FormView() {
       )}
 
       {/* Approval actions */}
-      {(canApproverAct || canSupervisorAct || canFinalApproverAct) &&
+      {(canApproverAct ||
+        canSupervisorAct ||
+        canFinalApproverAct ||
+        canControllerOverride) &&
         !actionDone && (
           <div
             className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
@@ -812,19 +828,33 @@ export default function FormView() {
                 ? "Approver Review"
                 : canSupervisorAct
                   ? "Supervisor Review"
-                  : "Final Approval"}
+                  : canFinalApproverAct
+                    ? "Final Approval"
+                    : "Administrative Actions"}
             </p>
+            {canControllerOverride && (
+              <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+                You're acting as a controller — this submission isn't currently
+                assigned to you, but you can redirect, edit, or deny it.
+              </p>
+            )}
 
             {!actionMode && (
               <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setActionMode("approve")}
-                  className="btn-action-approve"
-                >
-                  <CheckCircle size={16} />
-                  Approve
-                </button>
-                {(canApproverAct || canSupervisorAct) && (
+                {(canApproverAct ||
+                  canSupervisorAct ||
+                  canFinalApproverAct) && (
+                  <button
+                    onClick={() => setActionMode("approve")}
+                    className="btn-action-approve"
+                  >
+                    <CheckCircle size={16} />
+                    Approve
+                  </button>
+                )}
+                {(canApproverAct ||
+                  canSupervisorAct ||
+                  canControllerOverride) && (
                   <>
                     <button
                       onClick={() => setActionMode("revisions")}
@@ -844,7 +874,8 @@ export default function FormView() {
                 )}
                 {(canApproverAct ||
                   canSupervisorAct ||
-                  canFinalApproverAct) && (
+                  canFinalApproverAct ||
+                  canControllerOverride) && (
                   <button
                     onClick={() =>
                       navigate(
