@@ -10,7 +10,7 @@ import { Pencil, Type, Trash2, Check, Save } from "lucide-react"
 type SigMode = "saved" | "draw" | "type"
 
 export interface SignatureFieldRef {
-  getDataUrl: () => string
+  getDataUrl: () => Promise<string>
 }
 
 interface Props {
@@ -115,10 +115,20 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
       hasDrawn.current = false
     }
 
-    function getCurrentDataUrl(): string {
+    async function getCurrentDataUrl(): Promise<string> {
       if (mode === "saved") return localSavedUrl ?? ""
       if (mode === "type") {
         if (!typedSig.trim()) return ""
+        // Wait for the Caveat webfont to load before drawing, otherwise
+        // canvas text can render blank on browsers that don't fall back
+        // synchronously.
+        if (typeof document !== "undefined" && document.fonts?.load) {
+          try {
+            await document.fonts.load("48px Caveat")
+          } catch {
+            // Ignore — fall back to whatever font is available.
+          }
+        }
         const canvas = document.createElement("canvas")
         canvas.width = 400
         canvas.height = 100
@@ -135,8 +145,8 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
       return canvasRef.current?.toDataURL() ?? ""
     }
 
-    function handleSaveToProfile() {
-      const dataUrl = getCurrentDataUrl()
+    async function handleSaveToProfile() {
+      const dataUrl = await getCurrentDataUrl()
       if (!dataUrl || !onSaveSignature) return
       onSaveSignature(dataUrl)
       setDraftSavedUrl(dataUrl)

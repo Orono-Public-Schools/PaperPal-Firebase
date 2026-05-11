@@ -248,7 +248,7 @@ export default function FormView() {
 
   async function handleApproveAsApprover() {
     if (!submission || !settings) return
-    const sig = signatureRef.current?.getDataUrl() ?? ""
+    const sig = (await signatureRef.current?.getDataUrl()) ?? ""
     if (!sig) {
       alert(
         "Please draw, type, or select your saved signature before approving."
@@ -294,7 +294,7 @@ export default function FormView() {
 
   async function handleApproveAsSupervisor() {
     if (!submission || !settings) return
-    const sig = signatureRef.current?.getDataUrl() ?? ""
+    const sig = (await signatureRef.current?.getDataUrl()) ?? ""
     if (!sig) {
       alert(
         "Please draw, type, or select your saved signature before approving."
@@ -340,7 +340,7 @@ export default function FormView() {
 
   async function handleApproveAsFinalApprover() {
     if (!submission || !settings) return
-    const sig = signatureRef.current?.getDataUrl() ?? ""
+    const sig = (await signatureRef.current?.getDataUrl()) ?? ""
     if (!sig) {
       alert(
         "Please draw, type, or select your saved signature before approving."
