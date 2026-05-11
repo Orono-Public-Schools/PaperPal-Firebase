@@ -15,8 +15,16 @@ import {
   Square,
   DollarSign,
   Loader2,
+  Mail,
+  ArrowRightLeft,
+  Pencil,
+  Check,
 } from "lucide-react"
+import { Timestamp, arrayUnion, deleteField } from "firebase/firestore"
+import { httpsCallable } from "firebase/functions"
+import { functions } from "@/lib/firebase"
 import AppLayout from "@/components/layout/AppLayout"
+import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
 import { useSandbox } from "@/hooks/useSandbox"
 import {
@@ -32,8 +40,10 @@ import {
   getCompletedApprovals,
   getCompletedApproverApprovals,
   getApprovedSubmissions,
+  resolveRoutingChain,
 } from "@/lib/firestore"
-import type { Submission, SubmissionStatus } from "@/lib/types"
+import type { AppSettings, Submission, SubmissionStatus } from "@/lib/types"
+import { getCurrentAssignee } from "@/lib/utils"
 
 const FORM_TYPES = [
   {
@@ -315,6 +325,90 @@ export default function Dashboard() {
       cancelled = true
     }
   }, [activeTab, approvalView, userProfile])
+
+  // App settings used by the All Open view (for finalApproverEmail / name)
+  const [oversightSettings, setOversightSettings] =
+    useState<AppSettings | null>(null)
+  useEffect(() => {
+    if (approvalView !== "all") return
+    getAppSettings().then(setOversightSettings).catch(console.error)
+  }, [approvalView])
+
+  // Resend reminder + inline redirect state (All Open only)
+  const [resendingIds, setResendingIds] = useState<Set<string>>(new Set())
+  const [resendStatus, setResendStatus] = useState<
+    Record<string, "sent" | "error">
+  >({})
+  const [redirectTarget, setRedirectTarget] = useState<Submission | null>(null)
+  const [redirectEmail, setRedirectEmail] = useState("")
+  const [redirectBusy, setRedirectBusy] = useState(false)
+
+  async function handleResend(submissionId: string) {
+    if (!userProfile) return
+    setResendingIds((prev) => new Set(prev).add(submissionId))
+    setResendStatus((prev) => {
+      const next = { ...prev }
+      delete next[submissionId]
+      return next
+    })
+    try {
+      const callable = httpsCallable(functions, "resendNotification")
+      await callable({ submissionId })
+      setResendStatus((prev) => ({ ...prev, [submissionId]: "sent" }))
+      setTimeout(() => {
+        setResendStatus((prev) => {
+          const next = { ...prev }
+          delete next[submissionId]
+          return next
+        })
+      }, 3000)
+    } catch (err) {
+      console.error("Resend failed:", err)
+      setResendStatus((prev) => ({ ...prev, [submissionId]: "error" }))
+    } finally {
+      setResendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(submissionId)
+        return next
+      })
+    }
+  }
+
+  async function handleConfirmRedirect() {
+    if (!redirectTarget || !redirectEmail.trim() || !userProfile) return
+    setRedirectBusy(true)
+    try {
+      const chain = await resolveRoutingChain(redirectEmail.trim())
+      const update: Record<string, unknown> = {
+        supervisorEmail: chain.supervisorEmail,
+        supervisorName: chain.supervisorName,
+        status: "pending",
+        activityLog: arrayUnion({
+          action: "redirected",
+          by: userProfile.email,
+          at: Timestamp.now(),
+          comments: `Redirected to ${redirectEmail.trim().toLowerCase()}`,
+        }),
+      }
+      if (chain.approverEmail) {
+        update.approverEmail = chain.approverEmail
+        update.approverName = chain.approverName ?? ""
+      } else {
+        update.approverEmail = deleteField()
+        update.approverName = deleteField()
+      }
+      await updateSubmission(redirectTarget.id, update)
+      const refreshed = await getAllInFlightSubmissions()
+      setAllInFlightData(refreshed)
+      setRedirectTarget(null)
+      setRedirectEmail("")
+    } catch (err) {
+      console.error("Redirect failed:", err)
+      alert("Failed to redirect. Please try again.")
+    } finally {
+      setRedirectBusy(false)
+    }
+  }
 
   // Tab badge flags
   const hasPendingDot = pendingSubmissions.length > 0
@@ -649,6 +743,18 @@ export default function Dashboard() {
               emptyTitle="No open submissions"
               emptySubtitle="All in-flight submissions across the district appear here so you can redirect or edit any that are stuck."
               showSubmitter
+              showAssignee
+              appSettings={oversightSettings}
+              onResend={handleResend}
+              onRedirect={(s) => {
+                setRedirectTarget(s)
+                setRedirectEmail("")
+              }}
+              onEditNavigate={(s) =>
+                navigate(`/forms/${s.formType}?edit=${s.id}`)
+              }
+              resendingIds={resendingIds}
+              resendStatus={resendStatus}
             />
           ) : (
             <>
@@ -708,6 +814,88 @@ export default function Dashboard() {
           )}
         </>
       )}
+
+      {redirectTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => !redirectBusy && setRedirectTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{
+              background: "#ffffff",
+              boxShadow:
+                "0 4px 20px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.1)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p
+              className="mb-1 text-xs font-semibold tracking-widest uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Redirect {redirectTarget.id}
+            </p>
+            <p className="mb-4 text-sm" style={{ color: "#334155" }}>
+              {redirectTarget.summary}
+            </p>
+            <label
+              className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              New Route To
+            </label>
+            <StaffEmailAutocomplete
+              value={redirectEmail}
+              onChange={setRedirectEmail}
+              placeholder="Supervisor or approver email"
+              className="input-neu w-full"
+            />
+            <p
+              className="mt-2 text-[11px]"
+              style={{ color: "#94a3b8", lineHeight: 1.5 }}
+            >
+              If they're an approver, the submission will route through their
+              supervisor next. Any prior approver step is cleared.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRedirectTarget(null)}
+                disabled={redirectBusy}
+                className="cursor-pointer rounded-xl px-4 py-2 text-sm font-medium transition-colors"
+                style={{
+                  color: "#64748b",
+                  background: "transparent",
+                  border: "1px solid rgba(180,185,195,0.4)",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRedirect}
+                disabled={redirectBusy || !redirectEmail.trim()}
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all disabled:cursor-default disabled:opacity-50"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                }}
+              >
+                {redirectBusy ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Redirecting…
+                  </>
+                ) : (
+                  "Redirect"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   )
 }
@@ -725,6 +913,13 @@ function SubmissionList({
   selectable,
   selectedIds,
   onToggleSelect,
+  showAssignee,
+  appSettings,
+  onResend,
+  onRedirect,
+  onEditNavigate,
+  resendingIds,
+  resendStatus,
 }: {
   submissions: Submission[]
   loading: boolean
@@ -736,6 +931,13 @@ function SubmissionList({
   selectable?: boolean
   selectedIds?: Set<string>
   onToggleSelect?: (id: string) => void
+  showAssignee?: boolean
+  appSettings?: AppSettings | null
+  onResend?: (id: string) => void
+  onRedirect?: (s: Submission) => void
+  onEditNavigate?: (s: Submission) => void
+  resendingIds?: Set<string>
+  resendStatus?: Record<string, "sent" | "error">
 }) {
   const navigate = useNavigate()
   if (loading) {
@@ -794,7 +996,10 @@ function SubmissionList({
         return (
           <div
             key={s.id}
-            onClick={() => navigate(`/forms/${s.formType}/${s.id}`)}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button")) return
+              navigate(`/forms/${s.formType}/${s.id}`)
+            }}
             className="group flex cursor-pointer items-center overflow-hidden rounded-xl transition-all duration-200 hover:-translate-y-0.5"
             style={{
               background: statusStyle.cardBg,
@@ -834,6 +1039,25 @@ function SubmissionList({
                   {showSubmitter && <>{s.submitterName} · </>}
                   {FORM_LABELS[s.formType] ?? s.formType} · {s.id} · {date}
                 </p>
+                {showAssignee &&
+                  (() => {
+                    const assignee = getCurrentAssignee(s, appSettings ?? null)
+                    if (!assignee) return null
+                    return (
+                      <p className="mt-0.5 text-xs text-white/60">
+                        Assigned to {assignee.label}:{" "}
+                        <span className="font-medium text-white/80">
+                          {assignee.name || assignee.email}
+                        </span>
+                        {assignee.name && (
+                          <span className="text-white/40">
+                            {" "}
+                            ({assignee.email})
+                          </span>
+                        )}
+                      </p>
+                    )
+                  })()}
               </div>
               <div className="flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
                 {s.sandbox && (
@@ -859,6 +1083,98 @@ function SubmissionList({
                 <span className="text-sm font-bold text-white">
                   ${s.amount.toFixed(2)}
                 </span>
+                {onResend && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onResend(s.id)
+                    }}
+                    disabled={resendingIds?.has(s.id)}
+                    onMouseEnter={(e) => {
+                      if (resendStatus?.[s.id]) return
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.18)"
+                      e.currentTarget.style.color = "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      if (resendStatus?.[s.id]) return
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                    }}
+                    className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150 disabled:cursor-default"
+                    style={{
+                      color:
+                        resendStatus?.[s.id] === "sent"
+                          ? "#10b981"
+                          : resendStatus?.[s.id] === "error"
+                            ? "#fbbf24"
+                            : "rgba(255,255,255,0.7)",
+                      background:
+                        resendStatus?.[s.id] === "sent"
+                          ? "rgba(16,185,129,0.15)"
+                          : "transparent",
+                    }}
+                    title={
+                      resendStatus?.[s.id] === "sent"
+                        ? "Reminder sent"
+                        : resendStatus?.[s.id] === "error"
+                          ? "Failed — click to retry"
+                          : "Resend reminder email"
+                    }
+                  >
+                    {resendingIds?.has(s.id) ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : resendStatus?.[s.id] === "sent" ? (
+                      <Check size={14} />
+                    ) : (
+                      <Mail size={14} />
+                    )}
+                  </button>
+                )}
+                {onRedirect && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRedirect(s)
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.18)"
+                      e.currentTarget.style.color = "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                    }}
+                    className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+                    style={{ color: "rgba(255,255,255,0.7)" }}
+                    title="Redirect to another reviewer"
+                  >
+                    <ArrowRightLeft size={14} />
+                  </button>
+                )}
+                {onEditNavigate && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEditNavigate(s)
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.18)"
+                      e.currentTarget.style.color = "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent"
+                      e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                    }}
+                    className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+                    style={{ color: "rgba(255,255,255,0.7)" }}
+                    title="Edit submission"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
                 {onHide && (
                   <button
                     onClick={(e) => {

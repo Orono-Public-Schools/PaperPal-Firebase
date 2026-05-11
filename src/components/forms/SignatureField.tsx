@@ -10,7 +10,7 @@ import { Pencil, Type, Trash2, Check, Save } from "lucide-react"
 type SigMode = "saved" | "draw" | "type"
 
 export interface SignatureFieldRef {
-  getDataUrl: () => string
+  getDataUrl: () => Promise<string>
 }
 
 interface Props {
@@ -21,9 +21,16 @@ interface Props {
 
 const SignatureField = forwardRef<SignatureFieldRef, Props>(
   ({ savedSignatureUrl, fullName, onSaveSignature }, ref) => {
-    const [localSavedUrl, setLocalSavedUrl] = useState(savedSignatureUrl)
+    // Saved URL is derived from the prop unless the user just clicked
+    // "Save as my signature" (draftSavedUrl). This keeps the field reactive
+    // to userProfile loading after the component mounts.
+    const [draftSavedUrl, setDraftSavedUrl] = useState<string | null>(null)
+    const localSavedUrl = draftSavedUrl ?? savedSignatureUrl ?? ""
     const hasSaved = !!localSavedUrl
-    const [mode, setMode] = useState<SigMode>(hasSaved ? "saved" : "draw")
+    // Mode is derived from prop until the user explicitly picks a tab.
+    const [userPickedMode, setUserPickedMode] = useState<SigMode | null>(null)
+    const mode: SigMode = userPickedMode ?? (hasSaved ? "saved" : "draw")
+    const setMode = setUserPickedMode
     const [typedSig, setTypedSig] = useState("")
     const [savedMsg, setSavedMsg] = useState(false)
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -108,10 +115,20 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
       hasDrawn.current = false
     }
 
-    function getCurrentDataUrl(): string {
+    async function getCurrentDataUrl(): Promise<string> {
       if (mode === "saved") return localSavedUrl ?? ""
       if (mode === "type") {
         if (!typedSig.trim()) return ""
+        // Wait for the Caveat webfont to load before drawing, otherwise
+        // canvas text can render blank on browsers that don't fall back
+        // synchronously.
+        if (typeof document !== "undefined" && document.fonts?.load) {
+          try {
+            await document.fonts.load("48px Caveat")
+          } catch {
+            // Ignore — fall back to whatever font is available.
+          }
+        }
         const canvas = document.createElement("canvas")
         canvas.width = 400
         canvas.height = 100
@@ -128,11 +145,11 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
       return canvasRef.current?.toDataURL() ?? ""
     }
 
-    function handleSaveToProfile() {
-      const dataUrl = getCurrentDataUrl()
+    async function handleSaveToProfile() {
+      const dataUrl = await getCurrentDataUrl()
       if (!dataUrl || !onSaveSignature) return
       onSaveSignature(dataUrl)
-      setLocalSavedUrl(dataUrl)
+      setDraftSavedUrl(dataUrl)
       setMode("saved")
       setSavedMsg(true)
       setTimeout(() => setSavedMsg(false), 2500)

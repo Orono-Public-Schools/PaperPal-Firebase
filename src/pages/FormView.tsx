@@ -212,6 +212,35 @@ export default function FormView() {
   const canMarkPaid = isControllerOrAbove && submission.status === "approved"
   const canUnmarkPaid = isControllerOrAbove && submission.status === "paid"
 
+  const isInFlight = [
+    "pending",
+    "approved_by_approver",
+    "reviewed",
+    "revisions_requested",
+  ].includes(submission.status)
+  const canControllerOverride =
+    isControllerOrAbove &&
+    isInFlight &&
+    !canApproverAct &&
+    !canSupervisorAct &&
+    !canFinalApproverAct
+
+  // Whether the submission is missing any budget code the approver might need
+  // to fill in. If everything's set, the approve form skips prompting for it.
+  const needsBudgetCode = (() => {
+    if (submission.formType === "check") {
+      const fd = submission.formData as CheckRequestData
+      return fd.expenses.some((e) => !e.code?.trim())
+    }
+    if (submission.formType === "mileage") {
+      return !(submission.formData as MileageData).accountCode?.trim()
+    }
+    if (submission.formType === "travel") {
+      return !(submission.formData as TravelData).accountCode?.trim()
+    }
+    return false
+  })()
+
   const statusCfg = STATUS_CONFIG[submission.status]
   const StatusIcon = statusCfg.icon
   const FormIcon = FORM_ICONS[submission.formType] ?? FileText
@@ -219,7 +248,13 @@ export default function FormView() {
 
   async function handleApproveAsApprover() {
     if (!submission || !settings) return
-    const sig = signatureRef.current?.getDataUrl() ?? ""
+    const sig = (await signatureRef.current?.getDataUrl()) ?? ""
+    if (!sig) {
+      alert(
+        "Please draw, type, or select your saved signature before approving."
+      )
+      return
+    }
     setActing(true)
 
     const update: Record<string, unknown> = {
@@ -259,7 +294,13 @@ export default function FormView() {
 
   async function handleApproveAsSupervisor() {
     if (!submission || !settings) return
-    const sig = signatureRef.current?.getDataUrl() ?? ""
+    const sig = (await signatureRef.current?.getDataUrl()) ?? ""
+    if (!sig) {
+      alert(
+        "Please draw, type, or select your saved signature before approving."
+      )
+      return
+    }
     setActing(true)
 
     // Build update with budget code if provided
@@ -299,7 +340,13 @@ export default function FormView() {
 
   async function handleApproveAsFinalApprover() {
     if (!submission || !settings) return
-    const sig = signatureRef.current?.getDataUrl() ?? ""
+    const sig = (await signatureRef.current?.getDataUrl()) ?? ""
+    if (!sig) {
+      alert(
+        "Please draw, type, or select your saved signature before approving."
+      )
+      return
+    }
     setActing(true)
     await updateSubmission(submission.id, {
       status: "approved",
@@ -794,7 +841,10 @@ export default function FormView() {
       )}
 
       {/* Approval actions */}
-      {(canApproverAct || canSupervisorAct || canFinalApproverAct) &&
+      {(canApproverAct ||
+        canSupervisorAct ||
+        canFinalApproverAct ||
+        canControllerOverride) &&
         !actionDone && (
           <div
             className="mt-6 rounded-xl p-4 sm:p-6 print:hidden"
@@ -812,19 +862,33 @@ export default function FormView() {
                 ? "Approver Review"
                 : canSupervisorAct
                   ? "Supervisor Review"
-                  : "Final Approval"}
+                  : canFinalApproverAct
+                    ? "Final Approval"
+                    : "Administrative Actions"}
             </p>
+            {canControllerOverride && (
+              <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+                You're acting as a controller — this submission isn't currently
+                assigned to you, but you can redirect, edit, or deny it.
+              </p>
+            )}
 
             {!actionMode && (
               <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setActionMode("approve")}
-                  className="btn-action-approve"
-                >
-                  <CheckCircle size={16} />
-                  Approve
-                </button>
-                {(canApproverAct || canSupervisorAct) && (
+                {(canApproverAct ||
+                  canSupervisorAct ||
+                  canFinalApproverAct) && (
+                  <button
+                    onClick={() => setActionMode("approve")}
+                    className="btn-action-approve"
+                  >
+                    <CheckCircle size={16} />
+                    Approve
+                  </button>
+                )}
+                {(canApproverAct ||
+                  canSupervisorAct ||
+                  canControllerOverride) && (
                   <>
                     <button
                       onClick={() => setActionMode("revisions")}
@@ -844,7 +908,8 @@ export default function FormView() {
                 )}
                 {(canApproverAct ||
                   canSupervisorAct ||
-                  canFinalApproverAct) && (
+                  canFinalApproverAct ||
+                  canControllerOverride) && (
                   <button
                     onClick={() =>
                       navigate(
@@ -879,7 +944,7 @@ export default function FormView() {
             {/* Approve mode — signature */}
             {actionMode === "approve" && (
               <div>
-                {(canApproverAct || canSupervisorAct) && (
+                {(canApproverAct || canSupervisorAct) && needsBudgetCode && (
                   <div className="mb-4">
                     <label
                       className="mb-1 block text-xs font-semibold tracking-wider uppercase"
@@ -887,6 +952,14 @@ export default function FormView() {
                     >
                       Account / Budget Code
                     </label>
+                    <p
+                      className="mb-2 text-[11px]"
+                      style={{ color: "#94a3b8" }}
+                    >
+                      {submission.formType === "check"
+                        ? "Some expense lines are missing a budget code. Enter one to apply to those lines (existing codes are kept)."
+                        : "The submitter didn't enter a budget code. Enter one to fill it in."}
+                    </p>
                     <input
                       type="text"
                       value={budgetCode}

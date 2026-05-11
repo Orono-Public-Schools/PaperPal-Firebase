@@ -468,6 +468,58 @@ async function sendPaidEmails(submission, settings) {
   )
 }
 
+async function sendReviewerReminder(submission, settings) {
+  const formLabel = FORM_LABELS[submission.formType] || "Request"
+  const link = formUrl(submission)
+  const tag = submission.sandbox ? "[SANDBOX] " : ""
+
+  let reviewerEmail
+  let reviewerLabel
+  switch (submission.status) {
+    case "pending":
+      reviewerEmail = submission.approverEmail || submission.supervisorEmail
+      reviewerLabel = submission.approverEmail ? "approver" : "supervisor"
+      break
+    case "approved_by_approver":
+      reviewerEmail = submission.supervisorEmail
+      reviewerLabel = "supervisor"
+      break
+    case "reviewed":
+      reviewerEmail = settings.finalApproverEmail
+      reviewerLabel = "final approver"
+      break
+    case "revisions_requested":
+      reviewerEmail = submission.submitterEmail
+      reviewerLabel = "submitter (revisions still needed)"
+      break
+    default:
+      return {
+        sent: false,
+        reason: `status ${submission.status} not remindable`,
+      }
+  }
+
+  if (!reviewerEmail) {
+    return { sent: false, reason: "no reviewer email on submission" }
+  }
+
+  await sendMail(
+    sandboxTo(submission, reviewerEmail),
+    `${tag}[PaperPal] Reminder: ${formLabel} from ${submission.submitterName} — ${currency(submission.amount)}`,
+    emailHtml({
+      heading: `Reminder: ${formLabel} Awaiting Review`,
+      body: `
+        <p>This ${formLabel.toLowerCase()} from <strong>${submission.submitterName}</strong> is still waiting for ${reviewerLabel} review.</p>
+        <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
+      `,
+      link,
+      linkLabel: "Review Request",
+    })
+  )
+
+  return { sent: true, to: reviewerEmail }
+}
+
 module.exports = {
   sendSubmitEmails,
   sendReviewedEmails,
@@ -479,4 +531,5 @@ module.exports = {
   sendApproverApprovedEmails,
   sendPaidEmails,
   sendReturnedToSupervisorEmails,
+  sendReviewerReminder,
 }

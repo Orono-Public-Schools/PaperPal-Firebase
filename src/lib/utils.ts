@@ -1,6 +1,47 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { ActivityAction } from "./types"
+import type { ActivityAction, AppSettings, Submission } from "./types"
+
+export function getCurrentAssignee(
+  submission: Submission,
+  settings: AppSettings | null
+): { label: string; email: string; name?: string } | null {
+  switch (submission.status) {
+    case "pending":
+      if (submission.approverEmail) {
+        return {
+          label: "Approver",
+          email: submission.approverEmail,
+          name: submission.approverName,
+        }
+      }
+      return {
+        label: "Supervisor",
+        email: submission.supervisorEmail,
+        name: submission.supervisorName,
+      }
+    case "approved_by_approver":
+      return {
+        label: "Supervisor",
+        email: submission.supervisorEmail,
+        name: submission.supervisorName,
+      }
+    case "reviewed":
+      return {
+        label: "Final Approver",
+        email: settings?.finalApproverEmail ?? "",
+        name: settings?.finalApproverName,
+      }
+    case "revisions_requested":
+      return {
+        label: "Submitter",
+        email: submission.submitterEmail,
+        name: submission.submitterName,
+      }
+    default:
+      return null
+  }
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

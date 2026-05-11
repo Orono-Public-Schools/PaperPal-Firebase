@@ -247,7 +247,7 @@ export default function CheckRequest() {
     if (!user || !userProfile) return
     const signatureUrl = isEdit
       ? ""
-      : (signatureRef.current?.getDataUrl() ?? "")
+      : ((await signatureRef.current?.getDataUrl()) ?? "")
     if (!isEdit && !signatureUrl) {
       alert("Please add your signature before submitting.")
       return
