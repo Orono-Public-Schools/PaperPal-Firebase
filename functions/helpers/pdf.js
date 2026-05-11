@@ -404,6 +404,13 @@ function renderMileage(doc, data) {
     )
   }
 
+  const hasCommuteDeduction =
+    typeof data.totalCommuteDeduction === "number" &&
+    data.totalCommuteDeduction > 0
+  const displayMiles = hasCommuteDeduction
+    ? (data.reimbursableMiles ?? data.totalMiles)
+    : data.totalMiles
+
   ensureSpace(doc, 20)
   drawTableRow(
     doc,
@@ -413,6 +420,27 @@ function renderMileage(doc, data) {
     true
   )
 
+  if (hasCommuteDeduction) {
+    const commuteNote = data.commuteMilesUsed
+      ? `Less commute (${data.commuteMilesUsed.toFixed(1)} mi one-way × each working leg)`
+      : "Less commute deduction"
+    ensureSpace(doc, 20)
+    drawTableRow(
+      doc,
+      ["", "", "", commuteNote, `−${data.totalCommuteDeduction.toFixed(1)} mi`],
+      colWidths,
+      50
+    )
+    ensureSpace(doc, 20)
+    drawTableRow(
+      doc,
+      ["", "", "", "Reimbursable", `${displayMiles.toFixed(1)} mi`],
+      colWidths,
+      50,
+      true
+    )
+  }
+
   // Summary box
   doc.moveDown(0.5)
   ensureSpace(doc, 30)
@@ -421,7 +449,7 @@ function renderMileage(doc, data) {
     .fontSize(9)
     .fillColor(LABEL_COLOR)
     .text(
-      `${data.totalMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)} = `,
+      `${displayMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)} = `,
       50,
       doc.y,
       { continued: true }
@@ -582,6 +610,25 @@ function renderTravel(doc, data) {
       )
       expTotal += exp.amount || 0
     }
+
+    if (
+      typeof data.totalCommuteDeduction === "number" &&
+      data.totalCommuteDeduction > 0
+    ) {
+      const deductionCost = data.totalCommuteDeduction * MILEAGE_RATE
+      const commuteDetail = data.commuteMilesUsed
+        ? `Less commute deduction\n${data.commuteMilesUsed.toFixed(1)} mi one-way × each working leg = ${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+        : `Less commute deduction\n${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+      ensureSpace(doc, 18)
+      drawTableRow(
+        doc,
+        ["—", "Commute", commuteDetail, `−${currency(deductionCost)}`],
+        expCols,
+        50
+      )
+      expTotal -= deductionCost
+    }
+
     ensureSpace(doc, 18)
     drawTableRow(doc, ["", "", "Total", currency(expTotal)], expCols, 50, true)
   } else {

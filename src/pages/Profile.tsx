@@ -4,8 +4,10 @@ import { Check, Trash2, Pencil, Type, Save } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import { useAuth } from "@/hooks/useAuth"
-import { createOrUpdateUserProfile } from "@/lib/firestore"
+import { createOrUpdateUserProfile, getAppSettings } from "@/lib/firestore"
+import { getCommuteMiles, computeCommuteMiles } from "@/lib/commute"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
+import type { AppSettings, UserProfile } from "@/lib/types"
 
 type SigTab = "draw" | "type"
 
@@ -24,6 +26,38 @@ export default function Profile() {
     userProfile?.supervisorEmail ?? ""
   )
   const [homeAddress, setHomeAddress] = useState(userProfile?.homeAddress ?? "")
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
+  const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
+  const [commuteLoading, setCommuteLoading] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then(setAppSettings)
+  }, [])
+
+  useEffect(() => {
+    if (!userProfile || !appSettings) return
+    let cancelled = false
+    const load = async () => {
+      if (!appSettings.commuteDeductionEnabled) {
+        if (!cancelled) setCommuteMiles(null)
+        return
+      }
+      setCommuteLoading(true)
+      try {
+        const miles = await getCommuteMiles(
+          userProfile,
+          appSettings.schoolAddress
+        )
+        if (!cancelled) setCommuteMiles(miles)
+      } finally {
+        if (!cancelled) setCommuteLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [userProfile, appSettings])
 
   // Auto-focus home address field when navigated from mileage form
   useEffect(() => {
@@ -144,6 +178,29 @@ export default function Profile() {
     setSaving(true)
     try {
       const sigDataUrl = getSignatureDataUrl()
+
+      let commuteUpdate: Partial<UserProfile> = {}
+      const trimmedHome = homeAddress.trim()
+      const trimmedSchool = appSettings?.schoolAddress.trim() ?? ""
+      const homeChanged =
+        trimmedHome &&
+        trimmedHome !== (userProfile?.commuteCachedHomeAddress ?? "")
+      if (
+        appSettings?.commuteDeductionEnabled &&
+        homeChanged &&
+        trimmedSchool
+      ) {
+        const miles = await computeCommuteMiles(trimmedHome, trimmedSchool)
+        if (miles !== null) {
+          commuteUpdate = {
+            commuteMiles: miles,
+            commuteCachedHomeAddress: trimmedHome,
+            commuteCachedSchoolAddress: trimmedSchool,
+          }
+          setCommuteMiles(miles)
+        }
+      }
+
       await createOrUpdateUserProfile(user.uid, {
         firstName,
         lastName,
@@ -153,6 +210,7 @@ export default function Profile() {
         building,
         supervisorEmail,
         homeAddress,
+        ...commuteUpdate,
         ...(sigDataUrl ? { savedSignatureUrl: sigDataUrl } : {}),
       })
       if (sigDataUrl) setSavedSig(sigDataUrl)
@@ -242,6 +300,20 @@ export default function Profile() {
                   onChange={setHomeAddress}
                   placeholder="Used as default 'From' on mileage forms"
                 />
+                {appSettings?.commuteDeductionEnabled &&
+                  homeAddress.trim() &&
+                  appSettings.schoolAddress.trim() && (
+                    <p
+                      className="mt-2 text-xs"
+                      style={{ color: "#64748b", lineHeight: 1.5 }}
+                    >
+                      {commuteLoading
+                        ? "Calculating commute distance…"
+                        : commuteMiles !== null
+                          ? `Commute to school: ${commuteMiles} mi one-way. This will be deducted from your mileage on working-day trips.`
+                          : "Could not calculate commute distance."}
+                    </p>
+                  )}
               </Field>
             </div>
             <Field label="Email">

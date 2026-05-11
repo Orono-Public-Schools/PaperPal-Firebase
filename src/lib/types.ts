@@ -70,6 +70,7 @@ export interface AppSettings {
   finalApproverEmail: string
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
+  commuteDeductionEnabled?: boolean
   paperpalDriveFolderId?: string
   paperpalLogSheetId?: string
   staffSheetId?: string
@@ -93,6 +94,9 @@ export interface UserProfile {
   buildingOverride?: string
   supervisorEmail?: string
   homeAddress?: string
+  commuteMiles?: number
+  commuteCachedHomeAddress?: string
+  commuteCachedSchoolAddress?: string
   savedSignatureUrl?: string
   photoURL?: string
   role: UserRole
@@ -167,6 +171,7 @@ export interface MileageTrip {
   purpose: string
   miles: number
   isRoundTrip: boolean
+  isWorkingDay?: boolean
 }
 
 export interface MileageData {
@@ -176,6 +181,9 @@ export interface MileageData {
   trips: MileageTrip[]
   totalMiles: number
   totalReimbursement: number
+  commuteMilesUsed?: number
+  totalCommuteDeduction?: number
+  reimbursableMiles?: number
 }
 
 export interface TravelExpenseItem {
@@ -207,6 +215,7 @@ export interface TravelCarTrip {
   to: string
   miles: number
   isRoundTrip: boolean
+  isWorkingDay?: boolean
 }
 
 export interface TravelData {
@@ -247,6 +256,9 @@ export interface TravelData {
   taxExemptAcknowledged?: boolean
   advanceRequested: number
   finalClaim: number
+  commuteMilesUsed?: number
+  totalCommuteDeduction?: number
+  reimbursableMiles?: number
 }
 
 // ─── Submission ───────────────────────────────────────────────────────────────

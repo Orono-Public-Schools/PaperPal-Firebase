@@ -130,6 +130,13 @@ export function CheckRequestView({ data }: { data: CheckRequestData }) {
 }
 
 export function MileageView({ data }: { data: MileageData }) {
+  const hasCommuteDeduction =
+    typeof data.totalCommuteDeduction === "number" &&
+    data.totalCommuteDeduction > 0
+  const reimbursableMiles = hasCommuteDeduction
+    ? (data.reimbursableMiles ?? data.totalMiles)
+    : data.totalMiles
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -170,6 +177,18 @@ export function MileageView({ data }: { data: MileageData }) {
                       Round Trip
                     </span>
                   )}
+                  {hasCommuteDeduction && trip.isWorkingDay !== false && (
+                    <span
+                      className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                      style={{
+                        background: "#fef3c7",
+                        color: "#92400e",
+                      }}
+                      title="Commute deducted for this trip"
+                    >
+                      Working
+                    </span>
+                  )}
                 </td>
               </tr>
             )
@@ -183,6 +202,41 @@ export function MileageView({ data }: { data: MileageData }) {
             </td>
             <td className="py-2 pr-4">{data.totalMiles.toFixed(1)} mi</td>
           </tr>
+          {hasCommuteDeduction && (
+            <>
+              <tr
+                style={{
+                  color: "#ad2122",
+                  borderColor: "rgba(180,185,195,0.25)",
+                }}
+              >
+                <td className="py-2 pr-4 text-sm" colSpan={4}>
+                  Less commute deduction
+                  {data.commuteMilesUsed && (
+                    <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
+                      ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
+                      working leg)
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-4 text-sm font-semibold">
+                  −{(data.totalCommuteDeduction ?? 0).toFixed(1)} mi
+                </td>
+              </tr>
+              <tr
+                className="border-t font-bold"
+                style={{
+                  color: "#1d2a5d",
+                  borderColor: "rgba(180,185,195,0.25)",
+                }}
+              >
+                <td className="py-2 pr-4" colSpan={4}>
+                  Reimbursable Miles
+                </td>
+                <td className="py-2 pr-4">{reimbursableMiles.toFixed(1)} mi</td>
+              </tr>
+            </>
+          )}
         </Table>
       </div>
 
@@ -197,7 +251,7 @@ export function MileageView({ data }: { data: MileageData }) {
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: "#64748b" }}
         >
-          {data.totalMiles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(3)}
+          {reimbursableMiles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(3)}
         </span>
         <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
           {currency(data.totalReimbursement)}
@@ -250,6 +304,9 @@ function ExpenseReceiptThumb({
 
 export function TravelView({ data }: { data: TravelData }) {
   const hasNewExpenses = data.expenses && data.expenses.length > 0
+  const hasCommuteDeduction =
+    typeof data.totalCommuteDeduction === "number" &&
+    data.totalCommuteDeduction > 0
 
   return (
     <div className="space-y-6">
@@ -340,6 +397,19 @@ export function TravelView({ data }: { data: TravelData }) {
                               Round Trip
                             </span>
                           )}
+                          {hasCommuteDeduction &&
+                            trip.isWorkingDay !== false && (
+                              <span
+                                className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                                style={{
+                                  background: "#fef3c7",
+                                  color: "#92400e",
+                                }}
+                                title="Commute deducted for this trip"
+                              >
+                                Working
+                              </span>
+                            )}
                         </div>
                         <div
                           className="mt-0.5 text-xs"
@@ -406,6 +476,31 @@ export function TravelView({ data }: { data: TravelData }) {
                 </td>
               </tr>
             ))}
+            {hasCommuteDeduction && (
+              <tr
+                className="border-t"
+                style={{
+                  color: "#ad2122",
+                  borderColor: "rgba(180,185,195,0.25)",
+                }}
+              >
+                <td className="py-2 pr-4">—</td>
+                <td className="py-2 pr-4">Commute</td>
+                <td className="py-2 pr-4 text-sm">
+                  Less commute deduction
+                  {data.commuteMilesUsed && (
+                    <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
+                      ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
+                      working leg)
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-4 font-semibold">
+                  −{currency((data.totalCommuteDeduction ?? 0) * MILEAGE_RATE)}
+                </td>
+                <td />
+              </tr>
+            )}
             <tr
               className="border-t font-bold"
               style={{
@@ -416,12 +511,7 @@ export function TravelView({ data }: { data: TravelData }) {
               <td className="py-2 pr-4" colSpan={3}>
                 Total
               </td>
-              <td className="py-2 pr-4">
-                {currency(
-                  data.expenses!.reduce((s, e) => s + (e.amount || 0), 0) +
-                    data.actuals.miles * MILEAGE_RATE
-                )}
-              </td>
+              <td className="py-2 pr-4">{currency(data.actuals.total)}</td>
               <td />
             </tr>
           </Table>

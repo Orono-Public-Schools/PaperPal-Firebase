@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useSandbox } from "@/hooks/useSandbox"
 import {
   getUserSubmissions,
+  getAllInFlightSubmissions,
   getPendingApprovals,
   getPendingApproverApprovals,
   getReviewedSubmissions,
@@ -207,18 +208,26 @@ export default function Dashboard() {
   )
 
   // Approvals — submissions assigned to this user for review
-  const approvalView: "pending" | "completed" =
-    viewParam === "completed" ? "completed" : "pending"
+  const approvalView: "pending" | "completed" | "all" =
+    viewParam === "completed"
+      ? "completed"
+      : viewParam === "all"
+        ? "all"
+        : "pending"
 
-  function setApprovalView(view: "pending" | "completed") {
+  function setApprovalView(view: "pending" | "completed" | "all") {
     const params: Record<string, string> = { tab: "approvals" }
     if (view !== "pending") params.view = view
     setSearchParams(params, { replace: true })
   }
   const [approvalData, setApprovalData] = useState<Submission[] | null>(null)
   const [completedData, setCompletedData] = useState<Submission[] | null>(null)
+  const [allInFlightData, setAllInFlightData] = useState<Submission[] | null>(
+    null
+  )
   const loadingCompleted =
     approvalView === "completed" && completedData === null
+  const loadingAllInFlight = approvalView === "all" && allInFlightData === null
 
   useEffect(() => {
     if (!userProfile?.email) return
@@ -288,6 +297,24 @@ export default function Dashboard() {
       cancelled = true
     }
   }, [activeTab, approvalView, userProfile?.email, userProfile?.role])
+
+  useEffect(() => {
+    if (activeTab !== "approvals" || approvalView !== "all" || !userProfile)
+      return
+    const isController = ["controller", "business_office", "admin"].includes(
+      userProfile.role
+    )
+    if (!isController) return
+    let cancelled = false
+    getAllInFlightSubmissions()
+      .then((all) => {
+        if (!cancelled) setAllInFlightData(all)
+      })
+      .catch(console.error)
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, approvalView, userProfile])
 
   // Tab badge flags
   const hasPendingDot = pendingSubmissions.length > 0
@@ -577,11 +604,17 @@ export default function Dashboard() {
             className="mb-4 flex gap-1 rounded-lg p-1"
             style={{ background: "rgba(255,255,255,0.06)" }}
           >
-            {(["pending", "completed"] as const).map((view) => (
+            {[
+              { view: "pending" as const, label: "Pending" },
+              { view: "completed" as const, label: "Completed" },
+              ...(isController
+                ? [{ view: "all" as const, label: "All Open" }]
+                : []),
+            ].map(({ view, label }) => (
               <button
                 key={view}
                 onClick={() => setApprovalView(view)}
-                className="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-200"
+                className="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-200"
                 style={
                   approvalView === view
                     ? {
@@ -591,7 +624,7 @@ export default function Dashboard() {
                     : { color: "rgba(255,255,255,0.4)" }
                 }
               >
-                {view}
+                {label}
               </button>
             ))}
           </div>
@@ -604,6 +637,17 @@ export default function Dashboard() {
               emptyIcon={ClipboardCheck}
               emptyTitle="No pending approvals"
               emptySubtitle="Submissions assigned to you for review will appear here."
+              showSubmitter
+            />
+          ) : approvalView === "all" ? (
+            <SubmissionList
+              submissions={(allInFlightData ?? []).filter((s) =>
+                sandbox ? s.sandbox === true : !s.sandbox
+              )}
+              loading={loadingAllInFlight}
+              emptyIcon={ClipboardCheck}
+              emptyTitle="No open submissions"
+              emptySubtitle="All in-flight submissions across the district appear here so you can redirect or edit any that are stuck."
               showSubmitter
             />
           ) : (
