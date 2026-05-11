@@ -249,6 +249,12 @@ export default function FormView() {
   async function handleApproveAsApprover() {
     if (!submission || !settings) return
     const sig = signatureRef.current?.getDataUrl() ?? ""
+    if (!sig) {
+      alert(
+        "Please draw, type, or select your saved signature before approving."
+      )
+      return
+    }
     setActing(true)
 
     const update: Record<string, unknown> = {
@@ -289,6 +295,12 @@ export default function FormView() {
   async function handleApproveAsSupervisor() {
     if (!submission || !settings) return
     const sig = signatureRef.current?.getDataUrl() ?? ""
+    if (!sig) {
+      alert(
+        "Please draw, type, or select your saved signature before approving."
+      )
+      return
+    }
     setActing(true)
 
     // Build update with budget code if provided
@@ -329,6 +341,12 @@ export default function FormView() {
   async function handleApproveAsFinalApprover() {
     if (!submission || !settings) return
     const sig = signatureRef.current?.getDataUrl() ?? ""
+    if (!sig) {
+      alert(
+        "Please draw, type, or select your saved signature before approving."
+      )
+      return
+    }
     setActing(true)
     await updateSubmission(submission.id, {
       status: "approved",

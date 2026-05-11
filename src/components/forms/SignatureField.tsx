@@ -21,9 +21,16 @@ interface Props {
 
 const SignatureField = forwardRef<SignatureFieldRef, Props>(
   ({ savedSignatureUrl, fullName, onSaveSignature }, ref) => {
-    const [localSavedUrl, setLocalSavedUrl] = useState(savedSignatureUrl)
+    // Saved URL is derived from the prop unless the user just clicked
+    // "Save as my signature" (draftSavedUrl). This keeps the field reactive
+    // to userProfile loading after the component mounts.
+    const [draftSavedUrl, setDraftSavedUrl] = useState<string | null>(null)
+    const localSavedUrl = draftSavedUrl ?? savedSignatureUrl ?? ""
     const hasSaved = !!localSavedUrl
-    const [mode, setMode] = useState<SigMode>(hasSaved ? "saved" : "draw")
+    // Mode is derived from prop until the user explicitly picks a tab.
+    const [userPickedMode, setUserPickedMode] = useState<SigMode | null>(null)
+    const mode: SigMode = userPickedMode ?? (hasSaved ? "saved" : "draw")
+    const setMode = setUserPickedMode
     const [typedSig, setTypedSig] = useState("")
     const [savedMsg, setSavedMsg] = useState(false)
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -132,7 +139,7 @@ const SignatureField = forwardRef<SignatureFieldRef, Props>(
       const dataUrl = getCurrentDataUrl()
       if (!dataUrl || !onSaveSignature) return
       onSaveSignature(dataUrl)
-      setLocalSavedUrl(dataUrl)
+      setDraftSavedUrl(dataUrl)
       setMode("saved")
       setSavedMsg(true)
       setTimeout(() => setSavedMsg(false), 2500)
