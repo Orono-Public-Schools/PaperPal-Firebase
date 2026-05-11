@@ -25,6 +25,7 @@ const {
   sendApproverApprovedEmails,
   sendPaidEmails,
   sendReturnedToSupervisorEmails,
+  sendReviewerReminder,
 } = require("./helpers/email")
 
 initializeApp()
@@ -563,5 +564,42 @@ exports.generateSubmissionPdf = onCall(
 
     const pdfBuffer = await generatePdf(submission)
     return { pdf: pdfBuffer.toString("base64") }
+  }
+)
+
+// ─── Resend Reviewer Reminder (callable, controller+) ───────────────────────
+
+exports.resendNotification = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in")
+    }
+
+    const { submissionId } = request.data || {}
+    if (!submissionId) {
+      throw new HttpsError("invalid-argument", "submissionId is required")
+    }
+
+    const callerSnap = await db.doc(`users/${request.auth.uid}`).get()
+    const callerRole = callerSnap.data()?.role
+    if (!["controller", "business_office", "admin"].includes(callerRole)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only controllers, business office, and admins can resend reminders"
+      )
+    }
+
+    const submissionSnap = await db.doc(`submissions/${submissionId}`).get()
+    if (!submissionSnap.exists) {
+      throw new HttpsError("not-found", "Submission not found")
+    }
+    const submission = submissionSnap.data()
+
+    const settingsSnap = await db.doc("settings/app").get()
+    const settings = settingsSnap.data() || {}
+
+    const result = await sendReviewerReminder(submission, settings)
+    return result
   }
 )
