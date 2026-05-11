@@ -213,10 +213,7 @@ export function MileageView({ data }: { data: MileageData }) {
                 <td className="py-2 pr-4 text-sm" colSpan={4}>
                   Less commute deduction
                   {data.commuteMilesUsed && (
-                    <span
-                      className="ml-1 text-xs"
-                      style={{ color: "#94a3b8" }}
-                    >
+                    <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
                       ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
                       working leg)
                     </span>
@@ -236,9 +233,7 @@ export function MileageView({ data }: { data: MileageData }) {
                 <td className="py-2 pr-4" colSpan={4}>
                   Reimbursable Miles
                 </td>
-                <td className="py-2 pr-4">
-                  {reimbursableMiles.toFixed(1)} mi
-                </td>
+                <td className="py-2 pr-4">{reimbursableMiles.toFixed(1)} mi</td>
               </tr>
             </>
           )}
@@ -494,20 +489,14 @@ export function TravelView({ data }: { data: TravelData }) {
                 <td className="py-2 pr-4 text-sm">
                   Less commute deduction
                   {data.commuteMilesUsed && (
-                    <span
-                      className="ml-1 text-xs"
-                      style={{ color: "#94a3b8" }}
-                    >
+                    <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
                       ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
                       working leg)
                     </span>
                   )}
                 </td>
                 <td className="py-2 pr-4 font-semibold">
-                  −
-                  {currency(
-                    (data.totalCommuteDeduction ?? 0) * MILEAGE_RATE
-                  )}
+                  −{currency((data.totalCommuteDeduction ?? 0) * MILEAGE_RATE)}
                 </td>
                 <td />
               </tr>

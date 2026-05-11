@@ -301,8 +301,8 @@ function GeneralSettingsSection() {
               commute from working-day trips (the distance they would have
               driven anyway). Users can toggle the deduction per trip on the
               form, and a one-way trip deducts one-way commute while a
-              round-trip deducts the full commute. Existing submissions keep
-              the math they were submitted with.
+              round-trip deducts the full commute. Existing submissions keep the
+              math they were submitted with.
             </p>
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -313,7 +313,10 @@ function GeneralSettingsSection() {
                 }
                 className="h-4 w-4 cursor-pointer accent-[#1d2a5d]"
               />
-              <span className="text-sm font-medium" style={{ color: "#334155" }}>
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#334155" }}
+              >
                 Deduct commute from working-day mileage
               </span>
             </label>

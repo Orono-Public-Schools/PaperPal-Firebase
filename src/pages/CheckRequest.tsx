@@ -516,8 +516,8 @@ export default function CheckRequest() {
                   className="input-neu"
                 />
                 <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                  Route to a supervisor for a 2-step approval, or to an
-                  approver to add their supervisor as a middle step.
+                  Route to a supervisor for a 2-step approval, or to an approver
+                  to add their supervisor as a middle step.
                 </p>
                 <RoutingChainPreview routeToEmail={routeRequestTo} />
               </Field>
@@ -525,8 +525,8 @@ export default function CheckRequest() {
           )}
           {sandbox && !isEdit && (
             <p className="mt-3 text-[11px]" style={{ color: "#94a3b8" }}>
-              Sandbox: all approval steps will be routed to your own email.
-              Flow follows your role ({userProfile?.role ?? "staff"}).
+              Sandbox: all approval steps will be routed to your own email. Flow
+              follows your role ({userProfile?.role ?? "staff"}).
             </p>
           )}
         </Section>

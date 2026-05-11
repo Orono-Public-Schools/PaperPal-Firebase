@@ -227,8 +227,7 @@ export default function Dashboard() {
   )
   const loadingCompleted =
     approvalView === "completed" && completedData === null
-  const loadingAllInFlight =
-    approvalView === "all" && allInFlightData === null
+  const loadingAllInFlight = approvalView === "all" && allInFlightData === null
 
   useEffect(() => {
     if (!userProfile?.email) return
@@ -605,15 +604,13 @@ export default function Dashboard() {
             className="mb-4 flex gap-1 rounded-lg p-1"
             style={{ background: "rgba(255,255,255,0.06)" }}
           >
-            {(
-              [
-                { view: "pending" as const, label: "Pending" },
-                { view: "completed" as const, label: "Completed" },
-                ...(isController
-                  ? [{ view: "all" as const, label: "All Open" }]
-                  : []),
-              ]
-            ).map(({ view, label }) => (
+            {[
+              { view: "pending" as const, label: "Pending" },
+              { view: "completed" as const, label: "Completed" },
+              ...(isController
+                ? [{ view: "all" as const, label: "All Open" }]
+                : []),
+            ].map(({ view, label }) => (
               <button
                 key={view}
                 onClick={() => setApprovalView(view)}

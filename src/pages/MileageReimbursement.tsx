@@ -57,7 +57,10 @@ function emptyTrip(): MileageTrip {
   }
 }
 
-function computeMileageTotals(trips: MileageTrip[], commuteMiles: number | null) {
+function computeMileageTotals(
+  trips: MileageTrip[],
+  commuteMiles: number | null
+) {
   const totalMiles = trips.reduce(
     (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
     0
@@ -433,8 +436,8 @@ export default function MileageReimbursement() {
             className="mt-1 text-sm font-semibold"
             style={{ color: "#4356a9" }}
           >
-            ${totalReimbursement.toFixed(2)} for{" "}
-            {reimbursableMiles.toFixed(1)} miles
+            ${totalReimbursement.toFixed(2)} for {reimbursableMiles.toFixed(1)}{" "}
+            miles
           </p>
           <button
             onClick={() => navigate("/")}
@@ -572,8 +575,8 @@ export default function MileageReimbursement() {
                   className="input-neu"
                 />
                 <p className="mt-1 text-[11px]" style={{ color: "#94a3b8" }}>
-                  Route to a supervisor for a 2-step approval, or to an
-                  approver to add their supervisor as a middle step.
+                  Route to a supervisor for a 2-step approval, or to an approver
+                  to add their supervisor as a middle step.
                 </p>
                 <RoutingChainPreview routeToEmail={routeRequestTo} />
               </Field>
@@ -581,8 +584,8 @@ export default function MileageReimbursement() {
           </div>
           {sandbox && !isEdit && (
             <p className="mt-3 text-[11px]" style={{ color: "#94a3b8" }}>
-              Sandbox: all approval steps will be routed to your own email.
-              Flow follows your role ({userProfile?.role ?? "staff"}).
+              Sandbox: all approval steps will be routed to your own email. Flow
+              follows your role ({userProfile?.role ?? "staff"}).
             </p>
           )}
         </Section>
@@ -651,10 +654,7 @@ export default function MileageReimbursement() {
                 >
                   Less commute deduction
                   {commuteMiles && (
-                    <span
-                      className="ml-1 text-xs"
-                      style={{ color: "#94a3b8" }}
-                    >
+                    <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
                       ({commuteMiles.toFixed(1)} mi one-way × each working leg)
                     </span>
                   )}
