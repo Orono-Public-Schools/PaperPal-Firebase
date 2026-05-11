@@ -782,7 +782,7 @@ export default function Dashboard() {
                 <select
                   value={filterSubmitter}
                   onChange={(e) => setFilterSubmitter(e.target.value)}
-                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
+                  className="select-dark cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
                   style={{
                     background: "rgba(255,255,255,0.08)",
                     color: "#ffffff",
@@ -803,7 +803,7 @@ export default function Dashboard() {
                   onChange={(e) =>
                     setFilterFormType(e.target.value as FormType | "")
                   }
-                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
+                  className="select-dark cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
                   style={{
                     background: "rgba(255,255,255,0.08)",
                     color: "#ffffff",
@@ -822,7 +822,7 @@ export default function Dashboard() {
                   onChange={(e) =>
                     setFilterStatus(e.target.value as SubmissionStatus | "")
                   }
-                  className="cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
+                  className="select-dark cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium"
                   style={{
                     background: "rgba(255,255,255,0.08)",
                     color: "#ffffff",
