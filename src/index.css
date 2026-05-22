@@ -398,6 +398,12 @@
     cursor: default;
     transform: none;
   }
+
+  /* Dark-themed select on dark backgrounds — keep option panel readable */
+  .select-dark option {
+    background: #ffffff;
+    color: #1d2a5d;
+  }
 }
 
 /* ─── Print Styles ─────────────────────────────────────────────────────────── */
