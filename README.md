@@ -1,73 +1,71 @@
-# React + TypeScript + Vite
+# PaperPal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Internal web app for **Orono Public Schools** staff to submit and track expense reimbursement forms through a supervisor approval workflow. Built and maintained by Joel Mellor.
 
-Currently, two official plugins are available:
+## Forms
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Form                    | Path             | Notes                              |
+| ----------------------- | ---------------- | ---------------------------------- |
+| Check Request           | `/forms/check`   | Vendor / service payments          |
+| Mileage Reimbursement   | `/forms/mileage` | $0.725 per mile                    |
+| Travel Reimbursement    | `/forms/travel`  | Multi-category trip expenses + OCR |
 
-## React Compiler
+## Approval flow
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Configurable per title. Default is 2-step; titles with an approver mapped use 4-step.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+Staff submits → [Approver] → Supervisor → Controller approves → Controller marks paid
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Any reviewer can also deny, request revisions, redirect to a different reviewer, or cancel. Submissions in flight surface on the **All Open** oversight tab for controllers/business office/admin with inline resend, redirect, and edit actions.
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x"
-import reactDom from "eslint-plugin-react-dom"
+## Roles
 
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+In ascending access order:
+
+`staff` → `approver` → `supervisor` → `business_office` → `controller` → `admin`
+
+Approver and above can edit submissions assigned to them. Business office / controller / admin see the admin panel. Controllers + admins can mark paid (individually or in bulk) and resend reminder emails.
+
+## Tech stack
+
+- **Frontend** — React 18 + TypeScript + Vite + Tailwind v4
+- **Backend** — Firebase (Auth, Firestore, Hosting, Cloud Functions)
+- **Auth** — Google SSO restricted to `@orono.k12.mn.us`
+- **PDFs + Email** — Cloud Functions render PDFs, upload to Drive, and trigger workflow emails via the Firebase Trigger Email extension
+- **Maps** — Google Places + Routes REST APIs for address autocomplete and mileage calculation
+
+## Local development
+
+```bash
+npm install
+npm run dev              # Vite dev server
+npm run typecheck        # tsc -b
+npm run lint             # eslint --max-warnings=0
+npm run format:check     # prettier --check
+firebase emulators:start # local Firestore / Functions / Auth
 ```
+
+Before pushing, all three checks must pass — CI rejects PRs that fail any of them:
+
+```bash
+npm run typecheck && npm run lint && npm run format:check
+```
+
+## Deploy
+
+```bash
+firebase hosting:channel:deploy dev-joel   # preview channel (expires in 7 days)
+firebase deploy                            # production
+firebase deploy --only functions           # functions only
+firebase deploy --only firestore:rules     # rules only
+```
+
+In-progress features push to `dev-joel` and deploy to the preview channel; production deploys happen via PR-to-`main` merges, not direct `firebase deploy`.
+
+## Further reading
+
+- [CLAUDE.md](./CLAUDE.md) — architecture, design system (Orono brand palette, component patterns, button classes), file structure, Firestore schema
+- [plan.md](./plan.md) — production state, queued work, and completed milestones
+- `.claude/skills/` — runbooks for common operations (deploy, checks, approval flow, Firebase, brand style)
