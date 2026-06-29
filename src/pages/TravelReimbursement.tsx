@@ -21,6 +21,7 @@ import AddressAutocomplete, {
   type QuickFill,
 } from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import PolicyDrawer, {
   TravelPolicyContent,
 } from "@/components/forms/PolicyDrawer"
@@ -38,13 +39,14 @@ import {
   updateSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
+  recordBudgetCodes,
   resolveRoutingChain,
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { TravelData, TravelExpenseItem, TravelCarTrip } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
-import { formatBudgetCode, editActionForRole } from "@/lib/utils"
+import { editActionForRole } from "@/lib/utils"
 import { storage, functions } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
@@ -116,7 +118,7 @@ async function compressImage(
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function TravelReimbursement() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshUserProfile } = useAuth()
   const { sandbox } = useSandbox()
   const { isVisible, getOrder } = useFormFields("travel")
   const navigate = useNavigate()
@@ -811,6 +813,8 @@ export default function TravelReimbursement() {
         })
         setSubmissionId(id)
       }
+      await recordBudgetCodes(user.uid, [accountCode])
+      void refreshUserProfile()
       clearDraft()
       if (isEdit && editId) {
         navigate(`/forms/travel/${editId}`)
@@ -983,21 +987,12 @@ export default function TravelReimbursement() {
             )}
             {isVisible("accountCode") && (
               <Field label="Account Code">
-                <input
-                  type="text"
+                <BudgetCodeAutocomplete
                   value={accountCode}
-                  placeholder="##-###-###-###-###-###"
-                  onChange={(e) =>
-                    setAccountCode(formatBudgetCode(e.target.value))
-                  }
-                  maxLength={22}
-                  className="input-neu font-mono"
+                  onChange={setAccountCode}
+                  recentCodes={userProfile?.recentBudgetCodes}
                   disabled={userProfile?.role === "staff"}
-                  style={
-                    userProfile?.role === "staff"
-                      ? { opacity: 0.5, cursor: "not-allowed" }
-                      : undefined
-                  }
+                  className="input-neu font-mono"
                 />
                 {userProfile?.role !== "staff" && (
                   <BudgetCodeBuilder
