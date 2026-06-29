@@ -184,6 +184,7 @@ export interface MileageData {
   commuteMilesUsed?: number
   totalCommuteDeduction?: number
   reimbursableMiles?: number
+  commuteHomeAddress?: string
 }
 
 export interface TravelExpenseItem {
@@ -259,6 +260,7 @@ export interface TravelData {
   commuteMilesUsed?: number
   totalCommuteDeduction?: number
   reimbursableMiles?: number
+  commuteHomeAddress?: string
 }
 
 // ─── Submission ───────────────────────────────────────────────────────────────
