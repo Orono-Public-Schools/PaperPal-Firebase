@@ -265,6 +265,25 @@ export async function recordBudgetCodes(
   )
 }
 
+// Removes a single saved budget code (e.g. a typo) from a user's recents.
+export async function removeBudgetCode(
+  uid: string,
+  code: string
+): Promise<void> {
+  const ref = doc(db, "users", uid)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const existing: string[] =
+    (snap.data().recentBudgetCodes as string[] | undefined) ?? []
+  const next = existing.filter((c) => c !== code)
+  if (next.length === existing.length) return
+  await setDoc(
+    ref,
+    { recentBudgetCodes: next, updatedAt: serverTimestamp() },
+    { merge: true }
+  )
+}
+
 export async function getAllUsers(): Promise<UserProfile[]> {
   const snap = await getDocs(collection(db, "users"))
   return snap.docs.map((d) => d.data() as UserProfile)

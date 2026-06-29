@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react"
-import { Clock } from "lucide-react"
+import { Clock, X } from "lucide-react"
 import { formatBudgetCode } from "@/lib/utils"
+import { removeBudgetCode } from "@/lib/firestore"
+import { useAuth } from "@/hooks/useAuth"
 
 interface Props {
   value: string
@@ -21,8 +23,18 @@ export default function BudgetCodeAutocomplete({
   placeholder = "##-###-###-###-###-###",
   className = "input-neu w-full font-mono",
 }: Props) {
+  const { userProfile, refreshUserProfile } = useAuth()
   const [open, setOpen] = useState(false)
+  const [removed, setRemoved] = useState<string[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+
+  async function handleRemove(code: string) {
+    setRemoved((prev) => [...prev, code]) // hide immediately
+    if (userProfile) {
+      await removeBudgetCode(userProfile.uid, code)
+      void refreshUserProfile()
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -41,7 +53,9 @@ export default function BudgetCodeAutocomplete({
   // current value itself.
   const typed = digits(value)
   const suggestions = recentCodes
-    .filter((c) => c !== value && digits(c).includes(typed))
+    .filter(
+      (c) => c !== value && !removed.includes(c) && digits(c).includes(typed)
+    )
     .slice(0, 8)
 
   return (
@@ -71,21 +85,43 @@ export default function BudgetCodeAutocomplete({
           }}
         >
           {suggestions.map((code) => (
-            <button
+            <div
               key={code}
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                onChange(code)
-                setOpen(false)
-              }}
-              className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+              className="group flex items-center transition-colors hover:bg-gray-50"
             >
-              <Clock size={13} style={{ color: "#94a3b8", flexShrink: 0 }} />
-              <span className="font-mono text-sm" style={{ color: "#1d2a5d" }}>
-                {code}
-              </span>
-            </button>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  onChange(code)
+                  setOpen(false)
+                }}
+                className="flex flex-1 cursor-pointer items-center gap-2 py-2 pl-3 text-left"
+              >
+                <Clock size={13} style={{ color: "#94a3b8", flexShrink: 0 }} />
+                <span
+                  className="font-mono text-sm"
+                  style={{ color: "#1d2a5d" }}
+                >
+                  {code}
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${code}`}
+                title="Remove from recent codes"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  void handleRemove(code)
+                }}
+                className="flex cursor-pointer items-center px-2.5 py-2 opacity-50 transition-opacity hover:opacity-100"
+                style={{ color: "#94a3b8" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#ad2122")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+              >
+                <X size={13} />
+              </button>
+            </div>
           ))}
         </div>
       )}
