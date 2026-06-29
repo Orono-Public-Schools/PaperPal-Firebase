@@ -422,7 +422,7 @@ function renderMileage(doc, data) {
 
   if (hasCommuteDeduction) {
     const commuteNote = data.commuteMilesUsed
-      ? `Less commute (${data.commuteMilesUsed.toFixed(1)} mi one-way × each working leg)`
+      ? `Less commute (${data.commuteMilesUsed.toFixed(1)} mi one-way, on trips to/from home)`
       : "Less commute deduction"
     ensureSpace(doc, 20)
     drawTableRow(
@@ -617,7 +617,7 @@ function renderTravel(doc, data) {
     ) {
       const deductionCost = data.totalCommuteDeduction * MILEAGE_RATE
       const commuteDetail = data.commuteMilesUsed
-        ? `Less commute deduction\n${data.commuteMilesUsed.toFixed(1)} mi one-way × each working leg = ${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+        ? `Less commute deduction\n${data.commuteMilesUsed.toFixed(1)} mi one-way, on trips to/from home = ${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
         : `Less commute deduction\n${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
       ensureSpace(doc, 18)
       drawTableRow(

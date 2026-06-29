@@ -11,6 +11,7 @@ export interface AuthContextValue {
   error: string | null
   signIn: () => Promise<void>
   signOut: () => Promise<void>
+  refreshUserProfile: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

@@ -4,8 +4,21 @@ import type {
   TravelData,
   TravelExpenseItem,
 } from "@/lib/types"
+import { tripTouchesHome } from "@/lib/commute"
 
 const MILEAGE_RATE = 0.725
+
+// A trip's commute was deducted only if it touched home. Legacy submissions
+// (saved before the home address was stored) fall back to the old behavior of
+// flagging every working-day trip.
+function tripCommuteDeducted(
+  trip: { from: string; to: string; isWorkingDay?: boolean },
+  homeAddress: string | undefined
+): boolean {
+  if (trip.isWorkingDay === false) return false
+  if (homeAddress === undefined) return true
+  return tripTouchesHome(trip, homeAddress)
+}
 
 function Field({
   label,
@@ -177,18 +190,19 @@ export function MileageView({ data }: { data: MileageData }) {
                       Round Trip
                     </span>
                   )}
-                  {hasCommuteDeduction && trip.isWorkingDay !== false && (
-                    <span
-                      className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                      style={{
-                        background: "#fef3c7",
-                        color: "#92400e",
-                      }}
-                      title="Commute deducted for this trip"
-                    >
-                      Working
-                    </span>
-                  )}
+                  {hasCommuteDeduction &&
+                    tripCommuteDeducted(trip, data.commuteHomeAddress) && (
+                      <span
+                        className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                        style={{
+                          background: "#fef3c7",
+                          color: "#92400e",
+                        }}
+                        title="Commute deducted for this trip"
+                      >
+                        Working
+                      </span>
+                    )}
                 </td>
               </tr>
             )
@@ -214,8 +228,8 @@ export function MileageView({ data }: { data: MileageData }) {
                   Less commute deduction
                   {data.commuteMilesUsed && (
                     <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
-                      ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
-                      working leg)
+                      ({data.commuteMilesUsed.toFixed(1)} mi one-way, on trips
+                      to/from home)
                     </span>
                   )}
                 </td>
@@ -398,7 +412,10 @@ export function TravelView({ data }: { data: TravelData }) {
                             </span>
                           )}
                           {hasCommuteDeduction &&
-                            trip.isWorkingDay !== false && (
+                            tripCommuteDeducted(
+                              trip,
+                              data.commuteHomeAddress
+                            ) && (
                               <span
                                 className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
                                 style={{
@@ -490,8 +507,8 @@ export function TravelView({ data }: { data: TravelData }) {
                   Less commute deduction
                   {data.commuteMilesUsed && (
                     <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
-                      ({data.commuteMilesUsed.toFixed(1)} mi one-way × each
-                      working leg)
+                      ({data.commuteMilesUsed.toFixed(1)} mi one-way, on trips
+                      to/from home)
                     </span>
                   )}
                 </td>
