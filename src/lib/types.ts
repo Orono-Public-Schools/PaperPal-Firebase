@@ -108,12 +108,7 @@ export interface UserProfile {
 // ─── Budget Segments ─────────────────────────────────────────────────────────
 
 export type BudgetSegmentType =
-  | "fund"
-  | "org"
-  | "proj"
-  | "fin"
-  | "course"
-  | "obj"
+  "fund" | "org" | "proj" | "fin" | "course" | "obj"
 
 export interface BudgetSegment {
   code: string

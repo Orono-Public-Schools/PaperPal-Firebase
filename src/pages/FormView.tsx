@@ -118,12 +118,7 @@ const FORM_LABELS: Record<string, string> = {
 }
 
 type ActionMode =
-  | null
-  | "approve"
-  | "deny"
-  | "revisions"
-  | "redirect"
-  | "return_to_supervisor"
+  null | "approve" | "deny" | "revisions" | "redirect" | "return_to_supervisor"
 
 export default function FormView() {
   const { id } = useParams<{ type: string; id: string }>()
