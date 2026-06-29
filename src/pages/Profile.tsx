@@ -12,7 +12,7 @@ import type { AppSettings, UserProfile } from "@/lib/types"
 type SigTab = "draw" | "type"
 
 export default function Profile() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshUserProfile } = useAuth()
   const [searchParams] = useSearchParams()
   const homeAddressRef = useRef<HTMLDivElement>(null)
 
@@ -77,6 +77,7 @@ export default function Profile() {
   const [savedSig, setSavedSig] = useState(userProfile?.savedSignatureUrl ?? "")
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
+  const hasDrawn = useRef(false)
 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -94,6 +95,7 @@ export default function Profile() {
     ctx.lineWidth = 2
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
+    hasDrawn.current = false
   }, [sigTab])
 
   function getPos(
@@ -120,6 +122,7 @@ export default function Profile() {
   ) {
     e.preventDefault()
     drawing.current = true
+    hasDrawn.current = true
     const ctx = canvasRef.current?.getContext("2d")
     if (!ctx) return
     const { x, y } = getPos(e)
@@ -150,6 +153,7 @@ export default function Profile() {
     if (!ctx) return
     ctx.fillStyle = "#f4f5f7"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
+    hasDrawn.current = false
   }
 
   function getSignatureDataUrl(): string {
@@ -167,6 +171,8 @@ export default function Profile() {
       ctx.fillText(typedSig, 16, 50)
       return canvas.toDataURL()
     }
+    // Don't overwrite an existing signature with a blank, untouched canvas.
+    if (!hasDrawn.current) return savedSig
     return canvasRef.current?.toDataURL() ?? savedSig
   }
 
@@ -214,6 +220,7 @@ export default function Profile() {
         ...(sigDataUrl ? { savedSignatureUrl: sigDataUrl } : {}),
       })
       if (sigDataUrl) setSavedSig(sigDataUrl)
+      await refreshUserProfile()
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } finally {

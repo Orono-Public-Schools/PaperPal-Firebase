@@ -38,11 +38,29 @@ function parseValue(value: string) {
   return { year: y, month: m - 1, day: d }
 }
 
+function formatDisplay(value: string) {
+  const p = parseValue(value)
+  return p ? `${pad(p.month + 1)}/${pad(p.day)}/${p.year}` : ""
+}
+
+// Parse a typed MM/DD/YYYY (or M/D/YYYY, with / or - separators) into yyyy-mm-dd.
+function parseTyped(text: string): string | null {
+  const m = text.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (!m) return null
+  const month = Number(m[1])
+  const day = Number(m[2])
+  const year = Number(m[3])
+  if (month < 1 || month > 12) return null
+  const daysInMonth = new Date(year, month, 0).getDate()
+  if (day < 1 || day > daysInMonth) return null
+  return `${year}-${pad(month)}-${pad(day)}`
+}
+
 export default function DatePicker({
   value,
   onChange,
   required,
-  placeholder = "Select date",
+  placeholder = "MM/DD/YYYY",
 }: Props) {
   const parsed = parseValue(value)
   const today = new Date()
@@ -51,6 +69,8 @@ export default function DatePicker({
     month: number
   } | null>(null)
   const [open, setOpen] = useState(false)
+  const [text, setText] = useState("")
+  const [focused, setFocused] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // View defaults to the selected date, or today. Manual nav overrides via viewOffset.
@@ -59,12 +79,8 @@ export default function DatePicker({
   const viewYear = viewOffset?.year ?? baseYear
   const viewMonth = viewOffset?.month ?? baseMonth
 
-  function setViewYear(y: number) {
-    setViewOffset({ year: y, month: viewMonth })
-  }
-  function setViewMonth(m: number) {
-    setViewOffset({ year: viewYear, month: m })
-  }
+  // While typing, show the raw text; otherwise reflect the canonical value.
+  const displayText = focused ? text : formatDisplay(value)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -80,26 +96,42 @@ export default function DatePicker({
   }, [])
 
   function prevMonth() {
-    if (viewMonth === 0) {
-      setViewMonth(11)
-      setViewYear(viewYear - 1)
-    } else {
-      setViewMonth(viewMonth - 1)
-    }
+    setViewOffset(
+      viewMonth === 0
+        ? { year: viewYear - 1, month: 11 }
+        : { year: viewYear, month: viewMonth - 1 }
+    )
   }
 
   function nextMonth() {
-    if (viewMonth === 11) {
-      setViewMonth(0)
-      setViewYear(viewYear + 1)
-    } else {
-      setViewMonth(viewMonth + 1)
-    }
+    setViewOffset(
+      viewMonth === 11
+        ? { year: viewYear + 1, month: 0 }
+        : { year: viewYear, month: viewMonth + 1 }
+    )
   }
 
   function selectDay(day: number) {
     onChange(toDateStr(viewYear, viewMonth, day))
     setOpen(false)
+  }
+
+  function handleTextChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value
+    setText(raw)
+    if (raw.trim() === "") {
+      onChange("")
+      return
+    }
+    const valid = parseTyped(raw)
+    if (valid) {
+      onChange(valid)
+      setViewOffset(null)
+    }
+  }
+
+  function handleBlur() {
+    setFocused(false)
   }
 
   const firstDay = new Date(viewYear, viewMonth, 1).getDay()
@@ -115,18 +147,17 @@ export default function DatePicker({
     today.getMonth(),
     today.getDate()
   )
-  const displayValue = parsed
-    ? `${pad(parsed.month + 1)}/${pad(parsed.day)}/${parsed.year}`
-    : ""
 
   return (
     <div ref={containerRef} className="relative">
+      {/* Hidden mirror carries the real value for native required validation */}
       <input
         type="text"
         value={value}
         required={required}
         readOnly
         tabIndex={-1}
+        aria-hidden="true"
         style={{
           position: "absolute",
           opacity: 0,
@@ -136,16 +167,27 @@ export default function DatePicker({
       />
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="input-neu flex w-full cursor-pointer items-center gap-2 text-left"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Toggle calendar"
+        className="absolute top-1/2 left-2 flex -translate-y-1/2 cursor-pointer items-center"
+        style={{ color: "#94a3b8" }}
       >
-        <Calendar size={14} style={{ color: "#94a3b8", flexShrink: 0 }} />
-        {displayValue ? (
-          <span style={{ color: "#1d2a5d" }}>{displayValue}</span>
-        ) : (
-          <span style={{ color: "#94a3b8" }}>{placeholder}</span>
-        )}
+        <Calendar size={14} />
       </button>
+      <input
+        type="text"
+        value={displayText}
+        onChange={handleTextChange}
+        onFocus={() => {
+          setFocused(true)
+          setText(formatDisplay(value))
+        }}
+        onBlur={handleBlur}
+        placeholder={placeholder}
+        inputMode="numeric"
+        className="input-neu w-full"
+        style={{ paddingLeft: "2rem" }}
+      />
 
       {open && (
         <div

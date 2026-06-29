@@ -118,9 +118,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await firebaseSignOut(auth)
   }
 
+  async function refreshUserProfile() {
+    if (!auth.currentUser) return
+    const snap = await getDoc(doc(db, "users", auth.currentUser.uid))
+    if (snap.exists()) setUserProfile(snap.data() as UserProfile)
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, userProfile, loading, error, signIn, signOut }}
+      value={{
+        user,
+        userProfile,
+        loading,
+        error,
+        signIn,
+        signOut,
+        refreshUserProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
