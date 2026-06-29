@@ -39,7 +39,7 @@ import {
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
-import { getCommuteMiles } from "@/lib/commute"
+import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
 import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
@@ -59,7 +59,8 @@ function emptyTrip(): MileageTrip {
 
 function computeMileageTotals(
   trips: MileageTrip[],
-  commuteMiles: number | null
+  commuteMiles: number | null,
+  homeAddress: string
 ) {
   const totalMiles = trips.reduce(
     (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
@@ -69,6 +70,7 @@ function computeMileageTotals(
     commuteMiles && commuteMiles > 0
       ? trips.reduce((sum, t) => {
           if (t.isWorkingDay === false) return sum
+          if (!tripTouchesHome(t, homeAddress)) return sum
           const tripMiles = t.isRoundTrip ? t.miles * 2 : t.miles
           if (tripMiles <= 0) return sum
           const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
@@ -232,7 +234,7 @@ export default function MileageReimbursement() {
     totalCommuteDeduction,
     reimbursableMiles,
     totalReimbursement,
-  } = computeMileageTotals(trips, commuteMiles)
+  } = computeMileageTotals(trips, commuteMiles, userProfile?.homeAddress ?? "")
 
   function updateTrip<K extends keyof MileageTrip>(
     index: number,
@@ -276,6 +278,7 @@ export default function MileageReimbursement() {
               commuteMilesUsed: commuteMiles,
               totalCommuteDeduction,
               reimbursableMiles,
+              commuteHomeAddress: userProfile.homeAddress ?? "",
             }
           : {}),
       }
@@ -607,7 +610,11 @@ export default function MileageReimbursement() {
                 calculatingMiles={calculatingMiles === i}
                 quickFills={quickFills}
                 showAddHome={!userProfile?.homeAddress}
-                showWorkingDayToggle={!!commuteMiles && commuteMiles > 0}
+                showWorkingDayToggle={
+                  !!commuteMiles &&
+                  commuteMiles > 0 &&
+                  tripTouchesHome(trip, userProfile?.homeAddress ?? "")
+                }
               />
             ))}
           </div>
@@ -655,7 +662,8 @@ export default function MileageReimbursement() {
                   Less commute deduction
                   {commuteMiles && (
                     <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
-                      ({commuteMiles.toFixed(1)} mi one-way × each working leg)
+                      ({commuteMiles.toFixed(1)} mi one-way, on trips to/from
+                      home)
                     </span>
                   )}
                 </span>

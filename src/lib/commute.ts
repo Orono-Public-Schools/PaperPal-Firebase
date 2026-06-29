@@ -2,6 +2,20 @@ import { calculateDrivingDistance } from "./googleMaps"
 import { createOrUpdateUserProfile } from "./firestore"
 import type { UserProfile } from "./types"
 
+// The commute is only deductible on a trip leg that actually begins or ends at
+// the employee's home — driving between work sites is fully reimbursable.
+export function tripTouchesHome(
+  trip: { from: string; to: string },
+  homeAddress: string
+): boolean {
+  const home = homeAddress.trim().toLowerCase()
+  if (!home) return false
+  return (
+    trip.from.trim().toLowerCase() === home ||
+    trip.to.trim().toLowerCase() === home
+  )
+}
+
 export async function getCommuteMiles(
   userProfile: UserProfile,
   schoolAddress: string

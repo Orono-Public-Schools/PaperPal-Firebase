@@ -43,7 +43,7 @@ import {
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { TravelData, TravelExpenseItem, TravelCarTrip } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
-import { getCommuteMiles } from "@/lib/commute"
+import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
 import { formatBudgetCode, editActionForRole } from "@/lib/utils"
 import { storage, functions } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -560,6 +560,7 @@ export default function TravelReimbursement() {
     commuteMiles && commuteMiles > 0
       ? carTrips.reduce((sum, t) => {
           if (t.isWorkingDay === false) return sum
+          if (!tripTouchesHome(t, userProfile?.homeAddress ?? "")) return sum
           const tripMiles = t.isRoundTrip ? t.miles * 2 : t.miles
           if (tripMiles <= 0) return sum
           const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
@@ -688,6 +689,7 @@ export default function TravelReimbursement() {
               commuteMilesUsed: commuteMiles,
               totalCommuteDeduction,
               reimbursableMiles,
+              commuteHomeAddress: userProfile?.homeAddress ?? "",
             }
           : {}),
       }
@@ -1397,25 +1399,30 @@ export default function TravelReimbursement() {
                           </span>
                         )}
                       </label>
-                      {commuteMiles !== null && commuteMiles > 0 && (
-                        <label
-                          className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-                          style={{ color: "#334155" }}
-                          title="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
-                        >
-                          <input
-                            type="checkbox"
-                            checked={trip.isWorkingDay !== false}
-                            onChange={(e) =>
-                              updateCarTrip(idx, {
-                                isWorkingDay: e.target.checked,
-                              })
-                            }
-                            className="h-4 w-4 cursor-pointer accent-[#4356a9]"
-                          />
-                          Working day
-                        </label>
-                      )}
+                      {commuteMiles !== null &&
+                        commuteMiles > 0 &&
+                        tripTouchesHome(
+                          trip,
+                          userProfile?.homeAddress ?? ""
+                        ) && (
+                          <label
+                            className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                            style={{ color: "#334155" }}
+                            title="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
+                          >
+                            <input
+                              type="checkbox"
+                              checked={trip.isWorkingDay !== false}
+                              onChange={(e) =>
+                                updateCarTrip(idx, {
+                                  isWorkingDay: e.target.checked,
+                                })
+                              }
+                              className="h-4 w-4 cursor-pointer accent-[#4356a9]"
+                            />
+                            Working day
+                          </label>
+                        )}
                     </div>
                     {carTrips.length > 1 && (
                       <button
@@ -1478,8 +1485,8 @@ export default function TravelReimbursement() {
                           className="ml-1 text-[11px]"
                           style={{ color: "#94a3b8" }}
                         >
-                          ({commuteMiles.toFixed(1)} mi one-way × each working
-                          leg)
+                          ({commuteMiles.toFixed(1)} mi one-way, on trips
+                          to/from home)
                         </span>
                       )}
                     </span>
