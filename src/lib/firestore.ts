@@ -228,6 +228,62 @@ export async function createOrUpdateUserProfile(
   await setDoc(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true })
 }
 
+const MAX_RECENT_BUDGET_CODES = 12
+
+// Records budget codes a user has entered so they can be suggested next time.
+// Newest-first, de-duplicated, capped. Accepts one or many codes (e.g. the
+// multiple expense-line codes on a check request).
+export async function recordBudgetCodes(
+  uid: string,
+  codes: string[]
+): Promise<void> {
+  const clean = codes.map((c) => c.trim()).filter(Boolean)
+  if (clean.length === 0) return
+
+  const ref = doc(db, "users", uid)
+  const snap = await getDoc(ref)
+  const existing: string[] = snap.exists()
+    ? ((snap.data().recentBudgetCodes as string[] | undefined) ?? [])
+    : []
+
+  const seen = new Set<string>()
+  const merged: string[] = []
+  for (const code of [...clean, ...existing]) {
+    if (!seen.has(code)) {
+      seen.add(code)
+      merged.push(code)
+    }
+  }
+
+  await setDoc(
+    ref,
+    {
+      recentBudgetCodes: merged.slice(0, MAX_RECENT_BUDGET_CODES),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  )
+}
+
+// Removes a single saved budget code (e.g. a typo) from a user's recents.
+export async function removeBudgetCode(
+  uid: string,
+  code: string
+): Promise<void> {
+  const ref = doc(db, "users", uid)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const existing: string[] =
+    (snap.data().recentBudgetCodes as string[] | undefined) ?? []
+  const next = existing.filter((c) => c !== code)
+  if (next.length === existing.length) return
+  await setDoc(
+    ref,
+    { recentBudgetCodes: next, updatedAt: serverTimestamp() },
+    { merge: true }
+  )
+}
+
 export async function getAllUsers(): Promise<UserProfile[]> {
   const snap = await getDocs(collection(db, "users"))
   return snap.docs.map((d) => d.data() as UserProfile)

@@ -98,6 +98,7 @@ export interface UserProfile {
   commuteCachedHomeAddress?: string
   commuteCachedSchoolAddress?: string
   savedSignatureUrl?: string
+  recentBudgetCodes?: string[]
   photoURL?: string
   role: UserRole
   allowedFormTypes?: string[]

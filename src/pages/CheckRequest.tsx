@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import SignatureField, {
   type SignatureFieldRef,
 } from "@/components/forms/SignatureField"
@@ -30,11 +31,12 @@ import {
   getSubmission,
   updateSubmission,
   createOrUpdateUserProfile,
+  recordBudgetCodes,
   resolveRoutingChain,
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { CheckRequestData, Attachment } from "@/lib/types"
-import { formatBudgetCode, editActionForRole } from "@/lib/utils"
+import { editActionForRole } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import type { CheckRequestExpense } from "@/lib/types"
@@ -71,7 +73,7 @@ function emptyExpense(): CheckRequestExpense {
 }
 
 export default function CheckRequest() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshUserProfile } = useAuth()
   const { sandbox } = useSandbox()
   const { isVisible, getOrder } = useFormFields("check")
   const navigate = useNavigate()
@@ -379,6 +381,11 @@ export default function CheckRequest() {
         })
         setSubmissionId(id)
       }
+      await recordBudgetCodes(
+        user.uid,
+        expenses.map((e) => e.code)
+      )
+      void refreshUserProfile()
       clearDraft()
       if (isEdit && editId) {
         navigate(`/forms/check/${editId}`)
@@ -607,6 +614,7 @@ export default function CheckRequest() {
                 index={i}
                 onChange={updateExpense}
                 isStaff={userProfile?.role === "staff"}
+                recentCodes={userProfile?.recentBudgetCodes}
                 onRemove={
                   expenses.length > 1 ? () => removeExpense(i) : undefined
                 }
@@ -893,6 +901,7 @@ function ExpenseRow({
   onChange,
   onRemove,
   isStaff,
+  recentCodes,
 }: {
   expense: CheckRequestExpense
   index: number
@@ -903,24 +912,18 @@ function ExpenseRow({
   ) => void
   onRemove?: () => void
   isStaff?: boolean
+  recentCodes?: string[]
 }) {
   return (
     <div className="py-3 first:pt-0 last:pb-0">
       <div className="grid gap-3 sm:grid-cols-[1fr_2fr_auto_auto]">
         <Field label="Account Code">
-          <input
-            type="text"
+          <BudgetCodeAutocomplete
             value={expense.code}
-            placeholder="##-###-###-###-###-###"
-            onChange={(e) =>
-              onChange(index, "code", formatBudgetCode(e.target.value))
-            }
-            maxLength={22}
-            className="input-neu font-mono"
+            onChange={(v) => onChange(index, "code", v)}
+            recentCodes={recentCodes}
             disabled={isStaff}
-            style={
-              isStaff ? { opacity: 0.5, cursor: "not-allowed" } : undefined
-            }
+            className="input-neu font-mono"
           />
           {!isStaff && (
             <BudgetCodeBuilder

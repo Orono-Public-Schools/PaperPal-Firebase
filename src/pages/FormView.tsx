@@ -21,13 +21,14 @@ import SignatureField, {
   type SignatureFieldRef,
 } from "@/components/forms/SignatureField"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
-import { formatBudgetCode } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import {
   getSubmission,
   updateSubmission,
   getAppSettings,
+  recordBudgetCodes,
   resolveRoutingChain,
 } from "@/lib/firestore"
 import type {
@@ -123,7 +124,7 @@ type ActionMode =
 export default function FormView() {
   const { id } = useParams<{ type: string; id: string }>()
   const navigate = useNavigate()
-  const { userProfile } = useAuth()
+  const { userProfile, refreshUserProfile } = useAuth()
   const signatureRef = useRef<SignatureFieldRef>(null)
 
   const [submission, setSubmission] = useState<Submission | null>(null)
@@ -277,6 +278,10 @@ export default function FormView() {
     }
 
     await updateSubmission(submission.id, update)
+    if (budgetCode.trim() && userProfile) {
+      await recordBudgetCodes(userProfile.uid, [budgetCode])
+      void refreshUserProfile()
+    }
     const updated = {
       ...submission,
       status: "approved_by_approver" as SubmissionStatus,
@@ -326,6 +331,10 @@ export default function FormView() {
     }
 
     await updateSubmission(submission.id, update)
+    if (budgetCode.trim() && userProfile) {
+      await recordBudgetCodes(userProfile.uid, [budgetCode])
+      void refreshUserProfile()
+    }
     const updated = { ...submission, status: "reviewed" as SubmissionStatus }
     setSubmission(updated)
     setActionMode(null)
@@ -955,14 +964,10 @@ export default function FormView() {
                         ? "Some expense lines are missing a budget code. Enter one to apply to those lines (existing codes are kept)."
                         : "The submitter didn't enter a budget code. Enter one to fill it in."}
                     </p>
-                    <input
-                      type="text"
+                    <BudgetCodeAutocomplete
                       value={budgetCode}
-                      onChange={(e) =>
-                        setBudgetCode(formatBudgetCode(e.target.value))
-                      }
-                      placeholder="##-###-###-###-###-###"
-                      maxLength={22}
+                      onChange={setBudgetCode}
+                      recentCodes={userProfile?.recentBudgetCodes}
                       className="input-neu w-full font-mono sm:w-72"
                     />
                     <BudgetCodeBuilder

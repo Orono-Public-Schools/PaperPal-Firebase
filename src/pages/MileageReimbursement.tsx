@@ -15,6 +15,7 @@ import AddressAutocomplete, {
   type QuickFill,
 } from "@/components/forms/AddressAutocomplete"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
+import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import PolicyDrawer, {
   TravelPolicyContent,
 } from "@/components/forms/PolicyDrawer"
@@ -34,13 +35,14 @@ import {
   updateSubmission,
   getAppSettings,
   createOrUpdateUserProfile,
+  recordBudgetCodes,
   resolveRoutingChain,
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
-import { formatBudgetCode, editActionForRole } from "@/lib/utils"
+import { editActionForRole } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
 const RATE = 0.725
@@ -88,7 +90,7 @@ function computeMileageTotals(
 }
 
 export default function MileageReimbursement() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshUserProfile } = useAuth()
   const { sandbox } = useSandbox()
   const { isVisible, getOrder } = useFormFields("mileage")
   const navigate = useNavigate()
@@ -398,6 +400,8 @@ export default function MileageReimbursement() {
         })
         setSubmissionId(id)
       }
+      await recordBudgetCodes(user.uid, [accountCode])
+      void refreshUserProfile()
       clearDraft()
       if (isEdit && editId) {
         navigate(`/forms/mileage/${editId}`)
@@ -540,21 +544,11 @@ export default function MileageReimbursement() {
             )}
             {isVisible("accountCode") && (
               <Field label="Account Code">
-                <input
-                  type="text"
+                <BudgetCodeAutocomplete
                   value={accountCode}
-                  onChange={(e) =>
-                    setAccountCode(formatBudgetCode(e.target.value))
-                  }
-                  placeholder="##-###-###-###-###-###"
-                  maxLength={22}
-                  className="input-neu w-full font-mono"
+                  onChange={setAccountCode}
+                  recentCodes={userProfile?.recentBudgetCodes}
                   disabled={userProfile?.role === "staff"}
-                  style={
-                    userProfile?.role === "staff"
-                      ? { opacity: 0.5, cursor: "not-allowed" }
-                      : undefined
-                  }
                 />
                 {userProfile?.role !== "staff" && (
                   <BudgetCodeBuilder
