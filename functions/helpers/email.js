@@ -334,21 +334,20 @@ async function sendResubmittedEmails(submission, settings) {
   )
 }
 
-// ─── On Redirect (supervisor reassigned) ────────────────────────────────────
+// ─── On Redirect (reviewer reassigned) ──────────────────────────────────────
 
-async function sendRedirectedEmails(
-  submission,
-  settings,
-  previousSupervisorEmail
-) {
+async function sendRedirectedEmails(submission, settings, previousActorEmail) {
   const formLabel = FORM_LABELS[submission.formType] || "Request"
   const link = formUrl(submission)
   const tag = submission.sandbox ? "[SANDBOX] " : ""
 
-  // New supervisor notification
-  if (submission.supervisorEmail) {
+  // Redirect resets status to pending, so the approver (when the new chain
+  // has one) acts first — otherwise the new supervisor does
+  const nextActorEmail = submission.approverEmail || submission.supervisorEmail
+
+  if (nextActorEmail) {
     await sendMail(
-      sandboxTo(submission, submission.supervisorEmail),
+      sandboxTo(submission, nextActorEmail),
       `${tag}[PaperPal] ${formLabel} Redirected to You — ${submission.submitterName}`,
       emailHtml({
         heading: `${formLabel} Redirected to You for Review`,
@@ -363,15 +362,15 @@ async function sendRedirectedEmails(
     )
   }
 
-  // Confirmation to previous supervisor
-  if (previousSupervisorEmail) {
+  // Notify whoever previously held the submission
+  if (previousActorEmail && previousActorEmail !== nextActorEmail) {
     await sendMail(
-      sandboxTo(submission, previousSupervisorEmail),
+      sandboxTo(submission, previousActorEmail),
       `${tag}[PaperPal] Redirected — ${formLabel} ${submission.id}`,
       emailHtml({
         heading: `${formLabel} Redirected`,
         body: `
-          <p>You redirected <strong>${submission.submitterName}</strong>'s ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> to <strong>${submission.supervisorEmail}</strong>.</p>
+          <p><strong>${submission.submitterName}</strong>'s ${formLabel.toLowerCase()} for <strong>${currency(submission.amount)}</strong> has been redirected to <strong>${nextActorEmail}</strong> and no longer needs your review.</p>
           <p style="color: #64748b; font-size: 13px;">${submission.summary} &middot; ${submission.id}</p>
         `,
         link,

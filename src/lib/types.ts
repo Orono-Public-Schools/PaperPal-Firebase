@@ -364,6 +364,7 @@ export interface Submission {
   approvedAt?: Timestamp
   paidAt?: Timestamp
   paidBy?: string
+  lastReminderAt?: Timestamp
 }
 
 // ─── Form Field Config ──────────────────────────────────────────────────────
