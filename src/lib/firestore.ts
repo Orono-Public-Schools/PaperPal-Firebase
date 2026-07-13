@@ -418,6 +418,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   notifyOnApproval: true,
   notifyOnDenial: true,
   notifyOnRevision: true,
+  reviewerRemindersEnabled: true,
+  reviewerReminderDays: 3,
   schoolAddressLabel: "",
   schoolAddress: "",
   finalApproverEmail: "",

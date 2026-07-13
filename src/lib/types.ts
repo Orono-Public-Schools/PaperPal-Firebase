@@ -65,6 +65,8 @@ export interface AppSettings {
   notifyOnApproval: boolean
   notifyOnDenial: boolean
   notifyOnRevision: boolean
+  reviewerRemindersEnabled: boolean
+  reviewerReminderDays: number // idle days before the daily job nudges the current reviewer
   schoolAddressLabel: string
   schoolAddress: string
   finalApproverEmail: string

@@ -3544,6 +3544,60 @@ function EmailSettingsSection() {
             </div>
           </div>
 
+          <div className="mt-4">
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Stale Approval Reminders
+            </p>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <label
+                className="flex cursor-pointer items-center gap-2 text-sm"
+                style={{ color: "#334155" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={settings.reviewerRemindersEnabled}
+                  onChange={(e) =>
+                    update("reviewerRemindersEnabled", e.target.checked)
+                  }
+                  className="h-4 w-4 cursor-pointer accent-[#1d2a5d]"
+                />
+                Remind reviewers of stale approvals
+              </label>
+              <label
+                className="flex items-center gap-2 text-sm"
+                style={{ color: "#334155" }}
+              >
+                after
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={settings.reviewerReminderDays}
+                  onChange={(e) =>
+                    update(
+                      "reviewerReminderDays",
+                      Math.max(1, Math.min(30, Number(e.target.value) || 1))
+                    )
+                  }
+                  disabled={!settings.reviewerRemindersEnabled}
+                  className="input-neu w-16 text-center"
+                  style={{
+                    opacity: settings.reviewerRemindersEnabled ? 1 : 0.5,
+                  }}
+                />
+                idle days
+              </label>
+            </div>
+            <p className="mt-2 text-xs" style={{ color: "#64748b" }}>
+              Checked daily at 8 AM Central. Emails whoever a submission is
+              waiting on (approver, supervisor, or final approver) and repeats
+              at the same interval until they act.
+            </p>
+          </div>
+
           <div className="mt-4 flex items-center gap-3">
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
