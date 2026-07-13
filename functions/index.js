@@ -303,17 +303,19 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
     const before = event.data.before.data()
     const after = event.data.after.data()
 
-    // Detect redirect: supervisor changed while status stays pending
+    // Detect redirect: a new "redirected" activity entry (can happen from any
+    // in-flight status — pending, approved_by_approver, reviewed, revisions)
+    const beforeLog = before.activityLog || []
+    const afterLog = after.activityLog || []
     const isRedirect =
-      before.status === "pending" &&
-      after.status === "pending" &&
-      before.supervisorEmail !== after.supervisorEmail
+      afterLog.length > beforeLog.length &&
+      afterLog[afterLog.length - 1]?.action === "redirected"
 
     // Detect resubmit from pending (edit & resubmit without status change)
     const isResubmitFromPending =
       before.status === "pending" &&
       after.status === "pending" &&
-      (after.activityLog || []).length > (before.activityLog || []).length &&
+      afterLog.length > beforeLog.length &&
       !isRedirect
 
     // Detect return-to-supervisor: reviewed → pending
@@ -333,8 +335,18 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
 
       // Handle redirect before the status switch — link-only, no PDF
       if (isRedirect) {
+        // Whoever held the submission before the redirect
+        const previousActorEmail =
+          before.status === "pending"
+            ? before.approverEmail || before.supervisorEmail
+            : before.status === "approved_by_approver"
+              ? before.supervisorEmail
+              : before.status === "reviewed"
+                ? settings.finalApproverEmail
+                : before.supervisorEmail
+
         const tMail = Date.now()
-        await sendRedirectedEmails(after, settings, before.supervisorEmail)
+        await sendRedirectedEmails(after, settings, previousActorEmail)
         const mailMs = Date.now() - tMail
         console.log(
           `[timing] onSubmissionStatusChange ${after.id} branch=redirect settings=${settingsMs}ms mail=${mailMs}ms total=${Date.now() - t0}ms`
@@ -601,5 +613,66 @@ exports.resendNotification = onCall(
 
     const result = await sendReviewerReminder(submission, settings)
     return result
+  }
+)
+
+// ─── Daily Stale-Approval Reminders ──────────────────────────────────────────
+// Nudges whoever a submission is waiting on (approver, supervisor, or final
+// approver) once it has sat untouched for reviewerReminderDays, re-reminding
+// at the same interval until they act.
+
+exports.staleApprovalReminders = onSchedule(
+  {
+    schedule: "every day 08:00",
+    timeZone: "America/Chicago",
+    region: "us-central1",
+  },
+  async () => {
+    const settingsSnap = await db.doc("settings/app").get()
+    const settings = settingsSnap.data() || {}
+    if (settings.reviewerRemindersEnabled === false) return
+
+    const thresholdDays = settings.reviewerReminderDays ?? 3
+    const thresholdMs = thresholdDays * 24 * 60 * 60 * 1000
+    const now = Date.now()
+
+    const snap = await db
+      .collection("submissions")
+      .where("status", "in", ["pending", "approved_by_approver", "reviewed"])
+      .get()
+
+    let sent = 0
+    for (const doc of snap.docs) {
+      const submission = doc.data()
+      if (submission.sandbox) continue
+
+      // The current reviewer has been waiting since the last workflow action
+      const log = submission.activityLog || []
+      const lastActivity = log[log.length - 1]?.at || submission.createdAt
+      const waitingSinceMs = lastActivity?.toMillis?.() ?? 0
+      if (!waitingSinceMs || now - waitingSinceMs < thresholdMs) continue
+
+      // Ignore reminders sent to a previous reviewer; re-remind the current
+      // one at most every thresholdDays
+      const lastReminderMs = submission.lastReminderAt?.toMillis?.() ?? 0
+      if (lastReminderMs > waitingSinceMs && now - lastReminderMs < thresholdMs)
+        continue
+
+      try {
+        const result = await sendReviewerReminder(submission, settings)
+        if (result.sent) {
+          await doc.ref.update({
+            lastReminderAt: FieldValue.serverTimestamp(),
+          })
+          sent++
+        }
+      } catch (err) {
+        console.error(`Reminder failed for ${submission.id}:`, err)
+      }
+    }
+
+    console.log(
+      `Stale-approval reminders: ${sent} sent (threshold ${thresholdDays}d, scanned ${snap.size})`
+    )
   }
 )

@@ -154,10 +154,11 @@ const COMPLETED_STATUSES = ["approved", "paid", "denied", "cancelled"]
 export async function getCompletedApprovals(
   supervisorEmail: string
 ): Promise<Submission[]> {
+  // "reviewed" = this supervisor already approved; it's with the controller
   const q = query(
     collection(db, "submissions"),
     where("supervisorEmail", "==", supervisorEmail),
-    where("status", "in", COMPLETED_STATUSES),
+    where("status", "in", ["reviewed", ...COMPLETED_STATUSES]),
     orderBy("createdAt", "desc")
   )
   const snap = await getDocs(q)
@@ -167,10 +168,15 @@ export async function getCompletedApprovals(
 export async function getCompletedApproverApprovals(
   approverEmail: string
 ): Promise<Submission[]> {
+  // Anything past "pending" means this approver already acted
   const q = query(
     collection(db, "submissions"),
     where("approverEmail", "==", approverEmail),
-    where("status", "in", COMPLETED_STATUSES),
+    where("status", "in", [
+      "approved_by_approver",
+      "reviewed",
+      ...COMPLETED_STATUSES,
+    ]),
     orderBy("createdAt", "desc")
   )
   const snap = await getDocs(q)
@@ -412,6 +418,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   notifyOnApproval: true,
   notifyOnDenial: true,
   notifyOnRevision: true,
+  reviewerRemindersEnabled: true,
+  reviewerReminderDays: 3,
   schoolAddressLabel: "",
   schoolAddress: "",
   finalApproverEmail: "",

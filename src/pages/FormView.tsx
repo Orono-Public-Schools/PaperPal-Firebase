@@ -505,7 +505,7 @@ export default function FormView() {
       setActionMode(null)
       setRedirectEmail("")
       setActing(false)
-      setActionDone("Redirected — new supervisor notified")
+      setActionDone("Redirected — new reviewer notified")
     } catch (err) {
       console.error("Failed to redirect:", err)
       alert("Failed to redirect. Please try again.")

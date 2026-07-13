@@ -65,6 +65,8 @@ export interface AppSettings {
   notifyOnApproval: boolean
   notifyOnDenial: boolean
   notifyOnRevision: boolean
+  reviewerRemindersEnabled: boolean
+  reviewerReminderDays: number // idle days before the daily job nudges the current reviewer
   schoolAddressLabel: string
   schoolAddress: string
   finalApproverEmail: string
@@ -364,6 +366,7 @@ export interface Submission {
   approvedAt?: Timestamp
   paidAt?: Timestamp
   paidBy?: string
+  lastReminderAt?: Timestamp
 }
 
 // ─── Form Field Config ──────────────────────────────────────────────────────

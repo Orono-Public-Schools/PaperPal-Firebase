@@ -742,7 +742,7 @@ export default function Dashboard() {
           >
             {[
               { view: "pending" as const, label: "Pending" },
-              { view: "completed" as const, label: "Completed" },
+              { view: "completed" as const, label: "History" },
               ...(isController
                 ? [{ view: "all" as const, label: "All Open" }]
                 : []),
@@ -946,7 +946,7 @@ export default function Dashboard() {
                 submissions={completedFiltered}
                 loading={loadingCompleted}
                 emptyIcon={History}
-                emptyTitle="No completed approvals"
+                emptyTitle="No approval history"
                 emptySubtitle="Submissions you've acted on will appear here."
                 showSubmitter
                 selectable={isController}

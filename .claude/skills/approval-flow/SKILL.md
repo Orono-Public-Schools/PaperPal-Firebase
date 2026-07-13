@@ -82,17 +82,18 @@ canMarkPaid = isControllerOrAbove && status === "approved"
 
 ## Email Triggers (Cloud Functions)
 
-| Status Change          | Email To                                | Function                     |
-| ---------------------- | --------------------------------------- | ---------------------------- |
-| New submission         | Approver (or Supervisor) + Submitter    | `sendSubmitEmails`           |
-| `approved_by_approver` | Supervisor + Submitter                  | `sendApproverApprovedEmails` |
-| `reviewed`             | Final Approver + Submitter + Supervisor | `sendReviewedEmails`         |
-| `approved`             | Submitter + Drive upload + Log sheet    | `sendApprovedEmails`         |
-| `paid`                 | Submitter                               | `sendPaidEmails`             |
-| `denied`               | Submitter                               | `sendDeniedEmails`           |
-| `revisions_requested`  | Submitter                               | `sendRevisionsEmails`        |
-| Resubmitted            | Approver (or Supervisor) + Submitter    | `sendResubmittedEmails`      |
-| Redirected             | New Supervisor + Previous Supervisor    | `sendRedirectedEmails`       |
+| Status Change                     | Email To                                                                                         | Function                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| New submission                    | Approver (or Supervisor) + Submitter                                                             | `sendSubmitEmails`           |
+| `approved_by_approver`            | Supervisor + Submitter                                                                           | `sendApproverApprovedEmails` |
+| `reviewed`                        | Final Approver + Submitter + Supervisor                                                          | `sendReviewedEmails`         |
+| `approved`                        | Submitter + Drive upload + Log sheet                                                             | `sendApprovedEmails`         |
+| `paid`                            | Submitter                                                                                        | `sendPaidEmails`             |
+| `denied`                          | Submitter                                                                                        | `sendDeniedEmails`           |
+| `revisions_requested`             | Submitter                                                                                        | `sendRevisionsEmails`        |
+| Resubmitted                       | Approver (or Supervisor) + Submitter                                                             | `sendResubmittedEmails`      |
+| Redirected (any in-flight status) | New reviewer (approver if new chain has one, else supervisor) + previous reviewer                | `sendRedirectedEmails`       |
+| Stale reminder (daily 8am CT)     | Current reviewer, after `reviewerReminderDays` (default 3) idle days, repeating at that interval | `staleApprovalReminders`     |
 
 ## Sandbox Mode
 
@@ -105,12 +106,12 @@ canMarkPaid = isControllerOrAbove && status === "approved"
 
 ## Key Files
 
-| File                         | What                                                         |
-| ---------------------------- | ------------------------------------------------------------ |
-| `src/lib/types.ts`           | `SubmissionStatus`, `ActivityAction`, `Submission` interface |
-| `src/lib/firestore.ts`       | `resolveSupervisor()`, approval queries                      |
-| `src/pages/FormView.tsx`     | Approval UI, permission checks, action handlers              |
-| `src/pages/Dashboard.tsx`    | Status styles, Approvals tab (Pending/Completed)             |
-| `functions/index.js`         | Status change triggers                                       |
-| `functions/helpers/email.js` | Email sending functions                                      |
-| `functions/helpers/pdf.js`   | PDF generation with signatures                               |
+| File                         | What                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/lib/types.ts`           | `SubmissionStatus`, `ActivityAction`, `Submission` interface                                       |
+| `src/lib/firestore.ts`       | `resolveSupervisor()`, approval queries                                                            |
+| `src/pages/FormView.tsx`     | Approval UI, permission checks, action handlers                                                    |
+| `src/pages/Dashboard.tsx`    | Status styles, Approvals tab (Pending/History — history includes acted-upon in-flight submissions) |
+| `functions/index.js`         | Status change triggers                                                                             |
+| `functions/helpers/email.js` | Email sending functions                                                                            |
+| `functions/helpers/pdf.js`   | PDF generation with signatures                                                                     |
