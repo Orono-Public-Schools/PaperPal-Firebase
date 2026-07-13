@@ -19,6 +19,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # firebase-functions 7.2.5 caps its peer range at firebase-admin ^13 —
+      # remove once firebase-functions supports admin 14
+      - dependency-name: firebase-admin
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
