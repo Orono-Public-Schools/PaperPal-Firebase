@@ -36,7 +36,7 @@ import {
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { CheckRequestData, Attachment } from "@/lib/types"
-import { editActionForRole } from "@/lib/utils"
+import { diffSubmissionChanges, editActionForRole } from "@/lib/utils"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import type { CheckRequestExpense } from "@/lib/types"
@@ -177,7 +177,10 @@ export default function CheckRequest() {
   const editTargetRef = useRef<{
     approverEmail?: string
     supervisorEmail?: string
+    formData?: CheckRequestData
+    attachments?: Attachment[]
   }>({})
+  const [changeNote, setChangeNote] = useState("")
   useEffect(() => {
     if (!loadId) return
     getSubmission(loadId).then((sub) => {
@@ -185,6 +188,8 @@ export default function CheckRequest() {
       editTargetRef.current = {
         approverEmail: sub.approverEmail,
         supervisorEmail: sub.supervisorEmail,
+        formData: sub.formData as CheckRequestData,
+        attachments: sub.attachments ?? [],
       }
       const fd = sub.formData as CheckRequestData
       setSubmitterName(sub.submitterName)
@@ -308,6 +313,17 @@ export default function CheckRequest() {
           }
         : {}
 
+      const changes = editTargetRef.current.formData
+        ? diffSubmissionChanges(
+            {
+              formData: editTargetRef.current.formData,
+              attachments: editTargetRef.current.attachments,
+            },
+            { formData, attachments: receipts }
+          )
+        : []
+      const note = changeNote.trim()
+
       if (editId) {
         await updateSubmission(editId, {
           formData,
@@ -322,6 +338,8 @@ export default function CheckRequest() {
             ),
             by: user.email ?? "",
             at: Timestamp.now(),
+            ...(note && { comments: note }),
+            ...(changes.length > 0 && { changes }),
           }),
         })
         setSubmissionId(editId)
@@ -351,6 +369,8 @@ export default function CheckRequest() {
             action: "resubmitted",
             by: user.email ?? "",
             at: Timestamp.now(),
+            ...(note && { comments: note }),
+            ...(changes.length > 0 && { changes }),
           }),
         })
         setSubmissionId(resubmitId)
@@ -809,6 +829,31 @@ export default function CheckRequest() {
               }}
             />
           </Section>
+        )}
+
+        {(isEdit || resubmitId) && (
+          <div
+            className="rounded-xl p-4 sm:p-5"
+            style={{
+              order: 92,
+              background: "#ffffff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
+          >
+            <label
+              className="mb-1.5 block text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Note About Your Changes (Optional)
+            </label>
+            <textarea
+              value={changeNote}
+              onChange={(e) => setChangeNote(e.target.value)}
+              rows={2}
+              placeholder="Briefly describe what you changed and why"
+              className="input-neu w-full resize-none"
+            />
+          </div>
         )}
 
         {/* Actions */}
