@@ -317,7 +317,11 @@ function ExpenseReceiptThumb({
 }
 
 export function TravelView({ data }: { data: TravelData }) {
-  const hasNewExpenses = data.expenses && data.expenses.length > 0
+  // Car trips count as itemized data too — a mileage-only travel form must
+  // still show its trips (with locations), not the legacy totals table
+  const hasNewExpenses =
+    (data.expenses && data.expenses.length > 0) ||
+    (data.carTrips && data.carTrips.length > 0)
   const hasCommuteDeduction =
     typeof data.totalCommuteDeduction === "number" &&
     data.totalCommuteDeduction > 0
@@ -459,7 +463,7 @@ export function TravelView({ data }: { data: TravelData }) {
                     <td />
                   </tr>
                 )}
-            {data.expenses!.map((exp, i) => (
+            {(data.expenses ?? []).map((exp, i) => (
               <tr
                 key={i}
                 className="border-t"
