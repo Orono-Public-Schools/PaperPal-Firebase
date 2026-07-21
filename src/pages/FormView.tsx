@@ -688,11 +688,14 @@ export default function FormView() {
         >
           <p
             className="text-xs font-semibold tracking-wider uppercase"
-            style={{ color: "#ad2122" }}
+            style={{ color: "#e05252" }}
           >
             Denial Reason
           </p>
-          <p className="mt-1 text-sm" style={{ color: "#334155" }}>
+          <p
+            className="mt-1 text-sm"
+            style={{ color: "rgba(255,255,255,0.87)" }}
+          >
             {submission.denialComments}
           </p>
         </div>
@@ -708,11 +711,14 @@ export default function FormView() {
           >
             <p
               className="text-xs font-semibold tracking-wider uppercase"
-              style={{ color: "#c2410c" }}
+              style={{ color: "#e0631c" }}
             >
               Revisions Requested
             </p>
-            <p className="mt-1 text-sm" style={{ color: "#334155" }}>
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "rgba(255,255,255,0.87)" }}
+            >
               {submission.revisionComments}
             </p>
           </div>
