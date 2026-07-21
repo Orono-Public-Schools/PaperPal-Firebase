@@ -3,7 +3,26 @@ const https = require("https")
 const sharp = require("sharp")
 const { PDFDocument: PDFLib, rgb, degrees } = require("pdf-lib")
 
+// Legacy flat rate — trips stamped since per-trip rates shipped carry their
+// own `rate`; anything older was priced at this
 const MILEAGE_RATE = 0.725
+
+// Per-rate reimbursable-mile buckets for stamped trips, e.g.
+// "84.0 mi × $0.725 + 32.0 mi × $0.760"
+function mileageRateCaption(trips) {
+  const buckets = new Map()
+  for (const t of trips || []) {
+    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
+    const reimbursable = Math.max(0, gross - (t.commuteDeduction || 0))
+    if (reimbursable <= 0) continue
+    const rate = t.rate ?? MILEAGE_RATE
+    buckets.set(rate, (buckets.get(rate) || 0) + reimbursable)
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([rate, miles]) => `${miles.toFixed(1)} mi × $${rate.toFixed(3)}`)
+    .join(" + ")
+}
 
 const FORM_LABELS = {
   check: "Check Request",
@@ -442,18 +461,17 @@ function renderMileage(doc, data) {
   }
 
   // Summary box
+  const hasStampedRates = (data.trips || []).some((t) => t.rate !== undefined)
+  const rateText = hasStampedRates
+    ? mileageRateCaption(data.trips)
+    : `${displayMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
   doc.moveDown(0.5)
   ensureSpace(doc, 30)
   doc
     .font("Helvetica")
     .fontSize(9)
     .fillColor(LABEL_COLOR)
-    .text(
-      `${displayMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)} = `,
-      50,
-      doc.y,
-      { continued: true }
-    )
+    .text(`${rateText} = `, 50, doc.y, { continued: true })
   doc
     .font("Helvetica-Bold")
     .fillColor(NAVY)
@@ -551,13 +569,14 @@ function renderTravel(doc, data) {
       for (const trip of data.carTrips) {
         const effective = trip.isRoundTrip ? trip.miles * 2 : trip.miles
         if (effective <= 0) continue
+        const tripRate = trip.rate ?? MILEAGE_RATE
         const route =
           trip.from && trip.to
             ? `${trip.from} → ${trip.to}${trip.isRoundTrip ? " (round trip)" : ""}`
             : trip.isRoundTrip
               ? "Round trip"
               : "—"
-        const detail = `${route}\n${effective.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+        const detail = `${route}\n${effective.toFixed(1)} mi × $${tripRate.toFixed(3)}`
         ensureSpace(doc, 18)
         drawTableRow(
           doc,
@@ -565,12 +584,12 @@ function renderTravel(doc, data) {
             formatDate(trip.date) || "—",
             "Mileage",
             detail,
-            currency(effective * MILEAGE_RATE),
+            currency(effective * tripRate),
           ],
           expCols,
           50
         )
-        expTotal += effective * MILEAGE_RATE
+        expTotal += effective * tripRate
       }
     } else if (data.actuals.miles > 0) {
       const mileageCost = data.actuals.miles * MILEAGE_RATE
@@ -615,10 +634,21 @@ function renderTravel(doc, data) {
       typeof data.totalCommuteDeduction === "number" &&
       data.totalCommuteDeduction > 0
     ) {
-      const deductionCost = data.totalCommuteDeduction * MILEAGE_RATE
+      const hasStampedTrips = (data.carTrips || []).some(
+        (t) => t.rate !== undefined
+      )
+      const deductionCost = hasStampedTrips
+        ? data.carTrips.reduce(
+            (s, t) => s + (t.commuteDeduction || 0) * (t.rate ?? MILEAGE_RATE),
+            0
+          )
+        : data.totalCommuteDeduction * MILEAGE_RATE
+      const deductionRateText = hasStampedTrips
+        ? "at each trip's rate"
+        : `× $${MILEAGE_RATE.toFixed(3)}`
       const commuteDetail = data.commuteMilesUsed
-        ? `Less commute deduction\n${data.commuteMilesUsed.toFixed(1)} mi one-way, on trips to/from home = ${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
-        : `Less commute deduction\n${data.totalCommuteDeduction.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+        ? `Less commute deduction\n${data.commuteMilesUsed.toFixed(1)} mi one-way, on trips to/from home = ${data.totalCommuteDeduction.toFixed(1)} mi ${deductionRateText}`
+        : `Less commute deduction\n${data.totalCommuteDeduction.toFixed(1)} mi ${deductionRateText}`
       ensureSpace(doc, 18)
       drawTableRow(
         doc,

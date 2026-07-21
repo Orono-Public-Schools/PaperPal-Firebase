@@ -7,7 +7,7 @@ Internal web app for **Orono Public Schools** staff to submit and track expense 
 | Form                  | Path             | Notes                              |
 | --------------------- | ---------------- | ---------------------------------- |
 | Check Request         | `/forms/check`   | Vendor / service payments          |
-| Mileage Reimbursement | `/forms/mileage` | $0.725 per mile                    |
+| Mileage Reimbursement | `/forms/mileage` | IRS rate per trip date             |
 | Travel Reimbursement  | `/forms/travel`  | Multi-category trip expenses + OCR |
 
 ## Approval flow

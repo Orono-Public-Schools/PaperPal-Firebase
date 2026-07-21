@@ -62,7 +62,8 @@ const FORM_TYPES = [
   {
     id: "mileage",
     title: "Mileage Reimbursement",
-    description: "Claim mileage reimbursement at $0.725 per mile.",
+    description:
+      "Claim mileage reimbursement at the IRS rate for each trip date.",
     icon: Car,
     pill: { from: "#ad2122", to: "#c9393a" },
     path: "/forms/mileage",

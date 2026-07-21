@@ -43,10 +43,20 @@ import {
   resolveRoutingChain,
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
-import type { TravelData, TravelExpenseItem, TravelCarTrip } from "@/lib/types"
+import type {
+  TravelData,
+  TravelExpenseItem,
+  TravelCarTrip,
+  MileageRateEntry,
+} from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
-import { diffSubmissionChanges, editActionForRole } from "@/lib/utils"
+import {
+  diffSubmissionChanges,
+  editActionForRole,
+  mileageRateForDate,
+  mileageRateGroups,
+} from "@/lib/utils"
 import { storage, functions } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { deleteField, arrayUnion, Timestamp } from "firebase/firestore"
@@ -201,6 +211,9 @@ export default function TravelReimbursement() {
   )
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
   const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
+  const [mileageRates, setMileageRates] = useState<
+    MileageRateEntry[] | undefined
+  >(undefined)
 
   // File uploads
   const [justificationFiles, setJustificationFiles] = useState<Attachment[]>(
@@ -331,6 +344,7 @@ export default function TravelReimbursement() {
     const load = async () => {
       const settings = await getAppSettings()
       if (cancelled) return
+      setMileageRates(settings.mileageRates)
       if (!settings.commuteDeductionEnabled) {
         setCommuteMiles(null)
         return
@@ -558,28 +572,48 @@ export default function TravelReimbursement() {
     }
   }
 
-  const MILEAGE_RATE = 0.725
-  const effectiveActMiles = carTrips.reduce(
+  // Each car trip is priced at the IRS rate in effect on its date; rate and
+  // commute deduction are stamped per trip (see MileageReimbursement)
+  const stampedCarTrips = carTrips.map((t) => {
+    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
+    let deduction = 0
+    if (
+      commuteMiles &&
+      commuteMiles > 0 &&
+      gross > 0 &&
+      t.isWorkingDay !== false &&
+      tripTouchesHome(t, userProfile?.homeAddress ?? "")
+    ) {
+      const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
+      deduction = Math.min(gross, commuteCap)
+    }
+    const stamped: TravelCarTrip = {
+      ...t,
+      rate: mileageRateForDate(mileageRates, t.date),
+    }
+    if (deduction > 0) stamped.commuteDeduction = deduction
+    else delete stamped.commuteDeduction
+    return stamped
+  })
+  const effectiveActMiles = stampedCarTrips.reduce(
     (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
     0
   )
-  const totalCommuteDeduction =
-    commuteMiles && commuteMiles > 0
-      ? carTrips.reduce((sum, t) => {
-          if (t.isWorkingDay === false) return sum
-          if (!tripTouchesHome(t, userProfile?.homeAddress ?? "")) return sum
-          const tripMiles = t.isRoundTrip ? t.miles * 2 : t.miles
-          if (tripMiles <= 0) return sum
-          const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
-          return sum + Math.min(tripMiles, commuteCap)
-        }, 0)
-      : 0
+  const totalCommuteDeduction = stampedCarTrips.reduce(
+    (sum, t) => sum + (t.commuteDeduction ?? 0),
+    0
+  )
+  const mileageReimbursement = stampedCarTrips.reduce((sum, t) => {
+    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
+    return sum + Math.max(0, gross - (t.commuteDeduction ?? 0)) * (t.rate ?? 0)
+  }, 0)
   const reimbursableMiles = Math.max(
     0,
     effectiveActMiles - totalCommuteDeduction
   )
+  const travelRateGroups = mileageRateGroups(stampedCarTrips)
   const expensesTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
-  const actTotal = reimbursableMiles * MILEAGE_RATE + expensesTotal
+  const actTotal = mileageReimbursement + expensesTotal
 
   const estTotal =
     estTransport +
@@ -685,7 +719,7 @@ export default function TravelReimbursement() {
         },
         meals: Array.from(mealsByDate.values()),
         expenses,
-        carTrips: carTrips.filter(
+        carTrips: stampedCarTrips.filter(
           (t) => t.miles > 0 || t.from || t.to || t.date
         ),
         taxExemptAcknowledged,
@@ -1292,7 +1326,16 @@ export default function TravelReimbursement() {
               Mileage Calculator
             </p>
             <span className="text-xs" style={{ color: "#94a3b8" }}>
-              Rate: ${MILEAGE_RATE.toFixed(3)} / mile
+              {travelRateGroups.length > 1
+                ? travelRateGroups
+                    .map(
+                      (g) => `${g.miles.toFixed(1)} mi × $${g.rate.toFixed(3)}`
+                    )
+                    .join(" + ")
+                : `Rate: $${(
+                    travelRateGroups[0]?.rate ??
+                    mileageRateForDate(mileageRates, undefined)
+                  ).toFixed(3)} / mile`}
             </span>
           </div>
           <div className="divide-y" style={{ borderColor: "#e5e7eb" }}>
@@ -1384,7 +1427,11 @@ export default function TravelReimbursement() {
                           fontWeight: 600,
                         }}
                       >
-                        ${(tripEffective * MILEAGE_RATE).toFixed(2)}
+                        $
+                        {(
+                          tripEffective *
+                          mileageRateForDate(mileageRates, trip.date)
+                        ).toFixed(2)}
                       </div>
                     </Field>
                   </div>
@@ -1542,7 +1589,7 @@ export default function TravelReimbursement() {
                   className="text-sm font-bold"
                   style={{ color: "#1d2a5d" }}
                 >
-                  ${(reimbursableMiles * MILEAGE_RATE).toFixed(2)}
+                  ${mileageReimbursement.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -1984,12 +2031,26 @@ export default function TravelReimbursement() {
               amount: number
               meta?: string
             }[] = []
-            const mileageCost = reimbursableMiles * MILEAGE_RATE
+            const mileageCost = mileageReimbursement
             if (mileageCost > 0 || effectiveActMiles > 0) {
+              const rateText =
+                travelRateGroups.length > 1
+                  ? travelRateGroups
+                      .map(
+                        (g) =>
+                          `${g.miles.toFixed(1)} mi × $${g.rate.toFixed(3)}`
+                      )
+                      .join(" + ")
+                  : `× $${(
+                      travelRateGroups[0]?.rate ??
+                      mileageRateForDate(mileageRates, undefined)
+                    ).toFixed(3)}`
               const meta =
                 totalCommuteDeduction > 0
-                  ? `${reimbursableMiles.toFixed(1)} mi reimbursable (${effectiveActMiles.toFixed(1)} gross − ${totalCommuteDeduction.toFixed(1)} commute) × $${MILEAGE_RATE.toFixed(3)}`
-                  : `${effectiveActMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
+                  ? `${reimbursableMiles.toFixed(1)} mi reimbursable (${effectiveActMiles.toFixed(1)} gross − ${totalCommuteDeduction.toFixed(1)} commute) ${travelRateGroups.length > 1 ? "= " + rateText : rateText}`
+                  : travelRateGroups.length > 1
+                    ? rateText
+                    : `${effectiveActMiles.toFixed(1)} mi ${rateText}`
               breakdown.push({
                 key: "mileage",
                 label: "Mileage",

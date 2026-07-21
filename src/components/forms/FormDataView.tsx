@@ -5,8 +5,17 @@ import type {
   TravelExpenseItem,
 } from "@/lib/types"
 import { tripTouchesHome } from "@/lib/commute"
+import { mileageRateGroups } from "@/lib/utils"
 
+// Trips stamped since per-trip rates shipped carry their own rate; anything
+// older was priced at this flat rate
 const MILEAGE_RATE = 0.725
+
+function rateCaption(groups: { rate: number; miles: number }[]): string {
+  return groups
+    .map((g) => `${g.miles.toFixed(1)} mi × $${g.rate.toFixed(3)}`)
+    .join(" + ")
+}
 
 // A trip's commute was deducted only if it touched home. Legacy submissions
 // (saved before the home address was stored) fall back to the old behavior of
@@ -149,6 +158,7 @@ export function MileageView({ data }: { data: MileageData }) {
   const reimbursableMiles = hasCommuteDeduction
     ? (data.reimbursableMiles ?? data.totalMiles)
     : data.totalMiles
+  const hasStampedRates = data.trips.some((t) => t.rate !== undefined)
 
   return (
     <div className="space-y-6">
@@ -265,7 +275,9 @@ export function MileageView({ data }: { data: MileageData }) {
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: "#64748b" }}
         >
-          {reimbursableMiles.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(3)}
+          {hasStampedRates
+            ? rateCaption(mileageRateGroups(data.trips))
+            : `${reimbursableMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`}
         </span>
         <span className="text-base font-bold" style={{ color: "#1d2a5d" }}>
           {currency(data.totalReimbursement)}
@@ -389,6 +401,7 @@ export function TravelView({ data }: { data: TravelData }) {
                     ? trip.miles * 2
                     : trip.miles
                   if (effective <= 0) return null
+                  const tripRate = trip.rate ?? MILEAGE_RATE
                   return (
                     <tr
                       key={`trip-${i}`}
@@ -436,11 +449,11 @@ export function TravelView({ data }: { data: TravelData }) {
                           className="mt-0.5 text-xs"
                           style={{ color: "#64748b" }}
                         >
-                          {effective.toFixed(1)} mi × ${MILEAGE_RATE.toFixed(3)}
+                          {effective.toFixed(1)} mi × ${tripRate.toFixed(3)}
                         </div>
                       </td>
                       <td className="py-2 pr-4 align-top">
-                        {currency(effective * MILEAGE_RATE)}
+                        {currency(effective * tripRate)}
                       </td>
                       <td />
                     </tr>
@@ -517,7 +530,18 @@ export function TravelView({ data }: { data: TravelData }) {
                   )}
                 </td>
                 <td className="py-2 pr-4 font-semibold">
-                  −{currency((data.totalCommuteDeduction ?? 0) * MILEAGE_RATE)}
+                  −
+                  {currency(
+                    data.carTrips?.some((t) => t.rate !== undefined)
+                      ? data.carTrips.reduce(
+                          (s, t) =>
+                            s +
+                            (t.commuteDeduction ?? 0) *
+                              (t.rate ?? MILEAGE_RATE),
+                          0
+                        )
+                      : (data.totalCommuteDeduction ?? 0) * MILEAGE_RATE
+                  )}
                 </td>
                 <td />
               </tr>
