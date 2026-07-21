@@ -306,11 +306,18 @@ export type ActivityAction =
   | "edited_by_supervisor"
   | "edited_by_controller"
 
+export interface FieldChange {
+  field: string
+  from: string
+  to: string
+}
+
 export interface ActivityLogEntry {
   action: ActivityAction
   by: string
   at: Timestamp
   comments?: string
+  changes?: FieldChange[]
 }
 
 export interface Submission {

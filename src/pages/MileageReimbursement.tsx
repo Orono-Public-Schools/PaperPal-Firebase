@@ -42,7 +42,7 @@ import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { MileageData } from "@/lib/types"
 import { calculateDrivingDistance } from "@/lib/googleMaps"
 import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
-import { editActionForRole } from "@/lib/utils"
+import { diffSubmissionChanges, editActionForRole } from "@/lib/utils"
 import type { MileageTrip } from "@/lib/types"
 
 const RATE = 0.725
@@ -199,7 +199,9 @@ export default function MileageReimbursement() {
   const editTargetRef = useRef<{
     approverEmail?: string
     supervisorEmail?: string
+    formData?: MileageData
   }>({})
+  const [changeNote, setChangeNote] = useState("")
   useEffect(() => {
     if (!loadId) return
     getSubmission(loadId).then((sub) => {
@@ -207,6 +209,7 @@ export default function MileageReimbursement() {
       editTargetRef.current = {
         approverEmail: sub.approverEmail,
         supervisorEmail: sub.supervisorEmail,
+        formData: sub.formData as MileageData,
       }
       const fd = sub.formData as MileageData
       setSubmitterName(sub.submitterName)
@@ -328,6 +331,14 @@ export default function MileageReimbursement() {
           }
         : {}
 
+      const changes = editTargetRef.current.formData
+        ? diffSubmissionChanges(
+            { formData: editTargetRef.current.formData },
+            { formData }
+          )
+        : []
+      const note = changeNote.trim()
+
       if (editId) {
         await updateSubmission(editId, {
           formData,
@@ -341,6 +352,8 @@ export default function MileageReimbursement() {
             ),
             by: user.email ?? "",
             at: Timestamp.now(),
+            ...(note && { comments: note }),
+            ...(changes.length > 0 && { changes }),
           }),
         })
         setSubmissionId(editId)
@@ -370,6 +383,8 @@ export default function MileageReimbursement() {
             action: "resubmitted",
             by: user.email ?? "",
             at: Timestamp.now(),
+            ...(note && { comments: note }),
+            ...(changes.length > 0 && { changes }),
           }),
         })
         setSubmissionId(resubmitId)
@@ -713,6 +728,31 @@ export default function MileageReimbursement() {
               }}
             />
           </Section>
+        )}
+
+        {(isEdit || resubmitId) && (
+          <div
+            className="rounded-xl p-4 sm:p-5"
+            style={{
+              order: 92,
+              background: "#ffffff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
+          >
+            <label
+              className="mb-1.5 block text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Note About Your Changes (Optional)
+            </label>
+            <textarea
+              value={changeNote}
+              onChange={(e) => setChangeNote(e.target.value)}
+              rows={2}
+              placeholder="Briefly describe what you changed and why"
+              className="input-neu w-full resize-none"
+            />
+          </div>
         )}
 
         {/* Actions */}

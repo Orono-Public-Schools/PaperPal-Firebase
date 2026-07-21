@@ -36,6 +36,7 @@ import type {
   AppSettings,
   SubmissionStatus,
   ActivityLogEntry,
+  FieldChange,
 } from "@/lib/types"
 import {
   serverTimestamp,
@@ -1464,12 +1465,53 @@ function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {
                       {entry.comments}
                     </p>
                   )}
+                  {entry.changes && entry.changes.length > 0 && (
+                    <ChangeList changes={entry.changes} />
+                  )}
                 </div>
               </div>
             )
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+const CHANGES_COLLAPSED = 5
+
+function ChangeList({ changes }: { changes: FieldChange[] }) {
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? changes : changes.slice(0, CHANGES_COLLAPSED)
+  const hidden = changes.length - visible.length
+
+  return (
+    <div
+      className="mt-1.5 space-y-0.5 rounded-lg px-3 py-2"
+      style={{ background: "#f8f9fb" }}
+    >
+      {visible.map((c, i) => (
+        <p key={i} className="text-xs" style={{ color: "#64748b" }}>
+          <span className="font-medium" style={{ color: "#334155" }}>
+            {c.field}:
+          </span>{" "}
+          <span style={{ textDecoration: "line-through", opacity: 0.75 }}>
+            {c.from}
+          </span>
+          {" → "}
+          <span style={{ color: "#334155" }}>{c.to}</span>
+        </p>
+      ))}
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="cursor-pointer text-xs font-semibold"
+          style={{ color: "#4356a9" }}
+        >
+          Show {hidden} more change{hidden > 1 ? "s" : ""}
+        </button>
+      )}
     </div>
   )
 }
