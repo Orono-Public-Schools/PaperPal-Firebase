@@ -57,10 +57,16 @@ export interface BuildingSupervisorMapping {
 
 // ─── App Settings ────────────────────────────────────────────────────────────
 
+export interface MileageRateEntry {
+  effective: string // YYYY-MM-DD — applies to trips on/after this date
+  rate: number // $/mile
+}
+
 export interface AppSettings {
   senderEmail: string
   senderName: string
   replyToEmail: string
+  mileageRates: MileageRateEntry[]
   notifyOnSubmit: boolean
   notifyOnApproval: boolean
   notifyOnDenial: boolean
@@ -170,6 +176,8 @@ export interface MileageTrip {
   miles: number
   isRoundTrip: boolean
   isWorkingDay?: boolean
+  rate?: number // $/mile stamped at submit from the rate table by trip date
+  commuteDeduction?: number // miles deducted from this trip, stamped at submit
 }
 
 export interface MileageData {
@@ -215,6 +223,8 @@ export interface TravelCarTrip {
   miles: number
   isRoundTrip: boolean
   isWorkingDay?: boolean
+  rate?: number // $/mile stamped at submit from the rate table by trip date
+  commuteDeduction?: number // miles deducted from this trip, stamped at submit
 }
 
 export interface TravelData {

@@ -26,10 +26,13 @@ import {
   X,
   Check,
   Tag,
+  Car,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
+import DatePicker from "@/components/forms/DatePicker"
+import type { MileageRateEntry } from "@/lib/types"
 import { useAuth } from "@/hooks/useAuth"
 import { invalidateFormFieldsCache } from "@/hooks/useFormFields"
 import {
@@ -166,6 +169,7 @@ export default function Admin() {
           <RolesSection />
           <StaffSection />
           {isAdmin && <StaffSyncSection />}
+          {isAdmin && <MileageRatesSection />}
           {isAdmin && <EmailSettingsSection />}
           {isAdmin && <DrivePdfSettingsSection />}
         </div>
@@ -3432,6 +3436,148 @@ function RolesSection() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Mileage Rates ───────────────────────────────────────────────────────────
+
+function MileageRatesSection() {
+  const [rates, setRates] = useState<MileageRateEntry[] | null>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then((s) => setRates(s.mileageRates ?? []))
+  }, [])
+
+  function update(index: number, patch: Partial<MileageRateEntry>) {
+    setRates(
+      (prev) =>
+        prev?.map((r, i) => (i === index ? { ...r, ...patch } : r)) ?? prev
+    )
+  }
+
+  async function handleSave() {
+    if (!rates) return
+    setSaving(true)
+    const cleaned = [...rates]
+      .filter((r) => r.effective && r.rate > 0)
+      .sort((a, b) => a.effective.localeCompare(b.effective))
+    await updateAppSettings({ mileageRates: cleaned })
+    setRates(cleaned)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  const today = new Date().toISOString().split("T")[0]
+  const currentEffective = rates
+    ?.filter((r) => r.effective && r.effective <= today)
+    .reduce<string>((max, r) => (r.effective > max ? r.effective : max), "")
+
+  return (
+    <Section
+      title="Mileage Rates"
+      icon={Car}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {!rates ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
+      ) : (
+        <>
+          <p className="mb-4 text-sm" style={{ color: "#64748b" }}>
+            Each trip is reimbursed at the rate in effect on its trip date. Add
+            a row when the IRS announces a new rate — submissions already in the
+            system keep the rate they were priced at.
+          </p>
+          <div className="space-y-2">
+            {rates.map((r, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-3">
+                <div className="w-44">
+                  <DatePicker
+                    value={r.effective}
+                    onChange={(v) => update(i, { effective: v })}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm" style={{ color: "#64748b" }}>
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step={0.005}
+                    min={0}
+                    value={r.rate}
+                    onChange={(e) =>
+                      update(i, { rate: Number(e.target.value) })
+                    }
+                    className="input-neu w-24 text-right"
+                  />
+                  <span className="text-sm" style={{ color: "#64748b" }}>
+                    / mile
+                  </span>
+                </div>
+                {r.effective && r.effective === currentEffective && (
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                    style={{ background: "#eaecf5", color: "#1d2a5d" }}
+                  >
+                    Current
+                  </span>
+                )}
+                <button
+                  onClick={() =>
+                    setRates((prev) =>
+                      prev ? prev.filter((_, idx) => idx !== i) : prev
+                    )
+                  }
+                  className="cursor-pointer rounded-md p-1.5 transition-colors hover:bg-red-50"
+                  style={{ color: "#ad2122" }}
+                  title="Remove rate"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={() =>
+                setRates((prev) => [
+                  ...(prev ?? []),
+                  { effective: "", rate: 0 },
+                ])
+              }
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+              style={{
+                color: "#4356a9",
+                background: "rgba(67,86,169,0.1)",
+                border: "1px solid rgba(67,86,169,0.3)",
+              }}
+            >
+              <Plus size={13} />
+              Add Rate
+            </button>
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save Rates"}</span>
+            </button>
+            {saved && (
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
+                Saved!
+              </span>
+            )}
           </div>
         </>
       )}

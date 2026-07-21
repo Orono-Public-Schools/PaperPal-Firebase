@@ -5,8 +5,60 @@ import type {
   AppSettings,
   Attachment,
   FieldChange,
+  MileageRateEntry,
   Submission,
 } from "./types"
+
+// Rate used for legacy trips stamped before per-trip rates existed
+export const LEGACY_MILEAGE_RATE = 0.725
+
+export const DEFAULT_MILEAGE_RATES: MileageRateEntry[] = [
+  { effective: "1900-01-01", rate: 0.725 },
+  { effective: "2026-07-01", rate: 0.76 },
+]
+
+/** IRS rate in effect on a date (YYYY-MM-DD); undated → today's rate. */
+export function mileageRateForDate(
+  rates: MileageRateEntry[] | undefined,
+  date: string | undefined
+): number {
+  const table = rates?.length ? rates : DEFAULT_MILEAGE_RATES
+  const sorted = [...table].sort((a, b) =>
+    a.effective.localeCompare(b.effective)
+  )
+  const d = date || new Date().toISOString().split("T")[0]
+  let rate = sorted[0]?.rate ?? LEGACY_MILEAGE_RATE
+  for (const entry of sorted) {
+    if (entry.effective <= d) rate = entry.rate
+  }
+  return rate
+}
+
+/**
+ * Groups stamped trips into per-rate reimbursable-mile buckets for display,
+ * e.g. "84.0 mi × $0.725 + 32.0 mi × $0.760". Trips without a stamped rate
+ * fall back to the legacy rate.
+ */
+export function mileageRateGroups(
+  trips: {
+    miles: number
+    isRoundTrip: boolean
+    rate?: number
+    commuteDeduction?: number
+  }[]
+): { rate: number; miles: number }[] {
+  const buckets = new Map<number, number>()
+  for (const t of trips) {
+    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
+    const reimbursable = Math.max(0, gross - (t.commuteDeduction ?? 0))
+    if (reimbursable <= 0) continue
+    const rate = t.rate ?? LEGACY_MILEAGE_RATE
+    buckets.set(rate, (buckets.get(rate) ?? 0) + reimbursable)
+  }
+  return [...buckets.entries()]
+    .map(([rate, miles]) => ({ rate, miles }))
+    .sort((a, b) => a.rate - b.rate)
+}
 
 export function getCurrentAssignee(
   submission: Submission,

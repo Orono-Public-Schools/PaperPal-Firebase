@@ -15,6 +15,7 @@ import {
   Timestamp,
 } from "firebase/firestore"
 import { db } from "./firebase"
+import { DEFAULT_MILEAGE_RATES } from "./utils"
 import type {
   Submission,
   UserProfile,
@@ -420,6 +421,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   notifyOnRevision: true,
   reviewerRemindersEnabled: true,
   reviewerReminderDays: 3,
+  mileageRates: DEFAULT_MILEAGE_RATES,
   schoolAddressLabel: "",
   schoolAddress: "",
   finalApproverEmail: "",
