@@ -682,19 +682,20 @@ export default function FormView() {
         <div
           className="mb-4 rounded-lg p-4"
           style={{
-            background: "#ffffff",
-            borderLeft: "3px solid #ad2122",
-            boxShadow:
-              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+            background: "rgba(173,33,34,0.08)",
+            border: "1px solid rgba(173,33,34,0.2)",
           }}
         >
           <p
             className="text-xs font-semibold tracking-wider uppercase"
-            style={{ color: "#ad2122" }}
+            style={{ color: "#e05252" }}
           >
             Denial Reason
           </p>
-          <p className="mt-1 text-sm" style={{ color: "#334155" }}>
+          <p
+            className="mt-1 text-sm"
+            style={{ color: "rgba(255,255,255,0.87)" }}
+          >
             {submission.denialComments}
           </p>
         </div>
@@ -704,19 +705,20 @@ export default function FormView() {
           <div
             className="mb-4 rounded-lg p-4"
             style={{
-              background: "#ffffff",
-              borderLeft: "3px solid #c2410c",
-              boxShadow:
-                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+              background: "rgba(234,88,12,0.08)",
+              border: "1px solid rgba(234,88,12,0.2)",
             }}
           >
             <p
               className="text-xs font-semibold tracking-wider uppercase"
-              style={{ color: "#c2410c" }}
+              style={{ color: "#e0631c" }}
             >
               Revisions Requested
             </p>
-            <p className="mt-1 text-sm" style={{ color: "#334155" }}>
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "rgba(255,255,255,0.87)" }}
+            >
               {submission.revisionComments}
             </p>
           </div>
