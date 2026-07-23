@@ -555,7 +555,13 @@ function renderTravel(doc, data) {
     other_transport: "Other Transportation",
   }
 
-  if (data.expenses && data.expenses.length > 0) {
+  // Car trips count as itemized data too — a mileage-only travel form must
+  // still print its trips (with locations), not the legacy totals table
+  const hasItemized =
+    (data.expenses && data.expenses.length > 0) ||
+    (data.carTrips && data.carTrips.length > 0)
+
+  if (hasItemized) {
     // New format: unified expenses table (mileage included as a row)
     doc.moveDown(0.5)
     ensureSpace(doc, 40)
@@ -608,7 +614,7 @@ function renderTravel(doc, data) {
       expTotal += mileageCost
     }
 
-    for (const exp of data.expenses) {
+    for (const exp of data.expenses || []) {
       ensureSpace(doc, 18)
       const baseDetail = exp.mealType
         ? exp.mealType.charAt(0).toUpperCase() + exp.mealType.slice(1)
