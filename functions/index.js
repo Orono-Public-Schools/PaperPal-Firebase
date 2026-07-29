@@ -298,6 +298,9 @@ exports.onSubmissionStatusChange = onDocumentUpdated(
   {
     document: "submissions/{submissionId}",
     region: "us-central1",
+    // PDF generation with sharp-embedded receipt images can exceed the
+    // 256 MiB default (observed 272 MiB)
+    memory: "512MiB",
   },
   async (event) => {
     const before = event.data.before.data()
@@ -538,7 +541,7 @@ exports.extractReceiptTotal = onCall(
 // ─── On-Demand PDF Generation (callable) ────────────────────────────────────
 
 exports.generateSubmissionPdf = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", memory: "512MiB" },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in")
