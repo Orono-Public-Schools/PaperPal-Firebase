@@ -37,6 +37,7 @@ import {
   updateSubmission,
   batchHideSubmissions,
   batchMarkAsPaid,
+  createOrUpdateUserProfile,
   getCompletedApprovals,
   getCompletedApproverApprovals,
   getApprovedSubmissions,
@@ -168,7 +169,7 @@ const FORM_LABELS: Record<string, string> = {
   travel: "Travel",
 }
 export default function Dashboard() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshUserProfile } = useAuth()
   const { sandbox } = useSandbox()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -513,6 +514,58 @@ export default function Dashboard() {
 
   const loadingApprovals = activeTab === "approvals" && approvalData === null
 
+  // Profile setup: welcome modal on first login + checklist card until the
+  // user-supplied fields (supervisor, home address, signature) are filled
+  const setupTasks = userProfile
+    ? [
+        {
+          key: "supervisorEmail",
+          label: "Confirm your supervisor",
+          hint: "Your requests route to them for approval",
+          done: !!userProfile.supervisorEmail?.trim(),
+        },
+        {
+          key: "homeAddress",
+          label: "Add your home address",
+          hint: "One-tap mileage entry and commute-aware totals",
+          done: !!userProfile.homeAddress?.trim(),
+        },
+        {
+          key: "signature",
+          label: "Save your signature",
+          hint: "Sign forms without redrawing each time",
+          done: !!userProfile.savedSignatureUrl,
+        },
+      ]
+    : []
+  const profileIncomplete = setupTasks.some((t) => !t.done)
+  const [welcomeHandled, setWelcomeHandled] = useState(false)
+  const [setupDismissed, setSetupDismissed] = useState(
+    () => sessionStorage.getItem("paperpal-setup-dismissed") === "1"
+  )
+  const welcomeOpen =
+    !!userProfile &&
+    !userProfile.onboardedAt &&
+    profileIncomplete &&
+    !welcomeHandled
+
+  async function handleWelcome(goToProfile: boolean) {
+    setWelcomeHandled(true)
+    if (user) {
+      await createOrUpdateUserProfile(user.uid, {
+        onboardedAt: Timestamp.now(),
+      })
+      void refreshUserProfile()
+    }
+    if (goToProfile) navigate("/profile?setup=1")
+  }
+
+  const showSetupCard =
+    profileIncomplete &&
+    !setupDismissed &&
+    !welcomeOpen &&
+    (!!userProfile?.onboardedAt || welcomeHandled)
+
   return (
     <AppLayout>
       {/* Page title */}
@@ -529,6 +582,80 @@ export default function Dashboard() {
           Manage your district forms and reimbursement requests.
         </p>
       </div>
+
+      {showSetupCard && (
+        <div
+          className="mb-5 rounded-xl p-4 sm:p-5"
+          style={{
+            background: "#ffffff",
+            boxShadow:
+              "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p
+              className="text-sm font-semibold tracking-widest uppercase"
+              style={{ color: "#1d2a5d" }}
+            >
+              Finish Setting Up Your Profile
+            </p>
+            <button
+              onClick={() => {
+                sessionStorage.setItem("paperpal-setup-dismissed", "1")
+                setSetupDismissed(true)
+              }}
+              className="cursor-pointer"
+              style={{ color: "#64748b" }}
+              title="Dismiss for now"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="mt-3 space-y-1">
+            {setupTasks.map((t) =>
+              t.done ? (
+                <div
+                  key={t.key}
+                  className="flex items-center gap-3 rounded-lg px-2 py-1.5"
+                >
+                  <Check size={16} style={{ color: "#059669" }} />
+                  <span
+                    className="text-sm line-through"
+                    style={{ color: "#94a3b8" }}
+                  >
+                    {t.label}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  key={t.key}
+                  onClick={() => navigate(`/profile?focus=${t.key}`)}
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span
+                    className="h-4 w-4 shrink-0 rounded-full border-2"
+                    style={{ borderColor: "#4356a9" }}
+                  />
+                  <span>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: "#334155" }}
+                    >
+                      {t.label}
+                    </span>
+                    <span
+                      className="ml-2 hidden text-xs sm:inline"
+                      style={{ color: "#64748b" }}
+                    >
+                      {t.hint}
+                    </span>
+                  </span>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div
@@ -957,6 +1084,78 @@ export default function Dashboard() {
             </>
           )}
         </>
+      )}
+
+      {welcomeOpen && userProfile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{
+              background: "#ffffff",
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.12)",
+            }}
+          >
+            <h2 className="text-lg font-bold" style={{ color: "#1d2a5d" }}>
+              Welcome to PaperPal
+              {userProfile.firstName ? `, ${userProfile.firstName}` : ""}! 👋
+            </h2>
+            <p className="mt-2 text-sm" style={{ color: "#334155" }}>
+              Your name, building, and approval routing are already set up from
+              district records. A couple of quick things will make submitting
+              requests effortless:
+            </p>
+            <ul className="mt-3 space-y-2 text-sm">
+              {setupTasks
+                .filter((t) => !t.done)
+                .map((t) => (
+                  <li key={t.key} className="flex items-start gap-2.5">
+                    <span
+                      className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2"
+                      style={{ borderColor: "#4356a9" }}
+                    />
+                    <span>
+                      <span
+                        className="font-medium"
+                        style={{ color: "#334155" }}
+                      >
+                        {t.label}
+                      </span>
+                      <span
+                        className="block text-xs"
+                        style={{ color: "#64748b" }}
+                      >
+                        {t.hint}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+            </ul>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => handleWelcome(false)}
+                className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50"
+                style={{ color: "#64748b" }}
+              >
+                Maybe Later
+              </button>
+              <button
+                onClick={() => handleWelcome(true)}
+                className="cursor-pointer rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                  boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                }}
+              >
+                Set Up My Profile
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {redirectTarget && (
