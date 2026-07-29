@@ -108,6 +108,7 @@ export interface UserProfile {
   savedSignatureUrl?: string
   recentBudgetCodes?: string[]
   photoURL?: string
+  onboardedAt?: Timestamp // set when the first-login welcome has been shown
   role: UserRole
   allowedFormTypes?: string[]
   createdAt: Timestamp

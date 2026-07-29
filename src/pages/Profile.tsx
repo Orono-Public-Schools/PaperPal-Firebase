@@ -15,6 +15,11 @@ export default function Profile() {
   const { user, userProfile, refreshUserProfile } = useAuth()
   const [searchParams] = useSearchParams()
   const homeAddressRef = useRef<HTMLDivElement>(null)
+  const supervisorRef = useRef<HTMLDivElement>(null)
+  const signatureRef = useRef<HTMLDivElement>(null)
+  // Setup mode (?setup=1 or ?focus=<field>) rings the fields that still need
+  // attention until they're filled in
+  const setupMode = searchParams.get("setup") === "1"
 
   // Editable profile fields
   const [firstName, setFirstName] = useState(userProfile?.firstName ?? "")
@@ -59,16 +64,26 @@ export default function Profile() {
     }
   }, [userProfile, appSettings])
 
-  // Auto-focus home address field when navigated from mileage form
+  // Auto-focus a field when navigated with ?focus=<field>, or scroll to the
+  // first incomplete field in setup mode
   useEffect(() => {
-    if (searchParams.get("focus") === "homeAddress" && homeAddressRef.current) {
-      homeAddressRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      })
-      const input = homeAddressRef.current.querySelector("input")
+    const refs: Record<string, React.RefObject<HTMLDivElement | null>> = {
+      homeAddress: homeAddressRef,
+      supervisorEmail: supervisorRef,
+      signature: signatureRef,
+    }
+    let target = refs[searchParams.get("focus") ?? ""]
+    if (!target && searchParams.get("setup") === "1" && userProfile) {
+      if (!userProfile.supervisorEmail?.trim()) target = supervisorRef
+      else if (!userProfile.homeAddress?.trim()) target = homeAddressRef
+      else if (!userProfile.savedSignatureUrl) target = signatureRef
+    }
+    if (target?.current) {
+      target.current.scrollIntoView({ behavior: "smooth", block: "center" })
+      const input = target.current.querySelector("input")
       if (input) setTimeout(() => input.focus(), 400)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   // Signature
@@ -81,6 +96,18 @@ export default function Profile() {
 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  const focusParam = searchParams.get("focus")
+  const highlightSupervisor =
+    (setupMode || focusParam === "supervisorEmail") && !supervisorEmail.trim()
+  const highlightAddress =
+    (setupMode || focusParam === "homeAddress") && !homeAddress.trim()
+  const highlightSignature =
+    (setupMode || focusParam === "signature") && !savedSig
+  const ring = {
+    boxShadow: "0 0 0 3px rgba(67,86,169,0.45)",
+    borderRadius: 12,
+  }
 
   // ── Canvas drawing ──────────────────────────────────────────────────────────
 
@@ -293,14 +320,24 @@ export default function Profile() {
                 style={{ color: "#64748b" }}
               />
             </Field>
-            <Field label="Supervisor Email">
-              <StaffEmailAutocomplete
-                value={supervisorEmail}
-                onChange={setSupervisorEmail}
-                className="input-neu"
-              />
-            </Field>
-            <div ref={homeAddressRef}>
+            <div
+              ref={supervisorRef}
+              className="-m-2 rounded-xl p-2 transition-shadow"
+              style={highlightSupervisor ? ring : undefined}
+            >
+              <Field label="Supervisor Email">
+                <StaffEmailAutocomplete
+                  value={supervisorEmail}
+                  onChange={setSupervisorEmail}
+                  className="input-neu"
+                />
+              </Field>
+            </div>
+            <div
+              ref={homeAddressRef}
+              className="-m-2 rounded-xl p-2 transition-shadow"
+              style={highlightAddress ? ring : undefined}
+            >
               <Field label="Home Address">
                 <AddressAutocomplete
                   value={homeAddress}
@@ -335,126 +372,133 @@ export default function Profile() {
         </Section>
 
         {/* Signature */}
-        <Section title="Saved Signature">
-          <p className="mb-4 text-sm" style={{ color: "#64748b" }}>
-            Your signature will be applied automatically when submitting forms.
-          </p>
+        <div
+          ref={signatureRef}
+          className="rounded-xl transition-shadow"
+          style={highlightSignature ? ring : undefined}
+        >
+          <Section title="Saved Signature">
+            <p className="mb-4 text-sm" style={{ color: "#64748b" }}>
+              Your signature will be applied automatically when submitting
+              forms.
+            </p>
 
-          {/* Tab switcher */}
-          <div
-            className="mb-4 inline-flex gap-1 rounded-lg border p-1"
-            style={{
-              background: "#f8f9fb",
-              borderColor: "#e2e5ea",
-            }}
-          >
-            {(["draw", "type"] as SigTab[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setSigTab(t)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                style={
-                  sigTab === t
-                    ? {
-                        background:
-                          "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
-                        color: "white",
-                        boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
-                      }
-                    : { color: "#64748b" }
-                }
-              >
-                {t === "draw" ? <Pencil size={13} /> : <Type size={13} />}
-                {t === "draw" ? "Draw" : "Type"}
-              </button>
-            ))}
-          </div>
-
-          {sigTab === "draw" && (
-            <div>
-              <canvas
-                ref={canvasRef}
-                width={800}
-                height={250}
-                className="w-full touch-none rounded-[14px]"
-                style={{
-                  background: "#f8f9fb",
-                  border: "1px solid #e2e5ea",
-                  cursor: "crosshair",
-                  maxHeight: "250px",
-                }}
-                onMouseDown={startDraw}
-                onMouseMove={draw}
-                onMouseUp={stopDraw}
-                onMouseLeave={stopDraw}
-                onTouchStart={startDraw}
-                onTouchMove={draw}
-                onTouchEnd={stopDraw}
-              />
-              <button
-                type="button"
-                onClick={clearCanvas}
-                className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-                style={{ color: "#94a3b8" }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.color =
-                    "#ad2122")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.color =
-                    "#94a3b8")
-                }
-              >
-                <Trash2 size={13} />
-                Clear
-              </button>
-            </div>
-          )}
-
-          {sigTab === "type" && (
-            <div>
-              <input
-                type="text"
-                value={typedSig}
-                onChange={(e) => setTypedSig(e.target.value)}
-                placeholder={userProfile?.fullName ?? "Your name"}
-                className="input-neu w-full"
-                style={{ fontFamily: "Caveat, cursive", fontSize: "1.5rem" }}
-              />
-              {typedSig && (
-                <p
-                  className="mt-2 text-xs"
-                  style={{
-                    color: "#94a3b8",
-                    fontFamily: "Caveat, cursive",
-                    fontSize: "1.25rem",
-                  }}
+            {/* Tab switcher */}
+            <div
+              className="mb-4 inline-flex gap-1 rounded-lg border p-1"
+              style={{
+                background: "#f8f9fb",
+                borderColor: "#e2e5ea",
+              }}
+            >
+              {(["draw", "type"] as SigTab[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setSigTab(t)}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
+                  style={
+                    sigTab === t
+                      ? {
+                          background:
+                            "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                          color: "white",
+                          boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                        }
+                      : { color: "#64748b" }
+                  }
                 >
-                  Preview: {typedSig}
-                </p>
-              )}
+                  {t === "draw" ? <Pencil size={13} /> : <Type size={13} />}
+                  {t === "draw" ? "Draw" : "Type"}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Existing saved signature preview */}
-          {savedSig && (
-            <div className="mt-4">
-              <p
-                className="mb-1 text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "#64748b" }}
-              >
-                Currently saved
-              </p>
-              <img
-                src={savedSig}
-                alt="Saved signature"
-                className="rounded-[10px]"
-                style={{ maxHeight: "80px", background: "#f4f5f7" }}
-              />
-            </div>
-          )}
-        </Section>
+            {sigTab === "draw" && (
+              <div>
+                <canvas
+                  ref={canvasRef}
+                  width={800}
+                  height={250}
+                  className="w-full touch-none rounded-[14px]"
+                  style={{
+                    background: "#f8f9fb",
+                    border: "1px solid #e2e5ea",
+                    cursor: "crosshair",
+                    maxHeight: "250px",
+                  }}
+                  onMouseDown={startDraw}
+                  onMouseMove={draw}
+                  onMouseUp={stopDraw}
+                  onMouseLeave={stopDraw}
+                  onTouchStart={startDraw}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDraw}
+                />
+                <button
+                  type="button"
+                  onClick={clearCanvas}
+                  className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={{ color: "#94a3b8" }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.color =
+                      "#ad2122")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.color =
+                      "#94a3b8")
+                  }
+                >
+                  <Trash2 size={13} />
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {sigTab === "type" && (
+              <div>
+                <input
+                  type="text"
+                  value={typedSig}
+                  onChange={(e) => setTypedSig(e.target.value)}
+                  placeholder={userProfile?.fullName ?? "Your name"}
+                  className="input-neu w-full"
+                  style={{ fontFamily: "Caveat, cursive", fontSize: "1.5rem" }}
+                />
+                {typedSig && (
+                  <p
+                    className="mt-2 text-xs"
+                    style={{
+                      color: "#94a3b8",
+                      fontFamily: "Caveat, cursive",
+                      fontSize: "1.25rem",
+                    }}
+                  >
+                    Preview: {typedSig}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Existing saved signature preview */}
+            {savedSig && (
+              <div className="mt-4">
+                <p
+                  className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  Currently saved
+                </p>
+                <img
+                  src={savedSig}
+                  alt="Saved signature"
+                  className="rounded-[10px]"
+                  style={{ maxHeight: "80px", background: "#f4f5f7" }}
+                />
+              </div>
+            )}
+          </Section>
+        </div>
 
         {/* Save button */}
         <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
