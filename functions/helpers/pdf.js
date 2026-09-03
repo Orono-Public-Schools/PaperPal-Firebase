@@ -409,11 +409,14 @@ function renderMileage(doc, data) {
     ensureSpace(doc, 20)
     const effectiveMiles = trip.isRoundTrip ? trip.miles * 2 : trip.miles
     const milesText = `${effectiveMiles.toFixed(1)}${trip.isRoundTrip ? " RT" : ""}`
+    const fromText = trip.measuredFrom
+      ? `${trip.from}\n(measured from ${trip.measuredFrom} — closer than home)`
+      : trip.from
     drawTableRow(
       doc,
       [
         formatDate(trip.date),
-        trip.from,
+        fromText,
         trip.to,
         trip.purpose || "—",
         milesText,
@@ -582,7 +585,10 @@ function renderTravel(doc, data) {
             : trip.isRoundTrip
               ? "Round trip"
               : "—"
-        const detail = `${route}\n${effective.toFixed(1)} mi × $${tripRate.toFixed(3)}`
+        const closerNote = trip.measuredFrom
+          ? `\nMeasured from ${trip.measuredFrom} — closer than home`
+          : ""
+        const detail = `${route}${closerNote}\n${effective.toFixed(1)} mi × $${tripRate.toFixed(3)}`
         ensureSpace(doc, 18)
         drawTableRow(
           doc,

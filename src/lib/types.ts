@@ -179,6 +179,8 @@ export interface MileageTrip {
   isWorkingDay?: boolean
   rate?: number // $/mile stamped at submit from the rate table by trip date
   commuteDeduction?: number // miles deducted from this trip, stamped at submit
+  measuredFrom?: string // school label when school was closer than home to the far end; miles are the school leg
+  homeMiles?: number // one-way miles of the leg as entered (from home), kept for reference
 }
 
 export interface MileageData {
@@ -226,6 +228,8 @@ export interface TravelCarTrip {
   isWorkingDay?: boolean
   rate?: number // $/mile stamped at submit from the rate table by trip date
   commuteDeduction?: number // miles deducted from this trip, stamped at submit
+  measuredFrom?: string // school label when school was closer than home to the far end; miles are the school leg
+  homeMiles?: number // one-way miles of the leg as entered (from home), kept for reference
 }
 
 export interface TravelData {

@@ -7,6 +7,7 @@ import {
   Send,
   Loader2,
   MapPin,
+  Building2,
   X,
   FileText,
 } from "lucide-react"
@@ -40,8 +41,12 @@ import {
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { MileageData } from "@/lib/types"
-import { calculateDrivingDistance } from "@/lib/googleMaps"
-import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
+import {
+  applyLegDistance,
+  calculateLegDistance,
+  getCommuteMiles,
+  tripTouchesHome,
+} from "@/lib/commute"
 import {
   diffSubmissionChanges,
   editActionForRole,
@@ -83,6 +88,7 @@ function computeMileageTotals(
       commuteMiles > 0 &&
       gross > 0 &&
       t.isWorkingDay !== false &&
+      !t.measuredFrom &&
       tripTouchesHome(t, homeAddress)
     ) {
       const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
@@ -153,6 +159,7 @@ export default function MileageReimbursement() {
   const [policyOpen, setPolicyOpen] = useState(false)
   const [calculatingMiles, setCalculatingMiles] = useState<number | null>(null)
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+  const [school, setSchool] = useState<{ address: string; label: string }>()
   const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
   const [mileageRates, setMileageRates] = useState<
     MileageRateEntry[] | undefined
@@ -206,11 +213,13 @@ export default function MileageReimbursement() {
 
     getAppSettings().then((settings) => {
       if (settings.schoolAddress) {
+        const label = settings.schoolAddressLabel || "School"
         fills.push({
-          label: settings.schoolAddressLabel || "School",
+          label,
           address: settings.schoolAddress,
           icon: "building",
         })
+        setSchool({ address: settings.schoolAddress, label })
       }
       setQuickFills(fills)
     })
@@ -241,16 +250,21 @@ export default function MileageReimbursement() {
     })
   }, [loadId])
 
-  // Auto-calculate distance when From or To changes
+  // Auto-calculate distance when From or To changes. A leg that touches home
+  // is measured from school instead when school is closer to the other end.
   async function calcDistance(index: number, from: string, to: string) {
     if (from.length < 5 || to.length < 5) return
 
     setCalculatingMiles(index)
-    const miles = await calculateDrivingDistance(from, to)
+    const leg = await calculateLegDistance(
+      { from, to },
+      userProfile?.homeAddress ?? "",
+      school
+    )
     setCalculatingMiles((prev) => (prev === index ? null : prev))
-    if (miles !== null) {
+    if (leg !== null) {
       setTrips((prev) =>
-        prev.map((t, i) => (i === index ? { ...t, miles } : t))
+        prev.map((t, i) => (i === index ? applyLegDistance(t, leg) : t))
       )
     }
   }
@@ -275,7 +289,16 @@ export default function MileageReimbursement() {
     value: MileageTrip[K]
   ) {
     setTrips((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, [field]: value } : t))
+      prev.map((t, i) => {
+        if (i !== index) return t
+        const next = { ...t, [field]: value }
+        // Editing the leg or its miles by hand invalidates the closer-origin note
+        if (field === "from" || field === "to" || field === "miles") {
+          delete next.measuredFrom
+          delete next.homeMiles
+        }
+        return next
+      })
     )
   }
 
@@ -654,6 +677,7 @@ export default function MileageReimbursement() {
                 showWorkingDayToggle={
                   !!commuteMiles &&
                   commuteMiles > 0 &&
+                  !trip.measuredFrom &&
                   tripTouchesHome(trip, userProfile?.homeAddress ?? "")
                 }
               />
@@ -1002,6 +1026,17 @@ function TripRow({
           </div>
         </Field>
       </div>
+      {trip.measuredFrom && (
+        <p
+          className="mt-2 flex items-center gap-1.5 text-xs font-medium"
+          style={{ color: "#4356a9" }}
+        >
+          <Building2 size={13} />
+          Measured from {trip.measuredFrom} — closer than home
+          {trip.homeMiles !== undefined &&
+            ` (${trip.homeMiles.toFixed(1)} mi from home)`}
+        </p>
+      )}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <Field label="Purpose">
           <input
