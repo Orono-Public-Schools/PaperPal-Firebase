@@ -340,7 +340,9 @@ export default function TravelReimbursement() {
           address: settings.schoolAddress,
           icon: "building",
         })
-        setSchool({ address: settings.schoolAddress, label })
+        if (settings.closerOriginEnabled) {
+          setSchool({ address: settings.schoolAddress, label })
+        }
       }
       setQuickFills(fills)
     })

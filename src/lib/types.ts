@@ -79,6 +79,7 @@ export interface AppSettings {
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
   commuteDeductionEnabled?: boolean
+  closerOriginEnabled?: boolean // measure home legs from school when school is closer
   paperpalDriveFolderId?: string
   paperpalLogSheetId?: string
   staffSheetId?: string
