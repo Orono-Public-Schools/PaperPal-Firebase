@@ -428,6 +428,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   finalApproverName: "",
   fiscalYearStartMonth: 6, // July
   commuteDeductionEnabled: false,
+  closerOriginEnabled: false,
 }
 
 export async function getAppSettings(): Promise<AppSettings> {

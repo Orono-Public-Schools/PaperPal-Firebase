@@ -21,10 +21,16 @@ function rateCaption(groups: { rate: number; miles: number }[]): string {
 // (saved before the home address was stored) fall back to the old behavior of
 // flagging every working-day trip.
 function tripCommuteDeducted(
-  trip: { from: string; to: string; isWorkingDay?: boolean },
+  trip: {
+    from: string
+    to: string
+    isWorkingDay?: boolean
+    measuredFrom?: string
+  },
   homeAddress: string | undefined
 ): boolean {
   if (trip.isWorkingDay === false) return false
+  if (trip.measuredFrom) return false
   if (homeAddress === undefined) return true
   return tripTouchesHome(trip, homeAddress)
 }
@@ -213,6 +219,18 @@ export function MileageView({ data }: { data: MileageData }) {
                         Working
                       </span>
                     )}
+                  {trip.measuredFrom && (
+                    <span
+                      className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                      style={{
+                        background: "#e0e7ff",
+                        color: "#2d3f89",
+                      }}
+                      title={`Measured from ${trip.measuredFrom}, which is closer than home${trip.homeMiles !== undefined ? ` (${trip.homeMiles.toFixed(1)} mi from home)` : ""}`}
+                    >
+                      From {trip.measuredFrom}
+                    </span>
+                  )}
                 </td>
               </tr>
             )
@@ -444,6 +462,18 @@ export function TravelView({ data }: { data: TravelData }) {
                                 Working
                               </span>
                             )}
+                          {trip.measuredFrom && (
+                            <span
+                              className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                              style={{
+                                background: "#e0e7ff",
+                                color: "#2d3f89",
+                              }}
+                              title={`Measured from ${trip.measuredFrom}, which is closer than home${trip.homeMiles !== undefined ? ` (${trip.homeMiles.toFixed(1)} mi from home)` : ""}`}
+                            >
+                              From {trip.measuredFrom}
+                            </span>
+                          )}
                         </div>
                         <div
                           className="mt-0.5 text-xs"

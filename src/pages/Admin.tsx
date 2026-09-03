@@ -208,6 +208,7 @@ function GeneralSettingsSection() {
       finalApproverName: settings.finalApproverName,
       fiscalYearStartMonth: settings.fiscalYearStartMonth,
       commuteDeductionEnabled: settings.commuteDeductionEnabled ?? false,
+      closerOriginEnabled: settings.closerOriginEnabled ?? false,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
@@ -322,6 +323,42 @@ function GeneralSettingsSection() {
                 style={{ color: "#334155" }}
               >
                 Deduct commute from working-day mileage
+              </span>
+            </label>
+          </div>
+
+          <div
+            className="mt-5 border-t pt-5"
+            style={{ borderColor: "rgba(180,185,195,0.25)" }}
+          >
+            <p
+              className="mb-2 text-xs font-semibold tracking-wider uppercase"
+              style={{ color: "#64748b" }}
+            >
+              Closer Origin
+            </p>
+            <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+              When enabled, a trip that starts or ends at the user's home is
+              also measured from the school address above. If the school is
+              closer to the other end of the trip, those miles are used instead
+              and the trip is flagged on the form, review view, and PDF. Trips
+              measured from school skip the commute deduction. Existing
+              submissions keep the math they were submitted with.
+            </p>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={settings.closerOriginEnabled ?? false}
+                onChange={(e) =>
+                  update("closerOriginEnabled", e.target.checked)
+                }
+                className="h-4 w-4 cursor-pointer accent-[#1d2a5d]"
+              />
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#334155" }}
+              >
+                Reimburse home trips from whichever of home or school is closer
               </span>
             </label>
           </div>

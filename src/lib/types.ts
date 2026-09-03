@@ -79,6 +79,7 @@ export interface AppSettings {
   finalApproverName: string
   fiscalYearStartMonth: number // 0-indexed (6 = July)
   commuteDeductionEnabled?: boolean
+  closerOriginEnabled?: boolean // measure home legs from school when school is closer
   paperpalDriveFolderId?: string
   paperpalLogSheetId?: string
   staffSheetId?: string
@@ -179,6 +180,8 @@ export interface MileageTrip {
   isWorkingDay?: boolean
   rate?: number // $/mile stamped at submit from the rate table by trip date
   commuteDeduction?: number // miles deducted from this trip, stamped at submit
+  measuredFrom?: string // school label when school was closer than home to the far end; miles are the school leg
+  homeMiles?: number // one-way miles of the leg as entered (from home), kept for reference
 }
 
 export interface MileageData {
@@ -226,6 +229,8 @@ export interface TravelCarTrip {
   isWorkingDay?: boolean
   rate?: number // $/mile stamped at submit from the rate table by trip date
   commuteDeduction?: number // miles deducted from this trip, stamped at submit
+  measuredFrom?: string // school label when school was closer than home to the far end; miles are the school leg
+  homeMiles?: number // one-way miles of the leg as entered (from home), kept for reference
 }
 
 export interface TravelData {

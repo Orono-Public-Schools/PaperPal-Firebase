@@ -8,6 +8,7 @@ import {
   X,
   Loader2,
   MapPin,
+  Building2,
   Upload,
   FileText,
   Image,
@@ -49,8 +50,12 @@ import type {
   TravelCarTrip,
   MileageRateEntry,
 } from "@/lib/types"
-import { calculateDrivingDistance } from "@/lib/googleMaps"
-import { getCommuteMiles, tripTouchesHome } from "@/lib/commute"
+import {
+  applyLegDistance,
+  calculateLegDistance,
+  getCommuteMiles,
+  tripTouchesHome,
+} from "@/lib/commute"
 import {
   diffSubmissionChanges,
   editActionForRole,
@@ -210,6 +215,7 @@ export default function TravelReimbursement() {
     null
   )
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
+  const [school, setSchool] = useState<{ address: string; label: string }>()
   const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
   const [mileageRates, setMileageRates] = useState<
     MileageRateEntry[] | undefined
@@ -328,11 +334,15 @@ export default function TravelReimbursement() {
       }
 
       if (settings.schoolAddress) {
+        const label = settings.schoolAddressLabel || "School"
         fills.push({
-          label: settings.schoolAddressLabel || "School",
+          label,
           address: settings.schoolAddress,
           icon: "building",
         })
+        if (settings.closerOriginEnabled) {
+          setSchool({ address: settings.schoolAddress, label })
+        }
       }
       setQuickFills(fills)
     })
@@ -477,7 +487,16 @@ export default function TravelReimbursement() {
 
   function updateCarTrip(index: number, updates: Partial<TravelCarTrip>) {
     setCarTrips((trips) =>
-      trips.map((t, i) => (i === index ? { ...t, ...updates } : t))
+      trips.map((t, i) => {
+        if (i !== index) return t
+        const next = { ...t, ...updates }
+        // Editing the leg or its miles by hand invalidates the closer-origin note
+        if ("from" in updates || "to" in updates || "miles" in updates) {
+          delete next.measuredFrom
+          delete next.homeMiles
+        }
+        return next
+      })
     )
   }
 
@@ -489,12 +508,22 @@ export default function TravelReimbursement() {
     setCarTrips((trips) => trips.filter((_, i) => i !== index))
   }
 
+  // A leg that touches home is measured from school instead when school is
+  // closer to the other end (see calculateLegDistance)
   async function calcTripDistance(index: number, from: string, to: string) {
     if (from.length < 5 || to.length < 5) return
     setCalculatingTripIdx(index)
-    const miles = await calculateDrivingDistance(from, to)
+    const leg = await calculateLegDistance(
+      { from, to },
+      userProfile?.homeAddress ?? "",
+      school
+    )
     setCalculatingTripIdx((prev) => (prev === index ? null : prev))
-    if (miles !== null) updateCarTrip(index, { miles })
+    if (leg !== null) {
+      setCarTrips((trips) =>
+        trips.map((t, i) => (i === index ? applyLegDistance(t, leg) : t))
+      )
+    }
   }
 
   async function handleFileUpload(files: FileList | null) {
@@ -582,6 +611,7 @@ export default function TravelReimbursement() {
       commuteMiles > 0 &&
       gross > 0 &&
       t.isWorkingDay !== false &&
+      !t.measuredFrom &&
       tripTouchesHome(t, userProfile?.homeAddress ?? "")
     ) {
       const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
@@ -1435,6 +1465,17 @@ export default function TravelReimbursement() {
                       </div>
                     </Field>
                   </div>
+                  {trip.measuredFrom && (
+                    <p
+                      className="mt-2 flex items-center gap-1.5 text-xs font-medium"
+                      style={{ color: "#4356a9" }}
+                    >
+                      <Building2 size={13} />
+                      Measured from {trip.measuredFrom} — closer than home
+                      {trip.homeMiles !== undefined &&
+                        ` (${trip.homeMiles.toFixed(1)} mi from home)`}
+                    </p>
+                  )}
                   <div className="mt-3 flex items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                       <label
@@ -1463,6 +1504,7 @@ export default function TravelReimbursement() {
                       </label>
                       {commuteMiles !== null &&
                         commuteMiles > 0 &&
+                        !trip.measuredFrom &&
                         tripTouchesHome(
                           trip,
                           userProfile?.homeAddress ?? ""
