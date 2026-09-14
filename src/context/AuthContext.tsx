@@ -21,6 +21,35 @@ async function getStaffRecord(email: string) {
   return snap.exists() ? snap.data() : null
 }
 
+// Title/building mappings are the source of truth for who a user routes to.
+// The profile only caches the result, so re-resolve on each login to pick up
+// mapping changes made since — unless the user set their supervisor by hand.
+async function refreshMappedSupervisor(
+  ref: ReturnType<typeof doc>,
+  profile: UserProfile
+): Promise<UserProfile> {
+  if (profile.supervisorSource === "manual") return profile
+  const mapped = await resolveSupervisor(profile.email)
+  if (!mapped) return profile
+  const email = mapped.email.toLowerCase()
+  if (
+    email === profile.email.toLowerCase() ||
+    email === (profile.supervisorEmail ?? "").toLowerCase()
+  ) {
+    return profile
+  }
+  await setDoc(
+    ref,
+    {
+      supervisorEmail: email,
+      supervisorSource: "mapping",
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  )
+  return { ...profile, supervisorEmail: email, supervisorSource: "mapping" }
+}
+
 async function ensureUserProfile(
   uid: string,
   email: string,
@@ -30,7 +59,9 @@ async function ensureUserProfile(
   const ref = doc(db, "users", uid)
   const snap = await getDoc(ref)
 
-  if (snap.exists()) return snap.data() as UserProfile
+  if (snap.exists()) {
+    return refreshMappedSupervisor(ref, snap.data() as UserProfile)
+  }
 
   const staff = await getStaffRecord(email)
   const nameParts = (displayName ?? "").split(" ")
@@ -50,6 +81,7 @@ async function ensureUserProfile(
     title: staff?.title ?? "",
     building: staff?.building ?? "",
     supervisorEmail: supervisor?.email ?? "",
+    ...(supervisor ? { supervisorSource: "mapping" as const } : {}),
     photoURL: photoURL ?? "",
     role: "staff",
     createdAt:
