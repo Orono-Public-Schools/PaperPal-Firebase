@@ -102,6 +102,7 @@ export interface UserProfile {
   building?: string
   buildingOverride?: string
   supervisorEmail?: string
+  supervisorSource?: "mapping" | "manual" // "manual" = set by the user on Profile; never overwritten by mappings
   homeAddress?: string
   commuteMiles?: number
   commuteCachedHomeAddress?: string

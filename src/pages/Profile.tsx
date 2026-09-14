@@ -242,6 +242,11 @@ export default function Profile() {
         title,
         building,
         supervisorEmail,
+        // A hand-picked supervisor sticks; mapping-derived ones refresh on login
+        ...(supervisorEmail.trim().toLowerCase() !==
+        (userProfile?.supervisorEmail ?? "").trim().toLowerCase()
+          ? { supervisorSource: "manual" as const }
+          : {}),
         homeAddress,
         ...commuteUpdate,
         ...(sigDataUrl ? { savedSignatureUrl: sigDataUrl } : {}),
