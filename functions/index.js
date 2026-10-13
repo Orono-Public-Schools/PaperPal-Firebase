@@ -5,7 +5,11 @@ const {
   onDocumentCreated,
 } = require("firebase-functions/v2/firestore")
 const { initializeApp } = require("firebase-admin/app")
-const { getFirestore, FieldValue } = require("firebase-admin/firestore")
+const {
+  getFirestore,
+  FieldValue,
+  Timestamp,
+} = require("firebase-admin/firestore")
 const { google } = require("googleapis")
 const { generatePdf, stampPaidWatermark } = require("./helpers/pdf")
 const { uploadToDrive, updateDriveFile } = require("./helpers/drive")
@@ -579,6 +583,60 @@ exports.generateSubmissionPdf = onCall(
 
     const pdfBuffer = await generatePdf(submission)
     return { pdf: pdfBuffer.toString("base64") }
+  }
+)
+
+// ─── Regenerate the stored Drive PDF (callable, controller+) ────────────────
+// The Drive copy is written once at final approval. After a change to the
+// PDF layout, a controller can rebuild it in place for a given submission.
+
+exports.regenerateSubmissionPdf = onCall(
+  { region: "us-central1", memory: "512MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in")
+    }
+    const { submissionId } = request.data
+    if (!submissionId) {
+      throw new HttpsError("invalid-argument", "submissionId is required")
+    }
+
+    const callerUid = request.auth.uid
+    const callerEmail = request.auth.token.email?.toLowerCase()
+    const userSnap = await db.doc(`users/${callerUid}`).get()
+    const role = userSnap.data()?.role
+    if (!["admin", "controller", "business_office"].includes(role)) {
+      throw new HttpsError("permission-denied", "Controller access required")
+    }
+
+    const ref = db.doc(`submissions/${submissionId}`)
+    const submissionSnap = await ref.get()
+    if (!submissionSnap.exists) {
+      throw new HttpsError("not-found", "Submission not found")
+    }
+    const submission = submissionSnap.data()
+    if (!submission.pdfDriveId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This submission has no stored PDF yet; it is created at final approval"
+      )
+    }
+
+    let pdfBuffer = await generatePdf(submission)
+    if (submission.status === "paid") {
+      pdfBuffer = await stampPaidWatermark(pdfBuffer)
+    }
+    await updateDriveFile(submission.pdfDriveId, pdfBuffer)
+    await ref.update({
+      updatedAt: FieldValue.serverTimestamp(),
+      activityLog: FieldValue.arrayUnion({
+        action: "pdf_regenerated",
+        by: callerEmail,
+        at: Timestamp.now(),
+      }),
+    })
+    console.log(`Drive PDF regenerated for ${submissionId} by ${callerEmail}`)
+    return { ok: true }
   }
 )
 

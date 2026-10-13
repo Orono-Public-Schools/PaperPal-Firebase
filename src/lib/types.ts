@@ -336,6 +336,7 @@ export type ActivityAction =
   | "edited_by_approver"
   | "edited_by_supervisor"
   | "edited_by_controller"
+  | "pdf_regenerated"
 
 export interface FieldChange {
   field: string
