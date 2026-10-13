@@ -10,6 +10,11 @@ PaperPal is an internal web app for **Orono Public Schools** staff to submit and
 - Mileage Reimbursement (`/forms/mileage`) — IRS rate per trip date (admin-managed table in `settings/app.mileageRates`; each trip's rate is stamped onto it at submit)
 - Travel Reimbursement (`/forms/travel`)
 
+**District travel policy** (mileage rules, 60-day deadline, meals per diem, lodging, airfare) is
+transcribed from the Business Services Procedures Manual in `docs/travel-policy.md`. Read it before
+changing mileage math, the policy drawer, or any reimbursement rule; it is the source of truth over
+the text currently in `PolicyDrawer.tsx`.
+
 **Approval flow (configurable per-title):**
 
 - **2-step (default):** Staff submits (`pending`) → Supervisor approves (`reviewed`) → Controller approves (`approved`) → Controller marks paid (`paid`)

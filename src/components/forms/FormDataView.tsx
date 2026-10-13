@@ -1,10 +1,18 @@
+import { Fragment } from "react"
 import type {
   CheckRequestData,
   MileageData,
   TravelData,
   TravelExpenseItem,
+  TripBase,
 } from "@/lib/types"
-import { tripTouchesHome } from "@/lib/commute"
+import {
+  ROUTE_TIPS,
+  tripGrossMiles,
+  tripHomeLegs,
+  tripLegs,
+  tripPoints,
+} from "@/lib/route"
 import { mileageRateGroups } from "@/lib/utils"
 
 // Trips stamped since per-trip rates shipped carry their own rate; anything
@@ -21,18 +29,71 @@ function rateCaption(groups: { rate: number; miles: number }[]): string {
 // (saved before the home address was stored) fall back to the old behavior of
 // flagging every working-day trip.
 function tripCommuteDeducted(
-  trip: {
-    from: string
-    to: string
-    isWorkingDay?: boolean
-    measuredFrom?: string
-  },
+  trip: TripBase,
   homeAddress: string | undefined
 ): boolean {
   if (trip.isWorkingDay === false) return false
-  if (trip.measuredFrom) return false
-  if (homeAddress === undefined) return true
-  return tripTouchesHome(trip, homeAddress)
+  if (homeAddress === undefined) return !trip.measuredFrom
+  return tripHomeLegs(trip, homeAddress) > 0
+}
+
+// The trip's points in driving order with the miles driven to reach each one.
+// Reads both the route shape and legacy single-leg trips.
+function RouteCell({ trip }: { trip: TripBase }) {
+  const points = tripPoints(trip)
+  const legs = tripLegs(trip)
+  const last = points.length - 1
+  return (
+    <div className="space-y-0.5">
+      {points.map((p, i) => {
+        const leg = i > 0 ? legs[i - 1] : undefined
+        return (
+          <Fragment key={i}>
+            <div className="flex items-baseline gap-2">
+              <span
+                className="w-[86px] shrink-0 text-[10px] font-bold tracking-wider uppercase"
+                style={{
+                  color:
+                    i === 0 ? "#1d2a5d" : i === last ? "#ad2122" : "#64748b",
+                }}
+                title={
+                  i === 0
+                    ? ROUTE_TIPS.start
+                    : i === last
+                      ? ROUTE_TIPS.end
+                      : ROUTE_TIPS.stop
+                }
+              >
+                {i === 0
+                  ? "Departing from"
+                  : i === last
+                    ? "Returning to"
+                    : `Stop ${i}`}
+              </span>
+              <span className="min-w-0">{p || "—"}</span>
+            </div>
+            {leg && (
+              <div
+                className="pl-[94px] text-[11px]"
+                style={{ color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}
+              >
+                {leg.miles.toFixed(1)} mi
+                {leg.measuredFrom && (
+                  <span
+                    style={{ color: "#4356a9" }}
+                    title={`${ROUTE_TIPS.closer}${leg.homeMiles !== undefined ? ` ${leg.homeMiles.toFixed(1)} mi as driven from home.` : ""}`}
+                  >
+                    {" "}
+                    · measured from {leg.measuredFrom}
+                  </span>
+                )}
+              </div>
+            )}
+          </Fragment>
+        )
+      })}
+    </div>
+  )
 }
 
 function Field({
@@ -176,36 +237,24 @@ export function MileageView({ data }: { data: MileageData }) {
 
       <div>
         <SectionHeading>Trips</SectionHeading>
-        <Table headers={["Date", "From", "To", "Purpose", "Miles"]}>
+        <Table headers={["Date", "Route", "Purpose", "Miles"]}>
           {data.trips.map((trip, i) => {
-            const effectiveMiles = trip.isRoundTrip
-              ? trip.miles * 2
-              : trip.miles
+            const effectiveMiles = tripGrossMiles(trip)
             return (
               <tr
                 key={i}
                 className="border-t"
                 style={{ borderColor: "rgba(180,185,195,0.25)" }}
               >
-                <td className="py-2 pr-4 whitespace-nowrap">
+                <td className="py-2 pr-4 align-top whitespace-nowrap">
                   {formatDate(trip.date)}
                 </td>
-                <td className="py-2 pr-4">{trip.from}</td>
-                <td className="py-2 pr-4">{trip.to}</td>
-                <td className="py-2 pr-4">{trip.purpose || "—"}</td>
-                <td className="py-2 pr-4 whitespace-nowrap">
+                <td className="py-2 pr-4 align-top">
+                  <RouteCell trip={trip} />
+                </td>
+                <td className="py-2 pr-4 align-top">{trip.purpose || "—"}</td>
+                <td className="py-2 pr-4 align-top whitespace-nowrap">
                   {effectiveMiles.toFixed(1)}
-                  {trip.isRoundTrip && (
-                    <span
-                      className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                      style={{
-                        background: "#e0e7ff",
-                        color: "#1d2a5d",
-                      }}
-                    >
-                      Round Trip
-                    </span>
-                  )}
                   {hasCommuteDeduction &&
                     tripCommuteDeducted(trip, data.commuteHomeAddress) && (
                       <span
@@ -219,18 +268,6 @@ export function MileageView({ data }: { data: MileageData }) {
                         Working
                       </span>
                     )}
-                  {trip.measuredFrom && (
-                    <span
-                      className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                      style={{
-                        background: "#e0e7ff",
-                        color: "#2d3f89",
-                      }}
-                      title={`Measured from ${trip.measuredFrom}, which is closer than home${trip.homeMiles !== undefined ? ` (${trip.homeMiles.toFixed(1)} mi from home)` : ""}`}
-                    >
-                      From {trip.measuredFrom}
-                    </span>
-                  )}
                 </td>
               </tr>
             )
@@ -239,7 +276,7 @@ export function MileageView({ data }: { data: MileageData }) {
             className="border-t font-bold"
             style={{ color: "#1d2a5d", borderColor: "rgba(180,185,195,0.25)" }}
           >
-            <td className="py-2 pr-4" colSpan={4}>
+            <td className="py-2 pr-4" colSpan={3}>
               Total
             </td>
             <td className="py-2 pr-4">{data.totalMiles.toFixed(1)} mi</td>
@@ -252,7 +289,7 @@ export function MileageView({ data }: { data: MileageData }) {
                   borderColor: "rgba(180,185,195,0.25)",
                 }}
               >
-                <td className="py-2 pr-4 text-sm" colSpan={4}>
+                <td className="py-2 pr-4 text-sm" colSpan={3}>
                   Less commute deduction
                   {data.commuteMilesUsed && (
                     <span className="ml-1 text-xs" style={{ color: "#94a3b8" }}>
@@ -272,7 +309,7 @@ export function MileageView({ data }: { data: MileageData }) {
                   borderColor: "rgba(180,185,195,0.25)",
                 }}
               >
-                <td className="py-2 pr-4" colSpan={4}>
+                <td className="py-2 pr-4" colSpan={3}>
                   Reimbursable Miles
                 </td>
                 <td className="py-2 pr-4">{reimbursableMiles.toFixed(1)} mi</td>
@@ -415,9 +452,7 @@ export function TravelView({ data }: { data: TravelData }) {
           <Table headers={["Date", "Category", "Detail", "Amount", "Receipt"]}>
             {data.carTrips && data.carTrips.length > 0
               ? data.carTrips.map((trip, i) => {
-                  const effective = trip.isRoundTrip
-                    ? trip.miles * 2
-                    : trip.miles
+                  const effective = tripGrossMiles(trip)
                   if (effective <= 0) return null
                   const tripRate = trip.rate ?? MILEAGE_RATE
                   return (
@@ -431,21 +466,8 @@ export function TravelView({ data }: { data: TravelData }) {
                       </td>
                       <td className="py-2 pr-4 align-top">Mileage</td>
                       <td className="py-2 pr-4 align-top">
+                        <RouteCell trip={trip} />
                         <div>
-                          {trip.from && trip.to
-                            ? `${trip.from} → ${trip.to}`
-                            : "—"}
-                          {trip.isRoundTrip && (
-                            <span
-                              className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                              style={{
-                                background: "#e0e7ff",
-                                color: "#1d2a5d",
-                              }}
-                            >
-                              Round Trip
-                            </span>
-                          )}
                           {hasCommuteDeduction &&
                             tripCommuteDeducted(
                               trip,
@@ -462,18 +484,6 @@ export function TravelView({ data }: { data: TravelData }) {
                                 Working
                               </span>
                             )}
-                          {trip.measuredFrom && (
-                            <span
-                              className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                              style={{
-                                background: "#e0e7ff",
-                                color: "#2d3f89",
-                              }}
-                              title={`Measured from ${trip.measuredFrom}, which is closer than home${trip.homeMiles !== undefined ? ` (${trip.homeMiles.toFixed(1)} mi from home)` : ""}`}
-                            >
-                              From {trip.measuredFrom}
-                            </span>
-                          )}
                         </div>
                         <div
                           className="mt-0.5 text-xs"

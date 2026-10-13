@@ -171,18 +171,43 @@ export interface CheckRequestData {
   grandTotal: number
 }
 
-export interface MileageTrip {
-  date: string
+export interface TripLeg {
   from: string
   to: string
-  purpose: string
   miles: number
-  isRoundTrip: boolean
+  measuredFrom?: string // school label when the leg was measured from school because school is closer to the far end than home
+  homeMiles?: number // miles of the leg as driven from/to home, kept for reference
+}
+
+// A trip is a point of departure, any stops along the way, and a return
+// destination; district policy asks staff to state departure and return.
+// legs holds one entry per segment in driving order with the miles used.
+export interface TripRoute {
+  start: string
+  stops: string[]
+  end: string // equals start when returnToStart
+  returnToStart: boolean
+  legs: TripLeg[]
+}
+
+export interface TripBase {
+  date: string
+  miles: number // total miles across all legs; on legacy trips, one-way miles
   isWorkingDay?: boolean
   rate?: number // $/mile stamped at submit from the rate table by trip date
   commuteDeduction?: number // miles deducted from this trip, stamped at submit
-  measuredFrom?: string // school label when school was closer than home to the far end; miles are the school leg
-  homeMiles?: number // one-way miles of the leg as entered (from home), kept for reference
+  route?: TripRoute
+  // Legacy single-leg trips (submitted before Oct 2026) stored one From/To
+  // and a round-trip flag. Read through src/lib/route.ts, never directly.
+  from?: string
+  to?: string
+  isRoundTrip?: boolean
+  measuredFrom?: string
+  homeMiles?: number
+}
+
+export interface MileageTrip extends TripBase {
+  purpose: string
 }
 
 export interface MileageData {
@@ -221,18 +246,7 @@ export interface TravelActualOther {
   amount: number
 }
 
-export interface TravelCarTrip {
-  date: string
-  from: string
-  to: string
-  miles: number
-  isRoundTrip: boolean
-  isWorkingDay?: boolean
-  rate?: number // $/mile stamped at submit from the rate table by trip date
-  commuteDeduction?: number // miles deducted from this trip, stamped at submit
-  measuredFrom?: string // school label when school was closer than home to the far end; miles are the school leg
-  homeMiles?: number // one-way miles of the leg as entered (from home), kept for reference
-}
+export type TravelCarTrip = TripBase
 
 export interface TravelData {
   name: string
