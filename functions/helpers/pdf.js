@@ -7,12 +7,58 @@ const { PDFDocument: PDFLib, rgb, degrees } = require("pdf-lib")
 // own `rate`; anything older was priced at this
 const MILEAGE_RATE = 0.725
 
+// A trip is a route (departure, stops, return) since Oct 2026; older trips
+// stored one From/To and a round-trip flag. Both shapes read through these.
+function tripGrossMiles(t) {
+  if (t.route)
+    return (t.route.legs || []).reduce((s, l) => s + (l.miles || 0), 0)
+  return t.isRoundTrip ? t.miles * 2 : t.miles
+}
+
+function tripPoints(t) {
+  if (t.route) {
+    const r = t.route
+    return [r.start, ...(r.stops || []), r.returnToStart ? r.start : r.end]
+  }
+  return t.isRoundTrip ? [t.from, t.to, t.from] : [t.from, t.to]
+}
+
+function tripLegs(t) {
+  if (t.route) return t.route.legs || []
+  const leg = {
+    from: t.from,
+    to: t.to,
+    miles: t.miles,
+    measuredFrom: t.measuredFrom,
+  }
+  return t.isRoundTrip ? [leg, { ...leg, from: t.to, to: t.from }] : [leg]
+}
+
+// One line per point, with the miles driven to reach it:
+// "Departing from: … / Stop 1: … (18.6 mi) / Returning to: … (19.3 mi)"
+function routeText(t) {
+  const points = tripPoints(t)
+  const legs = tripLegs(t)
+  const last = points.length - 1
+  return points
+    .map((p, i) => {
+      const label =
+        i === 0 ? "Departing from" : i === last ? "Returning to" : `Stop ${i}`
+      const leg = i > 0 ? legs[i - 1] : null
+      const miles = leg
+        ? ` (${(leg.miles || 0).toFixed(1)} mi${leg.measuredFrom ? `, measured from ${leg.measuredFrom}` : ""})`
+        : ""
+      return `${label}: ${p || "—"}${miles}`
+    })
+    .join("\n")
+}
+
 // Per-rate reimbursable-mile buckets for stamped trips, e.g.
 // "84.0 mi × $0.725 + 32.0 mi × $0.760"
 function mileageRateCaption(trips) {
   const buckets = new Map()
   for (const t of trips || []) {
-    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
+    const gross = tripGrossMiles(t)
     const reimbursable = Math.max(0, gross - (t.commuteDeduction || 0))
     if (reimbursable <= 0) continue
     const rate = t.rate ?? MILEAGE_RATE
@@ -186,29 +232,38 @@ function drawTableHeaders(doc, headers, colWidths, startX) {
   doc.y += 4
 }
 
-function drawTableRow(doc, cells, colWidths, startX, bold) {
+// cells may be strings or { text, bold, color, align } for per-cell styling;
+// noBorder skips the rule under the row (used inside a multi-row trip)
+function drawTableRow(doc, cells, colWidths, startX, bold, noBorder) {
   const y = doc.y
-  const font = bold ? "Helvetica-Bold" : "Helvetica"
-  doc
-    .font(font)
-    .fontSize(8)
-    .fillColor(bold ? NAVY : TEXT_COLOR)
+  const rowFont = bold ? "Helvetica-Bold" : "Helvetica"
+  const rowColor = bold ? NAVY : TEXT_COLOR
+  const norm = cells.map((c) =>
+    c && typeof c === "object" ? c : { text: String(c ?? "") }
+  )
 
   // Measure the tallest cell
   let maxH = 12
-  for (let i = 0; i < cells.length; i++) {
-    const h = doc.heightOfString(String(cells[i] ?? ""), {
-      width: colWidths[i] - 4,
-    })
+  for (let i = 0; i < norm.length; i++) {
+    doc.font(norm[i].bold ? "Helvetica-Bold" : rowFont).fontSize(8)
+    const h = doc.heightOfString(norm[i].text, { width: colWidths[i] - 4 })
     if (h > maxH) maxH = h
   }
 
   let x = startX
-  for (let i = 0; i < cells.length; i++) {
-    doc.text(String(cells[i] ?? ""), x, y, { width: colWidths[i] - 4 })
+  for (let i = 0; i < norm.length; i++) {
+    doc
+      .font(norm[i].bold ? "Helvetica-Bold" : rowFont)
+      .fontSize(8)
+      .fillColor(norm[i].color || rowColor)
+      .text(norm[i].text, x, y, {
+        width: colWidths[i] - 4,
+        align: norm[i].align || "left",
+      })
     x += colWidths[i]
   }
-  doc.y = y + maxH + 4
+  doc.y = y + maxH + (noBorder ? 2 : 4)
+  if (noBorder) return
   doc
     .moveTo(startX, doc.y - 2)
     .lineTo(startX + colWidths.reduce((a, b) => a + b, 0), doc.y - 2)
@@ -397,33 +452,50 @@ function renderMileage(doc, data) {
   doc.y = y
   drawSectionHeading(doc, "Trips")
 
-  const colWidths = [50, 130, 130, 90, 50]
+  // Each trip spans one row per point: the date, purpose and trip total sit
+  // on the first row; the point label, address and leg miles on every row
+  const colWidths = [50, 66, 196, 44, 106, 50]
   drawTableHeaders(
     doc,
-    ["Date", "From", "To", "Purpose", "Miles"],
+    ["Date", "", "Route", "Leg mi", "Purpose", "Miles"],
     colWidths,
     50
   )
 
   for (const trip of data.trips || []) {
-    ensureSpace(doc, 20)
-    const effectiveMiles = trip.isRoundTrip ? trip.miles * 2 : trip.miles
-    const milesText = `${effectiveMiles.toFixed(1)}${trip.isRoundTrip ? " RT" : ""}`
-    const fromText = trip.measuredFrom
-      ? `${trip.from}\n(measured from ${trip.measuredFrom} — closer than home)`
-      : trip.from
-    drawTableRow(
-      doc,
-      [
-        formatDate(trip.date),
-        fromText,
-        trip.to,
-        trip.purpose || "—",
-        milesText,
-      ],
-      colWidths,
-      50
-    )
+    const points = tripPoints(trip)
+    const legs = tripLegs(trip)
+    const lastIdx = points.length - 1
+    ensureSpace(doc, 14 * points.length + 10)
+    points.forEach((p, i) => {
+      const leg = i > 0 ? legs[i - 1] : null
+      const label =
+        i === 0
+          ? "DEPARTING FROM"
+          : i === lastIdx
+            ? "RETURNING TO"
+            : `STOP ${i}`
+      const labelColor =
+        i === 0 ? NAVY : i === lastIdx ? "#ad2122" : LABEL_COLOR
+      const address = leg?.measuredFrom
+        ? `${p || "—"}\nMeasured from ${leg.measuredFrom}, closer than home`
+        : p || "—"
+      drawTableRow(
+        doc,
+        [
+          i === 0 ? formatDate(trip.date) : "",
+          { text: label, bold: true, color: labelColor },
+          address,
+          leg ? { text: (leg.miles || 0).toFixed(1), align: "right" } : "",
+          i === 0 ? trip.purpose || "—" : "",
+          i === 0 ? { text: tripGrossMiles(trip).toFixed(1), bold: true } : "",
+        ],
+        colWidths,
+        50,
+        false,
+        i !== lastIdx
+      )
+    })
   }
 
   const hasCommuteDeduction =
@@ -436,7 +508,7 @@ function renderMileage(doc, data) {
   ensureSpace(doc, 20)
   drawTableRow(
     doc,
-    ["", "", "", "Total", `${data.totalMiles.toFixed(1)} mi`],
+    ["", "", "", "", "Total", `${data.totalMiles.toFixed(1)} mi`],
     colWidths,
     50,
     true
@@ -449,14 +521,21 @@ function renderMileage(doc, data) {
     ensureSpace(doc, 20)
     drawTableRow(
       doc,
-      ["", "", "", commuteNote, `−${data.totalCommuteDeduction.toFixed(1)} mi`],
+      [
+        "",
+        "",
+        "",
+        "",
+        commuteNote,
+        `-${data.totalCommuteDeduction.toFixed(1)} mi`,
+      ],
       colWidths,
       50
     )
     ensureSpace(doc, 20)
     drawTableRow(
       doc,
-      ["", "", "", "Reimbursable", `${displayMiles.toFixed(1)} mi`],
+      ["", "", "", "", "Reimbursable", `${displayMiles.toFixed(1)} mi`],
       colWidths,
       50,
       true
@@ -576,20 +655,11 @@ function renderTravel(doc, data) {
 
     if (data.carTrips && data.carTrips.length > 0) {
       for (const trip of data.carTrips) {
-        const effective = trip.isRoundTrip ? trip.miles * 2 : trip.miles
+        const effective = tripGrossMiles(trip)
         if (effective <= 0) continue
         const tripRate = trip.rate ?? MILEAGE_RATE
-        const route =
-          trip.from && trip.to
-            ? `${trip.from} → ${trip.to}${trip.isRoundTrip ? " (round trip)" : ""}`
-            : trip.isRoundTrip
-              ? "Round trip"
-              : "—"
-        const closerNote = trip.measuredFrom
-          ? `\nMeasured from ${trip.measuredFrom} — closer than home`
-          : ""
-        const detail = `${route}${closerNote}\n${effective.toFixed(1)} mi × $${tripRate.toFixed(3)}`
-        ensureSpace(doc, 18)
+        const detail = `${routeText(trip)}\n${effective.toFixed(1)} mi × $${tripRate.toFixed(3)}`
+        ensureSpace(doc, 40)
         drawTableRow(
           doc,
           [
@@ -664,7 +734,7 @@ function renderTravel(doc, data) {
       ensureSpace(doc, 18)
       drawTableRow(
         doc,
-        ["—", "Commute", commuteDetail, `−${currency(deductionCost)}`],
+        ["—", "Commute", commuteDetail, `-${currency(deductionCost)}`],
         expCols,
         50
       )

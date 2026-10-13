@@ -45,52 +45,83 @@ function RouteCell({ trip }: { trip: TripBase }) {
   const legs = tripLegs(trip)
   const last = points.length - 1
   return (
-    <div className="space-y-0.5">
+    <div
+      className="grid min-w-[320px] items-center gap-x-2.5 gap-y-1"
+      style={{ gridTemplateColumns: "12px 96px minmax(0,1fr) 52px" }}
+    >
       {points.map((p, i) => {
+        const first = i === 0
+        const isLast = i === last
         const leg = i > 0 ? legs[i - 1] : undefined
         return (
           <Fragment key={i}>
-            <div className="flex items-baseline gap-2">
-              <Tooltip
-                text={
-                  i === 0
-                    ? ROUTE_TIPS.start
-                    : i === last
-                      ? ROUTE_TIPS.end
-                      : ROUTE_TIPS.stop
-                }
-                className="w-[86px] shrink-0 text-[10px] font-bold tracking-wider uppercase"
-                style={{
-                  cursor: "help",
-                  color:
-                    i === 0 ? "#1d2a5d" : i === last ? "#ad2122" : "#64748b",
-                }}
-              >
-                {i === 0
-                  ? "Departing from"
-                  : i === last
-                    ? "Returning to"
-                    : `Stop ${i}`}
-              </Tooltip>
-              <span className="min-w-0">{p || "—"}</span>
-            </div>
-            {leg && (
+            <div className="relative flex items-center justify-center self-stretch">
               <div
-                className="pl-[94px] text-[11px]"
-                style={{ color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}
-              >
-                {leg.miles.toFixed(1)} mi
-                {leg.measuredFrom && (
-                  <Tooltip
-                    text={`${ROUTE_TIPS.closer}${leg.homeMiles !== undefined ? ` ${leg.homeMiles.toFixed(1)} mi as driven from home.` : ""}`}
-                    style={{ color: "#4356a9", cursor: "help" }}
-                  >
-                    {" "}
-                    · measured from {leg.measuredFrom}
-                  </Tooltip>
-                )}
-              </div>
-            )}
+                className="absolute left-1/2 w-px -translate-x-1/2"
+                style={{
+                  top: first ? "50%" : -2,
+                  bottom: isLast ? "50%" : -2,
+                  background: "#c5cae0",
+                }}
+              />
+              <div
+                className="relative z-10 rounded-full"
+                style={
+                  first
+                    ? { width: 10, height: 10, background: "#1d2a5d" }
+                    : isLast
+                      ? {
+                          width: 10,
+                          height: 10,
+                          background: "#ad2122",
+                          borderRadius: 2,
+                        }
+                      : {
+                          width: 9,
+                          height: 9,
+                          background: "#ffffff",
+                          border: "1.5px solid #4356a9",
+                        }
+                }
+              />
+            </div>
+            <Tooltip
+              text={
+                first
+                  ? ROUTE_TIPS.start
+                  : isLast
+                    ? ROUTE_TIPS.end
+                    : ROUTE_TIPS.stop
+              }
+              className="text-[10px] font-bold tracking-wider whitespace-nowrap uppercase"
+              style={{
+                cursor: "help",
+                color: first ? "#1d2a5d" : isLast ? "#ad2122" : "#64748b",
+              }}
+            >
+              {first ? "Departing from" : isLast ? "Returning to" : `Stop ${i}`}
+            </Tooltip>
+            <div className="min-w-0 py-0.5">
+              <div style={{ color: "#1d2a5d" }}>{p || "—"}</div>
+              {leg?.measuredFrom && (
+                <Tooltip
+                  text={`${ROUTE_TIPS.closer}${leg.homeMiles !== undefined ? ` ${leg.homeMiles.toFixed(1)} mi as driven from home.` : ""}`}
+                  className="text-[10.5px]"
+                  style={{ color: "#4356a9", cursor: "help" }}
+                >
+                  Measured from {leg.measuredFrom}, closer than home
+                </Tooltip>
+              )}
+            </div>
+            <div
+              className="text-right text-[11.5px] font-semibold"
+              style={{
+                color: leg ? "#1d2a5d" : "transparent",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {leg ? `${leg.miles.toFixed(1)} mi` : ""}
+            </div>
           </Fragment>
         )
       })}

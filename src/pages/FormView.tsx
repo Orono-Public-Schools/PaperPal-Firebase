@@ -55,53 +55,45 @@ import type { CheckRequestData, MileageData, TravelData } from "@/lib/types"
 
 const STATUS_CONFIG: Record<
   SubmissionStatus,
-  { label: string; bg: string; color: string; icon: typeof Clock }
+  { label: string; color: string; icon: typeof Clock }
 > = {
   pending: {
     label: "Pending Review",
-    bg: "rgba(67,86,169,0.12)",
     color: "#4356a9",
     icon: Clock,
   },
   approved_by_approver: {
     label: "Approver Approved",
-    bg: "rgba(56,74,151,0.12)",
     color: "#384a97",
     icon: Shield,
   },
   reviewed: {
     label: "Awaiting Final Approval",
-    bg: "rgba(45,63,137,0.12)",
     color: "#2d3f89",
     icon: Shield,
   },
   approved: {
     label: "Approved",
-    bg: "rgba(29,42,93,0.12)",
     color: "#1d2a5d",
     icon: CheckCircle,
   },
   paid: {
     label: "Paid",
-    bg: "rgba(5,150,105,0.12)",
     color: "#059669",
     icon: CheckCircle,
   },
   denied: {
     label: "Denied",
-    bg: "rgba(173,33,34,0.12)",
     color: "#ad2122",
     icon: XCircle,
   },
   revisions_requested: {
     label: "Revisions Requested",
-    bg: "rgba(67,86,169,0.12)",
     color: "#4356a9",
     icon: RotateCcw,
   },
   cancelled: {
     label: "Cancelled",
-    bg: "rgba(148,163,184,0.12)",
     color: "#64748b",
     icon: XCircle,
   },
@@ -627,7 +619,10 @@ export default function FormView() {
           )}
           <div
             className="flex items-center gap-2 rounded-full px-4 py-2"
-            style={{ background: statusCfg.bg }}
+            style={{
+              background: "#ffffff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            }}
           >
             <StatusIcon size={14} style={{ color: statusCfg.color }} />
             <span
