@@ -452,22 +452,55 @@ function renderMileage(doc, data) {
   doc.y = y
   drawSectionHeading(doc, "Trips")
 
-  // Each trip spans one row per point: the date, purpose and trip total sit
-  // on the first row; the point label, address and leg miles on every row
-  const colWidths = [50, 78, 184, 44, 106, 50]
-  drawTableHeaders(
-    doc,
-    ["Date", "", "Route", "Leg mi", "Purpose", "Miles"],
-    colWidths,
-    50
-  )
+  // Each trip is a block: a heading line with the date, purpose and trip
+  // total, then one indented line per point with the miles driven to reach it
+  const X = 50
+  const W = 512
+  const RIGHT = X + W
+  const INDENT = 58
+  const LABEL_W = 72
+  const MILES_W = 56
+  const addrX = X + INDENT + LABEL_W
+  const addrW = W - INDENT - LABEL_W - MILES_W - 8
+
+  drawRule(doc, X, RIGHT, 0.5)
+  doc.y += 6
 
   for (const trip of data.trips || []) {
     const points = tripPoints(trip)
     const legs = tripLegs(trip)
     const lastIdx = points.length - 1
-    ensureSpace(doc, 14 * points.length + 10)
+    ensureSpace(doc, 20 + 14 * points.length)
+
+    const hy = doc.y
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(8.5)
+      .fillColor(NAVY)
+      .text(formatDate(trip.date), X, hy, {
+        width: INDENT - 4,
+        lineBreak: false,
+      })
+    const purposeW = W - INDENT - MILES_W - 8
+    const purpose = trip.purpose || "—"
+    doc
+      .font("Helvetica")
+      .fontSize(8.5)
+      .fillColor(TEXT_COLOR)
+      .text(purpose, X + INDENT, hy, { width: purposeW })
+    const purposeH = doc.heightOfString(purpose, { width: purposeW })
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(8.5)
+      .fillColor(NAVY)
+      .text(`${tripGrossMiles(trip).toFixed(1)} mi`, RIGHT - MILES_W, hy, {
+        width: MILES_W,
+        align: "right",
+      })
+    doc.y = hy + Math.max(purposeH, 11) + 5
+
     points.forEach((p, i) => {
+      const py = doc.y
       const leg = i > 0 ? legs[i - 1] : null
       const label =
         i === 0
@@ -477,87 +510,113 @@ function renderMileage(doc, data) {
             : `STOP ${i}`
       const labelColor =
         i === 0 ? NAVY : i === lastIdx ? "#ad2122" : LABEL_COLOR
-      const address = leg?.measuredFrom
-        ? `${p || "—"}\nMeasured from ${leg.measuredFrom}, closer than home`
-        : p || "—"
-      drawTableRow(
-        doc,
-        [
-          i === 0 ? formatDate(trip.date) : "",
-          { text: label, bold: true, color: labelColor },
-          address,
-          leg ? { text: (leg.miles || 0).toFixed(1), align: "right" } : "",
-          i === 0 ? trip.purpose || "—" : "",
-          i === 0 ? { text: tripGrossMiles(trip).toFixed(1), bold: true } : "",
-        ],
-        colWidths,
-        50,
-        false,
-        i !== lastIdx
-      )
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(6.5)
+        .fillColor(labelColor)
+        .text(label, X + INDENT, py + 1.5, {
+          width: LABEL_W - 4,
+          lineBreak: false,
+        })
+      const address = p || "—"
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .fillColor(TEXT_COLOR)
+        .text(address, addrX, py, { width: addrW })
+      let h = doc.heightOfString(address, { width: addrW })
+      if (leg?.measuredFrom) {
+        const note = `Measured from ${leg.measuredFrom}, closer than home`
+        doc
+          .font("Helvetica-Oblique")
+          .fontSize(7)
+          .fillColor("#4356a9")
+          .text(note, addrX, py + h + 1, { width: addrW })
+        h += doc.heightOfString(note, { width: addrW }) + 1
+      }
+      if (leg) {
+        doc
+          .font("Helvetica")
+          .fontSize(8)
+          .fillColor(LABEL_COLOR)
+          .text(`${(leg.miles || 0).toFixed(1)} mi`, RIGHT - MILES_W, py, {
+            width: MILES_W,
+            align: "right",
+          })
+      }
+      doc.y = py + Math.max(h, 10) + 3
     })
+
+    doc.y += 4
+    drawRule(doc, X, RIGHT, 0.25)
+    doc.y += 7
   }
 
+  // Totals, right-aligned under the miles column so the arithmetic reads
+  // top to bottom: miles, any commute deduction, rate, amount
   const hasCommuteDeduction =
     typeof data.totalCommuteDeduction === "number" &&
     data.totalCommuteDeduction > 0
   const displayMiles = hasCommuteDeduction
     ? (data.reimbursableMiles ?? data.totalMiles)
     : data.totalMiles
-
-  ensureSpace(doc, 20)
-  drawTableRow(
-    doc,
-    ["", "", "", "", "Total", `${data.totalMiles.toFixed(1)} mi`],
-    colWidths,
-    50,
-    true
-  )
-
-  if (hasCommuteDeduction) {
-    const commuteNote = data.commuteMilesUsed
-      ? `Less commute (${data.commuteMilesUsed.toFixed(1)} mi one-way, on trips to/from home)`
-      : "Less commute deduction"
-    ensureSpace(doc, 20)
-    drawTableRow(
-      doc,
-      [
-        "",
-        "",
-        "",
-        "",
-        commuteNote,
-        `-${data.totalCommuteDeduction.toFixed(1)} mi`,
-      ],
-      colWidths,
-      50
-    )
-    ensureSpace(doc, 20)
-    drawTableRow(
-      doc,
-      ["", "", "", "", "Reimbursable", `${displayMiles.toFixed(1)} mi`],
-      colWidths,
-      50,
-      true
-    )
-  }
-
-  // Summary box
   const hasStampedRates = (data.trips || []).some((t) => t.rate !== undefined)
   const rateText = hasStampedRates
     ? mileageRateCaption(data.trips)
     : `${displayMiles.toFixed(1)} mi × $${MILEAGE_RATE.toFixed(3)}`
-  doc.moveDown(0.5)
-  ensureSpace(doc, 30)
+
+  ensureSpace(doc, 70)
+  const totalLine = (label, value, opts = {}) => {
+    const ty = doc.y
+    const size = opts.size || 8
+    const labelW = 300
+    doc
+      .font(opts.bold ? "Helvetica-Bold" : "Helvetica")
+      .fontSize(size)
+      .fillColor(opts.bold ? NAVY : LABEL_COLOR)
+      .text(label, RIGHT - MILES_W - 8 - labelW, ty, {
+        width: labelW,
+        align: "right",
+      })
+    doc
+      .font(opts.bold ? "Helvetica-Bold" : "Helvetica")
+      .fontSize(size)
+      .fillColor(opts.bold ? NAVY : TEXT_COLOR)
+      .text(value, RIGHT - MILES_W, ty, { width: MILES_W, align: "right" })
+    doc.y = ty + size + 5
+  }
+
+  if (hasCommuteDeduction) {
+    totalLine("Total miles", `${data.totalMiles.toFixed(1)} mi`)
+    totalLine(
+      data.commuteMilesUsed
+        ? `Less commute, ${data.commuteMilesUsed.toFixed(1)} mi one-way on trips to/from home`
+        : "Less commute deduction",
+      `-${data.totalCommuteDeduction.toFixed(1)} mi`
+    )
+    totalLine("Reimbursable miles", `${displayMiles.toFixed(1)} mi`, {
+      bold: true,
+    })
+  } else {
+    totalLine("Total miles", `${data.totalMiles.toFixed(1)} mi`, {
+      bold: true,
+    })
+  }
+  totalLine(rateText, "")
+  doc.y += 2
+  totalLine("Total reimbursement", currency(data.totalReimbursement), {
+    bold: true,
+    size: 10,
+  })
+}
+
+function drawRule(doc, x1, x2, width) {
   doc
-    .font("Helvetica")
-    .fontSize(9)
-    .fillColor(LABEL_COLOR)
-    .text(`${rateText} = `, 50, doc.y, { continued: true })
-  doc
-    .font("Helvetica-Bold")
-    .fillColor(NAVY)
-    .text(currency(data.totalReimbursement))
+    .moveTo(x1, doc.y)
+    .lineTo(x2, doc.y)
+    .strokeColor(BORDER_COLOR)
+    .lineWidth(width)
+    .stroke()
 }
 
 // ─── Travel Reimbursement ────────────────────────────────────────────────────
@@ -648,7 +707,7 @@ function renderTravel(doc, data) {
     doc.moveDown(0.5)
     ensureSpace(doc, 40)
     drawSectionHeading(doc, "Expenses")
-    const expCols = [60, 90, 130, 70]
+    const expCols = [60, 80, 292, 80]
     drawTableHeaders(doc, ["Date", "Category", "Detail", "Amount"], expCols, 50)
 
     let expTotal = 0
