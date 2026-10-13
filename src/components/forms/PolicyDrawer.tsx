@@ -107,60 +107,77 @@ export function TravelPolicyContent() {
       </h2>
       <P>
         This regulation provides guidelines for District employees and School
-        Board members traveling at district expense to conferences, seminars,
-        workshops and other appropriate, work-related meetings or events not
+        Board members traveling at District expense for work-related events not
         involving the supervision of students.
       </P>
       <P>
         <strong>Definitions</strong> — Travel and related expenses include the
-        cost of transportation (by public carrier, private automobile,
-        district-owned vehicles), meals, lodging and necessary incidental
-        expenses incurred by district employees or board members while in
-        attendance at or traveling to and from conferences, seminars and
-        workshops or while engaged in other travel in accordance with district
-        policy.
+        cost of transportation (public carrier, private automobile,
+        District-owned vehicles), meals, lodging, and necessary incidental
+        expenses incurred while attending or traveling to and from conferences,
+        seminars, and workshops, or while engaged in other travel in accordance
+        with District policy.
       </P>
 
       <Heading>1. Mileage Reimbursement</Heading>
       <P>
-        District employees and School Board members traveling in their personal
-        vehicle on District business may request reimbursement based on the
-        Internal Revenue Service (IRS) standard mileage rate.
+        Employees and Board members traveling in their personal vehicle on
+        District business may request reimbursement based on the IRS standard
+        business mileage rate in effect on the date of travel. The mileage
+        reimbursement form must be completed and signed by the employee,
+        authorized by the appropriate administrator, and submitted to Accounts
+        Payable. The District reimburses mileage in accordance with IRS
+        Publication 463.
       </P>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
-          Travel is reimbursable from the employee's regular job location to the
-          employee's temporary work location.
+          Mileage is reimbursable for travel to and from a temporary work
+          location (a meeting, training, or conference). For each one-way trip,
+          reimbursable mileage is the actual miles driven between the
+          employee&apos;s point of departure (residence or primary work site)
+          and the temporary work location, <em>not to exceed</em> the distance
+          between the employee&apos;s primary work site and the temporary work
+          location. The employee must identify the point of departure and return
+          on the mileage form. Travel between temporary work locations on the
+          same day is reimbursable at actual miles.
         </Li>
         <Li>
-          Travel is <em>not</em> reimbursable from the employee's home to the
-          employee's regular place of work, <em>even if</em> travel occurs
-          multiple times daily or outside of regular work hours.
+          Travel is <em>not</em> reimbursable from the employee&apos;s home to
+          the regular place of work, <em>even if</em> travel occurs multiple
+          times daily or outside regular work hours. Personal side trips are not
+          reimbursable.
+        </Li>
+        <Li>
+          &ldquo;Primary work site&rdquo; is the District building to which the
+          employee is regularly assigned. A &ldquo;temporary work
+          location&rdquo; is a location, other than a regular work site, at
+          which District business is realistically expected to be conducted for
+          one year or less.
         </Li>
         <Li>
           Mileage reimbursement requests must be submitted within 60 days after
-          the travel event. Requests submitted after the 60-day period will be
-          treated as taxable income per IRS guidelines.
+          the travel event. In extraordinary circumstances, the Business
+          Services department may allow an exception.
         </Li>
       </ol>
 
       <Heading>2. Expense Reimbursement</Heading>
       <P>
-        District employees and School Board members may request reimbursement
-        for expenses incurred while in attendance at or traveling to and from
-        conferences, seminars and workshops, or while engaged in other travel in
-        accordance with district policy.
+        Employees and Board members may request reimbursement for expenses
+        incurred while attending or traveling to and from work-related events,
+        or while engaged in other travel in accordance with District policy.
       </P>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
           Expense reimbursements must be submitted on an Employee Check Request
-          Form and include original, itemized receipts. Credit card statements
-          do not serve as sufficient documentation.
+          Form with original, itemized receipts. Credit card statements do not
+          serve as sufficient documentation, as they do not provide the itemized
+          detail required for review.
         </Li>
         <Li>
-          Reimbursement requests must be submitted within 60 days after the
-          expenses were paid or incurred. Requests submitted after the 60-day
-          period will be treated as taxable income per IRS guidelines.
+          Reimbursement requests must be submitted within 60 days after expenses
+          were paid or incurred. Except in extraordinary circumstances, requests
+          after 60 days will be treated as taxable income per IRS guidelines.
         </Li>
       </ol>
 
@@ -171,143 +188,137 @@ export function TravelPolicyContent() {
       </P>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
-          The purpose of the travel fits with district and/or school goals
-          and/or curriculum.
+          The purpose fits District and/or school goals and/or curriculum.
         </Li>
+        <Li>There is sufficient budget balance to cover the expenses.</Li>
         <Li>
-          There is a sufficient balance in the appropriate budget to cover the
-          expenses.
-        </Li>
-        <Li>
-          Consideration is given to the number of employees from that particular
-          school and/or department and/or the district planning to attend the
-          same event.
+          Consideration is given to the number of employees from the same
+          school, department, or district planning to attend.
         </Li>
         <Li>
           If the travel involves at least one overnight stay outside the
-          district, the travel request is submitted in writing to the employee's
-          supervisor.
+          District, the request is submitted in writing to the supervisor.
         </Li>
       </ol>
       <P>
         The administrator approving attendance and travel is responsible for
-        determining the reasonableness and necessity of the expense and has the
-        authority to disallow unreasonable or unnecessary expenses.
+        determining the reasonableness and necessity of the expense within
+        District policy and may disallow unreasonable or unnecessary expenses.
       </P>
 
       <Heading>4. Airline Travel</Heading>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
           Airline tickets should be booked online or by the least expensive
-          method, preferably using a district procurement card (PCard). The
-          district provides for travel on coach class or tourist class only.
+          method, preferably using a District P-Card. The District provides for
+          coach/tourist class only.
         </Li>
         <Li>
-          Frequent flyer miles and other airline travel credit resulting from
-          district-paid airfare accrue to the district and may not be used for
-          personal travel. Employees must report receipt of any credit or
-          benefit to the district within 90 days.
+          In accordance with state law, frequent flyer miles and other travel
+          credit resulting from District-paid airfare accrue to the District and
+          may not be used for personal travel. If the airline will not honor a
+          transfer or assignment, the employee must report receipt of the credit
+          or benefit to the District within 90 days.
         </Li>
       </ol>
 
       <Heading>5. Accommodations</Heading>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
-          Individuals are expected to select accommodations at the most
-          reasonable rate. Lodging shall be selected on the basis of reasonable
-          cost in conjunction with comfort, safety and convenience.
+          Individuals are expected to select accommodations, when they have an
+          option, at the most reasonable rate, balancing cost with comfort,
+          safety, and convenience.
         </Li>
         <Li>
-          When traveling with a non-employee, the district will reimburse
-          expenses for the employee only.
+          When traveling with a non-employee, the District reimburses the
+          employee&apos;s expenses only.
         </Li>
         <Li>
-          Overnight accommodations in the seven-county Twin Cities metro area
-          will only be reimbursed if the employee or School Board member is
+          The District reimburses overnight accommodations in the seven-county
+          Twin Cities metropolitan area only if the employee or Board member is
           working at the conference.
         </Li>
-        <Li>
-          Original, itemized receipts are required for all accommodation claims.
-        </Li>
+        <Li>Original, itemized receipts are required.</Li>
       </ol>
 
       <Heading>6. Meals Reimbursement</Heading>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
-          The district will not use funds sourced from federal grants or awards
+          The District will not use funds sourced from federal grants or awards
           for meal reimbursements.
         </Li>
         <Li>
-          Reimbursement will be based upon actual expenditures; individuals must
-          provide original, itemized receipts.
+          Reimbursement will be based on actual expenditures up to the{" "}
+          <a
+            href="https://www.gsa.gov/travel/plan-book/per-diem-rates"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+            style={{ color: "#2d3f89" }}
+          >
+            GSA per-diem limit
+          </a>{" "}
+          for the specific location of travel, with original, itemized receipts.
         </Li>
         <Li>
-          Maximum reimbursement for meals per person, including tax and tip:{" "}
-          <strong>$60 per day</strong>, or for partial days:{" "}
-          <strong>$12 breakfast</strong>, <strong>$18 lunch</strong>, and{" "}
-          <strong>$30 dinner</strong>.
+          The District will not reimburse the cost of alcoholic beverages.
         </Li>
         <Li>
-          The district will not reimburse the cost of alcoholic beverages.
-        </Li>
-        <Li>
-          The district will reimburse the cost of banquets or special functions
-          related to an individual's responsibility or participated in by the
-          general audience attending the conference. It is necessary to document
-          these additional expenses.
+          The District will reimburse the cost of banquets or special functions
+          related to an individual&apos;s responsibility or participated in by
+          the general conference audience; these additional expenses must be
+          documented.
         </Li>
       </ol>
 
       <Heading>7. Other Costs</Heading>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
-          The district will reimburse registration fees relating to conference,
-          workshop or seminar attendance.
+          The District reimburses registration fees for conferences, workshops,
+          or seminars.
         </Li>
         <Li>
-          The district will not reimburse for entertainment or recreation costs.
+          The District will not reimburse entertainment or recreation costs.
         </Li>
         <Li>
-          Relevant printed and audio publications from the conference may be
-          purchased with supervisor approval.
+          Relevant printed and audio publications may be purchased with
+          supervisor approval.
+        </Li>
+        <Li>Reasonable baggage handling will be reimbursed when necessary.</Li>
+        <Li>
+          Individuals are expected to use conference transportation (such as
+          shuttle buses) when available and to select transportation at the most
+          reasonable rate.
         </Li>
         <Li>
-          The district will reimburse a reasonable cost of baggage handling when
-          necessary.
+          Rental cars require prior approval by the Superintendent or designee
+          (or, for Board members, the Board chairperson).
         </Li>
         <Li>
-          Individuals are expected to select transportation at the most
-          reasonable rate. Conference transportation (shuttles) should be used
-          whenever available.
-        </Li>
-        <Li>
-          Rental car reimbursement requires prior approval by the superintendent
-          or designee.
-        </Li>
-        <Li>
-          The district will not reimburse telephone calls for personal or family
-          purposes. District-related calls must note the party called on the
-          receipt.
+          Personal or family telephone calls are not reimbursed; for
+          District-related calls, the party called must be noted on the receipt.
         </Li>
         <Li>
           Exceptions to allowed travel expenses must be approved by the
-          superintendent or designee.
+          Superintendent or designee for employees and by the Board chairperson
+          for Board members.
         </Li>
       </ol>
 
       <Heading>8. Multiple District Staff</Heading>
       <P>
-        When travel involves more than one district employee, each employee must
-        separately account for their own individual expenses.
+        When travel involves more than one employee, each must separately
+        account for individual expenses.
       </P>
       <ol className="mb-3 list-[lower-alpha] space-y-1 pl-6">
         <Li>
           Employee Check Requests should not contain expenses for more than one
-          employee. Each employee must submit their own request.
+          employee; each employee must pay for and submit their own expenses.
         </Li>
         <Li>
-          PCards may be used only for the individual cardholder's expenses and
-          may not be used to pay for co-worker expenses.
+          P-Cards may be used only for the individual cardholder&apos;s expenses
+          and may not pay for co-worker expenses (such as airline tickets or
+          meals).
         </Li>
       </ol>
 
@@ -315,7 +326,8 @@ export function TravelPolicyContent() {
         className="mt-6 rounded-lg px-4 py-3 text-xs"
         style={{ background: "#f8f9fb", color: "#64748b" }}
       >
-        Source: Orono Public Schools Business Services Procedure Manual
+        Source: Orono Public Schools Business Services Procedures Manual,
+        incorporating updates through June 30, 2026.
       </div>
     </div>
   )

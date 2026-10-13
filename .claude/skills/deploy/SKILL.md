@@ -13,7 +13,7 @@ Build and deploy to the preview channel for testing:
 npm run build && firebase hosting:channel:deploy dev-joel
 ```
 
-Preview URL: `https://paperpal-orono--dev-joel-rg1a9jao.web.app` (hash changes if the channel expires and is recreated — the deploy output prints the current URL)
+Preview URL: `https://paperpal-orono--dev-joel-a9mkpgqt.web.app` (hash changes if the channel expires and is recreated — the deploy output prints the current URL)
 
 ## Cloud Functions
 

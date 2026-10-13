@@ -7,7 +7,9 @@ import type {
   FieldChange,
   MileageRateEntry,
   Submission,
+  TripBase,
 } from "./types"
+import { tripGrossMiles, tripHomeLegs } from "./route"
 
 // Rate used for legacy trips stamped before per-trip rates existed
 export const LEGACY_MILEAGE_RATE = 0.725
@@ -40,16 +42,11 @@ export function mileageRateForDate(
  * fall back to the legacy rate.
  */
 export function mileageRateGroups(
-  trips: {
-    miles: number
-    isRoundTrip: boolean
-    rate?: number
-    commuteDeduction?: number
-  }[]
+  trips: TripBase[]
 ): { rate: number; miles: number }[] {
   const buckets = new Map<number, number>()
   for (const t of trips) {
-    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
+    const gross = tripGrossMiles(t)
     const reimbursable = Math.max(0, gross - (t.commuteDeduction ?? 0))
     if (reimbursable <= 0) continue
     const rate = t.rate ?? LEGACY_MILEAGE_RATE
@@ -58,6 +55,53 @@ export function mileageRateGroups(
   return [...buckets.entries()]
     .map(([rate, miles]) => ({ rate, miles }))
     .sort((a, b) => a.rate - b.rate)
+}
+
+/**
+ * Prices each trip at the IRS rate in effect on its date and stamps the rate
+ * and any commute deduction onto it, so review views and the PDF reproduce
+ * the math without re-deriving it. One commute is deducted per leg that was
+ * driven to or from home on a working day.
+ */
+export function stampTrips<T extends TripBase>(
+  trips: T[],
+  commuteMiles: number | null,
+  homeAddress: string,
+  rates: MileageRateEntry[] | undefined
+): {
+  trips: T[]
+  totalMiles: number
+  totalCommuteDeduction: number
+  reimbursableMiles: number
+  totalReimbursement: number
+} {
+  const commute = commuteMiles ?? 0
+  let totalMiles = 0
+  let totalCommuteDeduction = 0
+  let totalReimbursement = 0
+  const stamped = trips.map((t) => {
+    const gross = tripGrossMiles(t)
+    totalMiles += gross
+    let deduction = 0
+    if (commute > 0 && gross > 0 && t.isWorkingDay !== false) {
+      const homeLegs = tripHomeLegs(t, homeAddress)
+      if (homeLegs > 0) deduction = Math.min(gross, commute * homeLegs)
+    }
+    totalCommuteDeduction += deduction
+    const rate = mileageRateForDate(rates, t.date)
+    totalReimbursement += Math.max(0, gross - deduction) * rate
+    const next: T = { ...t, rate, miles: t.route ? gross : t.miles }
+    if (deduction > 0) next.commuteDeduction = deduction
+    else delete next.commuteDeduction
+    return next
+  })
+  return {
+    trips: stamped,
+    totalMiles,
+    totalCommuteDeduction,
+    reimbursableMiles: Math.max(0, totalMiles - totalCommuteDeduction),
+    totalReimbursement,
+  }
 }
 
 export function getCurrentAssignee(

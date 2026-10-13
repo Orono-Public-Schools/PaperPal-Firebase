@@ -589,13 +589,43 @@ const FORM_PREVIEWS: Record<FormType, Record<string, () => React.ReactNode>> = {
     ),
     trips: () => (
       <div className="space-y-2">
-        <div className="grid grid-cols-5 gap-2">
-          {["Date", "From", "To", "Miles", "Purpose"].map((h) => (
+        <div className="grid grid-cols-2 gap-2">
+          {["Date", "Purpose"].map((h) => (
             <PreviewLabel key={h} text={h} />
           ))}
         </div>
-        <div className="grid grid-cols-5 gap-2">
-          {[1, 2, 3, 4, 5].map((n) => (
+        <div className="grid grid-cols-2 gap-2">
+          {[1, 2].map((n) => (
+            <InputBar key={n} />
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          {["Departing from", "Miles"].map((h) => (
+            <PreviewLabel key={h} text={h} />
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_72px] gap-2">
+          {[1, 2].map((n) => (
+            <InputBar key={n} />
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          {["Stop 1", "Miles"].map((h) => (
+            <PreviewLabel key={h} text={h} />
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_72px] gap-2">
+          {[1, 2].map((n) => (
+            <InputBar key={n} />
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          {["Returning to", "Miles"].map((h) => (
+            <PreviewLabel key={h} text={h} />
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_72px] gap-2">
+          {[1, 2].map((n) => (
             <InputBar key={n} />
           ))}
         </div>

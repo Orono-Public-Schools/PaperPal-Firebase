@@ -7,8 +7,6 @@ import {
   Send,
   X,
   Loader2,
-  MapPin,
-  Building2,
   Upload,
   FileText,
   Image,
@@ -18,9 +16,9 @@ import {
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import DatePicker from "@/components/forms/DatePicker"
-import AddressAutocomplete, {
-  type QuickFill,
-} from "@/components/forms/AddressAutocomplete"
+import { type QuickFill } from "@/components/forms/AddressAutocomplete"
+import RouteEditor from "@/components/forms/RouteEditor"
+import Tooltip from "@/components/forms/Tooltip"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import PolicyDrawer, {
@@ -49,18 +47,22 @@ import type {
   TravelExpenseItem,
   TravelCarTrip,
   MileageRateEntry,
+  TripRoute,
 } from "@/lib/types"
+import { getCommuteMiles } from "@/lib/commute"
 import {
-  applyLegDistance,
-  calculateLegDistance,
-  getCommuteMiles,
-  tripTouchesHome,
-} from "@/lib/commute"
+  emptyRoute,
+  routeMiles,
+  routeProblem,
+  tripHomeLegs,
+  upgradeTrip,
+} from "@/lib/route"
 import {
   diffSubmissionChanges,
   editActionForRole,
   mileageRateForDate,
   mileageRateGroups,
+  stampTrips,
 } from "@/lib/utils"
 import { storage, functions } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -76,13 +78,21 @@ function todayStr() {
 
 type ExpenseCategory = TravelExpenseItem["category"]
 
+// An untouched mileage row is dropped at submit instead of failing validation
+function tripHasContent(t: TravelCarTrip): boolean {
+  const r = t.route
+  return (
+    !!t.date ||
+    t.miles > 0 ||
+    (!!r && (!!r.start.trim() || r.stops.some((s) => s.trim()) || !!r.end))
+  )
+}
+
 function emptyCarTrip(): TravelCarTrip {
   return {
     date: "",
-    from: "",
-    to: "",
     miles: 0,
-    isRoundTrip: false,
+    route: emptyRoute(),
     isWorkingDay: true,
   }
 }
@@ -208,11 +218,8 @@ export default function TravelReimbursement() {
   // Mileage within travel — multiple trips supported
   const [carTrips, setCarTrips] = useState<TravelCarTrip[]>(
     saved?.carTrips && saved.carTrips.length > 0
-      ? saved.carTrips
+      ? saved.carTrips.map(upgradeTrip)
       : [emptyCarTrip()]
-  )
-  const [calculatingTripIdx, setCalculatingTripIdx] = useState<number | null>(
-    null
   )
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
   const [school, setSchool] = useState<{ address: string; label: string }>()
@@ -410,16 +417,16 @@ export default function TravelReimbursement() {
       setEstOther(fd.estimated.other)
       // Restore car trips: prefer the saved array; fall back to a single legacy row from actuals.miles
       if (fd.carTrips && fd.carTrips.length > 0) {
-        setCarTrips(fd.carTrips)
+        setCarTrips(fd.carTrips.map(upgradeTrip))
       } else if (fd.actuals.miles > 0) {
         setCarTrips([
-          {
+          upgradeTrip({
             date: "",
             from: "",
             to: "",
             miles: fd.actuals.miles,
             isRoundTrip: false,
-          },
+          }),
         ])
       }
       if (fd.expenses && fd.expenses.length > 0) {
@@ -487,15 +494,16 @@ export default function TravelReimbursement() {
 
   function updateCarTrip(index: number, updates: Partial<TravelCarTrip>) {
     setCarTrips((trips) =>
+      trips.map((t, i) => (i === index ? { ...t, ...updates } : t))
+    )
+  }
+
+  function updateCarRoute(index: number, update: (r: TripRoute) => TripRoute) {
+    setCarTrips((trips) =>
       trips.map((t, i) => {
         if (i !== index) return t
-        const next = { ...t, ...updates }
-        // Editing the leg or its miles by hand invalidates the closer-origin note
-        if ("from" in updates || "to" in updates || "miles" in updates) {
-          delete next.measuredFrom
-          delete next.homeMiles
-        }
-        return next
+        const route = update(t.route ?? emptyRoute())
+        return { ...t, route, miles: routeMiles(route) }
       })
     )
   }
@@ -506,24 +514,6 @@ export default function TravelReimbursement() {
 
   function removeCarTrip(index: number) {
     setCarTrips((trips) => trips.filter((_, i) => i !== index))
-  }
-
-  // A leg that touches home is measured from school instead when school is
-  // closer to the other end (see calculateLegDistance)
-  async function calcTripDistance(index: number, from: string, to: string) {
-    if (from.length < 5 || to.length < 5) return
-    setCalculatingTripIdx(index)
-    const leg = await calculateLegDistance(
-      { from, to },
-      userProfile?.homeAddress ?? "",
-      school
-    )
-    setCalculatingTripIdx((prev) => (prev === index ? null : prev))
-    if (leg !== null) {
-      setCarTrips((trips) =>
-        trips.map((t, i) => (i === index ? applyLegDistance(t, leg) : t))
-      )
-    }
   }
 
   async function handleFileUpload(files: FileList | null) {
@@ -603,43 +593,17 @@ export default function TravelReimbursement() {
 
   // Each car trip is priced at the IRS rate in effect on its date; rate and
   // commute deduction are stamped per trip (see MileageReimbursement)
-  const stampedCarTrips = carTrips.map((t) => {
-    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
-    let deduction = 0
-    if (
-      commuteMiles &&
-      commuteMiles > 0 &&
-      gross > 0 &&
-      t.isWorkingDay !== false &&
-      !t.measuredFrom &&
-      tripTouchesHome(t, userProfile?.homeAddress ?? "")
-    ) {
-      const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
-      deduction = Math.min(gross, commuteCap)
-    }
-    const stamped: TravelCarTrip = {
-      ...t,
-      rate: mileageRateForDate(mileageRates, t.date),
-    }
-    if (deduction > 0) stamped.commuteDeduction = deduction
-    else delete stamped.commuteDeduction
-    return stamped
-  })
-  const effectiveActMiles = stampedCarTrips.reduce(
-    (sum, t) => sum + (t.isRoundTrip ? t.miles * 2 : t.miles),
-    0
-  )
-  const totalCommuteDeduction = stampedCarTrips.reduce(
-    (sum, t) => sum + (t.commuteDeduction ?? 0),
-    0
-  )
-  const mileageReimbursement = stampedCarTrips.reduce((sum, t) => {
-    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
-    return sum + Math.max(0, gross - (t.commuteDeduction ?? 0)) * (t.rate ?? 0)
-  }, 0)
-  const reimbursableMiles = Math.max(
-    0,
-    effectiveActMiles - totalCommuteDeduction
+  const {
+    trips: stampedCarTrips,
+    totalMiles: effectiveActMiles,
+    totalCommuteDeduction,
+    reimbursableMiles,
+    totalReimbursement: mileageReimbursement,
+  } = stampTrips(
+    carTrips,
+    commuteMiles,
+    userProfile?.homeAddress ?? "",
+    mileageRates
   )
   const travelRateGroups = mileageRateGroups(stampedCarTrips)
   const expensesTotal = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
@@ -675,14 +639,15 @@ export default function TravelReimbursement() {
       alert("Please add your signature before submitting.")
       return
     }
-    const incompleteTrip = carTrips.find(
-      (t) => t.miles > 0 && (!t.date || !t.from || !t.to)
-    )
-    if (incompleteTrip) {
-      alert(
-        "Each mileage trip needs a date, origin, and destination so reviewers can audit it."
-      )
-      return
+    for (const [i, t] of carTrips.entries()) {
+      if (!tripHasContent(t)) continue
+      const problem = !t.date
+        ? "Enter the date so reviewers can audit it."
+        : routeProblem(t.route ?? emptyRoute())
+      if (problem) {
+        alert(`Mileage trip ${i + 1}: ${problem}`)
+        return
+      }
     }
     setSubmitting(true)
     try {
@@ -749,9 +714,7 @@ export default function TravelReimbursement() {
         },
         meals: Array.from(mealsByDate.values()),
         expenses,
-        carTrips: stampedCarTrips.filter(
-          (t) => t.miles > 0 || t.from || t.to || t.date
-        ),
+        carTrips: stampedCarTrips.filter(tripHasContent),
         taxExemptAcknowledged,
         advanceRequested,
         finalClaim,
@@ -1370,14 +1333,11 @@ export default function TravelReimbursement() {
           </div>
           <div className="divide-y" style={{ borderColor: "#e5e7eb" }}>
             {carTrips.map((trip, idx) => {
-              const tripEffective = trip.isRoundTrip
-                ? trip.miles * 2
-                : trip.miles
-              const isCalcing = calculatingTripIdx === idx
-              const canCalc =
-                trip.from.length >= 5 && trip.to.length >= 5 && !isCalcing
+              const route = trip.route ?? emptyRoute()
+              const tripMiles = routeMiles(route)
+              const tripRate = mileageRateForDate(mileageRates, trip.date)
               return (
-                <div key={idx} className="py-3 first:pt-0 last:pb-0">
+                <div key={idx} className="py-4 first:pt-0 last:pb-0">
                   <div className="mb-3 sm:max-w-xs">
                     <Field label="Date">
                       <DatePicker
@@ -1386,133 +1346,35 @@ export default function TravelReimbursement() {
                       />
                     </Field>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Field label="From">
-                      <AddressAutocomplete
-                        value={trip.from}
-                        onChange={(v) => updateCarTrip(idx, { from: v })}
-                        onSelect={(v) => {
-                          updateCarTrip(idx, { from: v })
-                          if (trip.to.length >= 5)
-                            calcTripDistance(idx, v, trip.to)
-                        }}
-                        placeholder="Origin"
-                        quickFills={quickFills}
-                        showAddHome={!userProfile?.homeAddress}
-                      />
-                    </Field>
-                    <Field label="To">
-                      <AddressAutocomplete
-                        value={trip.to}
-                        onChange={(v) => updateCarTrip(idx, { to: v })}
-                        onSelect={(v) => {
-                          updateCarTrip(idx, { to: v })
-                          if (trip.from.length >= 5)
-                            calcTripDistance(idx, trip.from, v)
-                        }}
-                        placeholder="Destination"
-                        quickFills={quickFills}
-                        showAddHome={!userProfile?.homeAddress}
-                      />
-                    </Field>
-                    <Field label="Miles">
-                      <div className="flex gap-1.5">
-                        <input
-                          type="number"
-                          value={trip.miles || ""}
-                          min={0}
-                          step="0.1"
-                          placeholder="0.0"
-                          onChange={(e) =>
-                            updateCarTrip(idx, {
-                              miles: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                          className="input-neu w-full"
-                        />
-                        <button
-                          type="button"
-                          disabled={!canCalc}
-                          onClick={() =>
-                            calcTripDistance(idx, trip.from, trip.to)
-                          }
-                          className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
-                          style={{ color: isCalcing ? "#4356a9" : "#64748b" }}
-                          title="Calculate distance"
-                        >
-                          {isCalcing ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <MapPin size={16} />
-                          )}
-                        </button>
-                      </div>
-                    </Field>
-                    <Field label="Mileage Cost">
-                      <div
-                        className="input-neu flex items-center"
-                        style={{
-                          background: "#f0f2f5",
-                          color: "#1d2a5d",
-                          fontWeight: 600,
-                        }}
-                      >
-                        $
-                        {(
-                          tripEffective *
-                          mileageRateForDate(mileageRates, trip.date)
-                        ).toFixed(2)}
-                      </div>
-                    </Field>
-                  </div>
-                  {trip.measuredFrom && (
-                    <p
-                      className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-                      style={{ color: "#4356a9" }}
-                    >
-                      <Building2 size={13} />
-                      Measured from {trip.measuredFrom} — closer than home
-                      {trip.homeMiles !== undefined &&
-                        ` (${trip.homeMiles.toFixed(1)} mi from home)`}
-                    </p>
-                  )}
+                  <RouteEditor
+                    route={route}
+                    onChange={(update) => updateCarRoute(idx, update)}
+                    quickFills={quickFills}
+                    showAddHome={!userProfile?.homeAddress}
+                    homeAddress={userProfile?.homeAddress ?? ""}
+                    school={school}
+                  />
                   <div className="mt-3 flex items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                      <label
-                        className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-                        style={{ color: "#334155" }}
+                      <Tooltip
+                        text="Total miles for this trip across every leg, times the IRS rate in effect on the trip date."
+                        className="text-sm font-semibold"
+                        style={{
+                          color: "#1d2a5d",
+                          fontVariantNumeric: "tabular-nums",
+                          cursor: "help",
+                        }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={trip.isRoundTrip}
-                          onChange={(e) =>
-                            updateCarTrip(idx, {
-                              isRoundTrip: e.target.checked,
-                            })
-                          }
-                          className="h-4 w-4 cursor-pointer accent-[#4356a9]"
-                        />
-                        Round trip
-                        {trip.isRoundTrip && trip.miles > 0 && (
-                          <span
-                            className="text-xs font-semibold"
-                            style={{ color: "#4356a9" }}
-                          >
-                            ({(trip.miles * 2).toFixed(1)} mi total)
-                          </span>
-                        )}
-                      </label>
+                        {tripMiles.toFixed(1)} mi · $
+                        {(tripMiles * tripRate).toFixed(2)}
+                      </Tooltip>
                       {commuteMiles !== null &&
                         commuteMiles > 0 &&
-                        !trip.measuredFrom &&
-                        tripTouchesHome(
-                          trip,
-                          userProfile?.homeAddress ?? ""
-                        ) && (
+                        tripHomeLegs(trip, userProfile?.homeAddress ?? "") >
+                          0 && (
                           <label
                             className="flex cursor-pointer items-center gap-2 text-sm font-medium"
                             style={{ color: "#334155" }}
-                            title="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
                           >
                             <input
                               type="checkbox"
@@ -1524,27 +1386,36 @@ export default function TravelReimbursement() {
                               }
                               className="h-4 w-4 cursor-pointer accent-[#4356a9]"
                             />
-                            Working day
+                            <Tooltip
+                              text="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
+                              className="tip-label"
+                            >
+                              Working day
+                            </Tooltip>
                           </label>
                         )}
                     </div>
                     {carTrips.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeCarTrip(idx)}
-                        className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
-                        style={{ color: "#94a3b8" }}
-                        onMouseEnter={(e) =>
-                          ((e.currentTarget as HTMLButtonElement).style.color =
-                            "#ad2122")
-                        }
-                        onMouseLeave={(e) =>
-                          ((e.currentTarget as HTMLButtonElement).style.color =
-                            "#94a3b8")
-                        }
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <Tooltip text="Remove this trip." focusable={false}>
+                        <button
+                          type="button"
+                          onClick={() => removeCarTrip(idx)}
+                          className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) =>
+                            ((
+                              e.currentTarget as HTMLButtonElement
+                            ).style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            ((
+                              e.currentTarget as HTMLButtonElement
+                            ).style.color = "#94a3b8")
+                          }
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>

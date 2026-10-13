@@ -1,20 +1,10 @@
 import { useState, useRef, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router"
-import {
-  Plus,
-  Trash2,
-  CheckCircle,
-  Send,
-  Loader2,
-  MapPin,
-  Building2,
-  X,
-  FileText,
-} from "lucide-react"
+import { Plus, Trash2, CheckCircle, Send, X, FileText } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
-import AddressAutocomplete, {
-  type QuickFill,
-} from "@/components/forms/AddressAutocomplete"
+import { type QuickFill } from "@/components/forms/AddressAutocomplete"
+import RouteEditor from "@/components/forms/RouteEditor"
+import Tooltip from "@/components/forms/Tooltip"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import PolicyDrawer, {
@@ -41,74 +31,30 @@ import {
 } from "@/lib/firestore"
 import RoutingChainPreview from "@/components/forms/RoutingChainPreview"
 import type { MileageData } from "@/lib/types"
+import { getCommuteMiles } from "@/lib/commute"
 import {
-  applyLegDistance,
-  calculateLegDistance,
-  getCommuteMiles,
-  tripTouchesHome,
-} from "@/lib/commute"
+  emptyRoute,
+  routeMiles,
+  routeProblem,
+  tripHomeLegs,
+  upgradeTrip,
+} from "@/lib/route"
 import {
   diffSubmissionChanges,
   editActionForRole,
   mileageRateForDate,
   mileageRateGroups,
+  stampTrips,
 } from "@/lib/utils"
-import type { MileageTrip, MileageRateEntry } from "@/lib/types"
+import type { MileageTrip, MileageRateEntry, TripRoute } from "@/lib/types"
 
 function emptyTrip(): MileageTrip {
   return {
     date: "",
-    from: "",
-    to: "",
     purpose: "",
     miles: 0,
-    isRoundTrip: false,
+    route: emptyRoute(),
     isWorkingDay: true,
-  }
-}
-
-// Each trip is priced at the IRS rate in effect on its date; the rate and any
-// commute deduction are stamped onto the trip so review views and the PDF
-// reproduce this math without re-deriving it.
-function computeMileageTotals(
-  trips: MileageTrip[],
-  commuteMiles: number | null,
-  homeAddress: string,
-  rates: MileageRateEntry[] | undefined
-) {
-  let totalMiles = 0
-  let totalCommuteDeduction = 0
-  let totalReimbursement = 0
-  const stampedTrips = trips.map((t) => {
-    const gross = t.isRoundTrip ? t.miles * 2 : t.miles
-    totalMiles += gross
-    let deduction = 0
-    if (
-      commuteMiles &&
-      commuteMiles > 0 &&
-      gross > 0 &&
-      t.isWorkingDay !== false &&
-      !t.measuredFrom &&
-      tripTouchesHome(t, homeAddress)
-    ) {
-      const commuteCap = t.isRoundTrip ? commuteMiles * 2 : commuteMiles
-      deduction = Math.min(gross, commuteCap)
-    }
-    totalCommuteDeduction += deduction
-    const rate = mileageRateForDate(rates, t.date)
-    totalReimbursement += Math.max(0, gross - deduction) * rate
-    const stamped: MileageTrip = { ...t, rate }
-    if (deduction > 0) stamped.commuteDeduction = deduction
-    else delete stamped.commuteDeduction
-    return stamped
-  })
-  const reimbursableMiles = Math.max(0, totalMiles - totalCommuteDeduction)
-  return {
-    stampedTrips,
-    totalMiles,
-    totalCommuteDeduction,
-    reimbursableMiles,
-    totalReimbursement,
   }
 }
 
@@ -151,13 +97,12 @@ export default function MileageReimbursement() {
   )
   const [accountCode, setAccountCode] = useState(saved?.accountCode ?? "")
   const [trips, setTrips] = useState<MileageTrip[]>(
-    saved?.trips?.length ? saved.trips : [emptyTrip()]
+    saved?.trips?.length ? saved.trips.map(upgradeTrip) : [emptyTrip()]
   )
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submissionId, setSubmissionId] = useState("")
   const [policyOpen, setPolicyOpen] = useState(false)
-  const [calculatingMiles, setCalculatingMiles] = useState<number | null>(null)
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
   const [school, setSchool] = useState<{ address: string; label: string }>()
   const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
@@ -248,36 +193,17 @@ export default function MileageReimbursement() {
       setRouteRequestTo(sub.supervisorEmail)
       setEmployeeId(fd.employeeId)
       setAccountCode(fd.accountCode)
-      setTrips(fd.trips.length > 0 ? fd.trips : [emptyTrip()])
+      setTrips(fd.trips.length > 0 ? fd.trips.map(upgradeTrip) : [emptyTrip()])
     })
   }, [loadId])
 
-  // Auto-calculate distance when From or To changes. A leg that touches home
-  // is measured from school instead when school is closer to the other end.
-  async function calcDistance(index: number, from: string, to: string) {
-    if (from.length < 5 || to.length < 5) return
-
-    setCalculatingMiles(index)
-    const leg = await calculateLegDistance(
-      { from, to },
-      userProfile?.homeAddress ?? "",
-      school
-    )
-    setCalculatingMiles((prev) => (prev === index ? null : prev))
-    if (leg !== null) {
-      setTrips((prev) =>
-        prev.map((t, i) => (i === index ? applyLegDistance(t, leg) : t))
-      )
-    }
-  }
-
   const {
-    stampedTrips,
+    trips: stampedTrips,
     totalMiles,
     totalCommuteDeduction,
     reimbursableMiles,
     totalReimbursement,
-  } = computeMileageTotals(
+  } = stampTrips(
     trips,
     commuteMiles,
     userProfile?.homeAddress ?? "",
@@ -291,15 +217,16 @@ export default function MileageReimbursement() {
     value: MileageTrip[K]
   ) {
     setTrips((prev) =>
+      prev.map((t, i) => (i === index ? { ...t, [field]: value } : t))
+    )
+  }
+
+  function updateRoute(index: number, update: (r: TripRoute) => TripRoute) {
+    setTrips((prev) =>
       prev.map((t, i) => {
         if (i !== index) return t
-        const next = { ...t, [field]: value }
-        // Editing the leg or its miles by hand invalidates the closer-origin note
-        if (field === "from" || field === "to" || field === "miles") {
-          delete next.measuredFrom
-          delete next.homeMiles
-        }
-        return next
+        const route = update(t.route ?? emptyRoute())
+        return { ...t, route, miles: routeMiles(route) }
       })
     )
   }
@@ -321,6 +248,13 @@ export default function MileageReimbursement() {
     if (!isEdit && !signatureUrl) {
       alert("Please add your signature before submitting.")
       return
+    }
+    for (const [i, t] of trips.entries()) {
+      const problem = routeProblem(t.route ?? emptyRoute())
+      if (problem) {
+        alert(`Trip ${i + 1}: ${problem}`)
+        return
+      }
     }
     setSubmitting(true)
     try {
@@ -671,16 +605,16 @@ export default function MileageReimbursement() {
                 trip={trip}
                 index={i}
                 onChange={updateTrip}
+                onRouteChange={(update) => updateRoute(i, update)}
                 onRemove={trips.length > 1 ? () => removeTrip(i) : undefined}
-                onCalcDistance={(idx, from, to) => calcDistance(idx, from, to)}
-                calculatingMiles={calculatingMiles === i}
                 quickFills={quickFills}
                 showAddHome={!userProfile?.homeAddress}
+                homeAddress={userProfile?.homeAddress ?? ""}
+                school={school}
                 showWorkingDayToggle={
                   !!commuteMiles &&
                   commuteMiles > 0 &&
-                  !trip.measuredFrom &&
-                  tripTouchesHome(trip, userProfile?.homeAddress ?? "")
+                  tripHomeLegs(trip, userProfile?.homeAddress ?? "") > 0
                 }
               />
             ))}
@@ -920,11 +854,12 @@ function TripRow({
   trip,
   index,
   onChange,
+  onRouteChange,
   onRemove,
-  onCalcDistance,
-  calculatingMiles,
   quickFills,
   showAddHome,
+  homeAddress,
+  school,
   showWorkingDayToggle,
 }: {
   trip: MileageTrip
@@ -934,34 +869,20 @@ function TripRow({
     field: K,
     value: MileageTrip[K]
   ) => void
+  onRouteChange: (update: (r: TripRoute) => TripRoute) => void
   onRemove?: () => void
-  onCalcDistance: (index: number, from: string, to: string) => void
-  calculatingMiles: boolean
   quickFills: QuickFill[]
   showAddHome: boolean
+  homeAddress: string
+  school?: { address: string; label: string }
   showWorkingDayToggle: boolean
 }) {
-  function handleFromChange(val: string) {
-    onChange(index, "from", val)
-  }
-  function handleToChange(val: string) {
-    onChange(index, "to", val)
-  }
-  function handleFromSelect(val: string) {
-    onChange(index, "from", val)
-    if (trip.to.length >= 5) onCalcDistance(index, val, trip.to)
-  }
-  function handleToSelect(val: string) {
-    onChange(index, "to", val)
-    if (trip.from.length >= 5) onCalcDistance(index, trip.from, val)
-  }
-
-  const canCalc =
-    trip.from.length >= 5 && trip.to.length >= 5 && !calculatingMiles
+  const route = trip.route ?? emptyRoute()
+  const tripMiles = routeMiles(route)
 
   return (
-    <div className="py-3 first:pt-0 last:pb-0">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="py-4 first:pt-0 last:pb-0">
+      <div className="mb-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <Field label="Date">
           <DatePicker
             value={trip.date}
@@ -969,77 +890,6 @@ function TripRow({
             required
           />
         </Field>
-        <Field label="From">
-          <AddressAutocomplete
-            value={trip.from}
-            onChange={handleFromChange}
-            onSelect={handleFromSelect}
-            placeholder="Origin address"
-            required
-            quickFills={quickFills}
-            showAddHome={showAddHome}
-          />
-        </Field>
-        <Field label="To">
-          <AddressAutocomplete
-            value={trip.to}
-            onChange={handleToChange}
-            onSelect={handleToSelect}
-            placeholder="Destination address"
-            required
-            quickFills={quickFills}
-            showAddHome={showAddHome}
-          />
-        </Field>
-        <Field label="Miles (one way)">
-          <div className="flex gap-1.5">
-            <input
-              type="number"
-              value={trip.miles || ""}
-              required
-              min={0}
-              step="0.1"
-              placeholder="0.0"
-              onChange={(e) =>
-                onChange(index, "miles", parseFloat(e.target.value) || 0)
-              }
-              className="input-neu w-full"
-            />
-            <button
-              type="button"
-              disabled={!canCalc}
-              onClick={() => onCalcDistance(index, trip.from, trip.to)}
-              className="flex cursor-pointer items-center justify-center rounded-lg px-2 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
-              style={{ color: calculatingMiles ? "#4356a9" : "#64748b" }}
-              title="Calculate distance"
-              onMouseEnter={(e) => {
-                if (canCalc) e.currentTarget.style.color = "#4356a9"
-              }}
-              onMouseLeave={(e) => {
-                if (!calculatingMiles) e.currentTarget.style.color = "#64748b"
-              }}
-            >
-              {calculatingMiles ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <MapPin size={16} />
-              )}
-            </button>
-          </div>
-        </Field>
-      </div>
-      {trip.measuredFrom && (
-        <p
-          className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-          style={{ color: "#4356a9" }}
-        >
-          <Building2 size={13} />
-          Measured from {trip.measuredFrom} — closer than home
-          {trip.homeMiles !== undefined &&
-            ` (${trip.homeMiles.toFixed(1)} mi from home)`}
-        </p>
-      )}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <Field label="Purpose">
           <input
             type="text"
@@ -1050,49 +900,52 @@ function TripRow({
             className="input-neu w-full"
           />
         </Field>
-        <div className="flex items-end justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      </div>
+      <RouteEditor
+        route={route}
+        onChange={onRouteChange}
+        quickFills={quickFills}
+        showAddHome={showAddHome}
+        homeAddress={homeAddress}
+        school={school}
+      />
+      <div className="mt-3 flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <Tooltip
+            text="Total miles for this trip across every leg."
+            className="text-sm font-semibold"
+            style={{
+              color: "#1d2a5d",
+              fontVariantNumeric: "tabular-nums",
+              cursor: "help",
+            }}
+          >
+            {tripMiles.toFixed(1)} mi
+          </Tooltip>
+          {showWorkingDayToggle && (
             <label
               className="flex cursor-pointer items-center gap-2 text-sm font-medium"
               style={{ color: "#334155" }}
             >
               <input
                 type="checkbox"
-                checked={trip.isRoundTrip}
+                checked={trip.isWorkingDay !== false}
                 onChange={(e) =>
-                  onChange(index, "isRoundTrip", e.target.checked)
+                  onChange(index, "isWorkingDay", e.target.checked)
                 }
                 className="h-4 w-4 cursor-pointer accent-[#4356a9]"
               />
-              Round trip
-              {trip.isRoundTrip && trip.miles > 0 && (
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: "#4356a9" }}
-                >
-                  ({(trip.miles * 2).toFixed(1)} mi total)
-                </span>
-              )}
-            </label>
-            {showWorkingDayToggle && (
-              <label
-                className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-                style={{ color: "#334155" }}
-                title="Uncheck for non-working days (weekend PD, holiday travel, etc.). When checked, your commute is deducted from this trip."
+              <Tooltip
+                text="Uncheck for non-working days (weekend PD, holiday travel, etc.). When checked, your commute is deducted from this trip."
+                className="tip-label"
               >
-                <input
-                  type="checkbox"
-                  checked={trip.isWorkingDay !== false}
-                  onChange={(e) =>
-                    onChange(index, "isWorkingDay", e.target.checked)
-                  }
-                  className="h-4 w-4 cursor-pointer accent-[#4356a9]"
-                />
                 Working day
-              </label>
-            )}
-          </div>
-          {onRemove && (
+              </Tooltip>
+            </label>
+          )}
+        </div>
+        {onRemove && (
+          <Tooltip text="Remove this trip." focusable={false}>
             <button
               type="button"
               onClick={onRemove}
@@ -1107,8 +960,8 @@ function TripRow({
             >
               <Trash2 size={15} />
             </button>
-          )}
-        </div>
+          </Tooltip>
+        )}
       </div>
     </div>
   )
