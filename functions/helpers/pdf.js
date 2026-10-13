@@ -454,7 +454,7 @@ function renderMileage(doc, data) {
 
   // Each trip spans one row per point: the date, purpose and trip total sit
   // on the first row; the point label, address and leg miles on every row
-  const colWidths = [50, 66, 196, 44, 106, 50]
+  const colWidths = [50, 78, 184, 44, 106, 50]
   drawTableHeaders(
     doc,
     ["Date", "", "Route", "Leg mi", "Purpose", "Miles"],
