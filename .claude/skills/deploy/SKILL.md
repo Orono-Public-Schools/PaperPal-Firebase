@@ -23,6 +23,18 @@ Deploy Cloud Functions to production (email triggers, PDF generation, OCR, staff
 firebase deploy --only functions
 ```
 
+If it fails with "User code failed to load. Cannot determine backend specification. Timeout after
+10000" before anything uploads, the CLI's local discovery step timed out loading `index.js`
+(sharp, pdfkit and googleapis take a few seconds on this machine). Retry with a longer discovery
+window; nothing is wrong with the code:
+
+```bash
+FUNCTIONS_DISCOVERY_TIMEOUT=120 firebase deploy --only functions
+```
+
+The PDF generator is `functions/helpers/pdf.js` (plain JS, not under `functions/src`), so a PDF
+change needs this deploy, not just hosting.
+
 ## Firestore Rules
 
 Deploy security rules:

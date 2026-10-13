@@ -15,6 +15,7 @@ import {
   Printer,
   Download,
   Pencil,
+  RefreshCw,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import SignatureField, {
@@ -130,6 +131,7 @@ export default function FormView() {
   const [budgetCode, setBudgetCode] = useState("")
   const [redirectEmail, setRedirectEmail] = useState("")
   const [downloading, setDownloading] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -536,6 +538,21 @@ export default function FormView() {
     setDownloading(false)
   }
 
+  // Rebuilds the Drive copy, which is otherwise written once at final approval
+  async function handleRegeneratePdf() {
+    if (!submission) return
+    setRegenerating(true)
+    try {
+      const regenerate = httpsCallable(functions, "regenerateSubmissionPdf")
+      await regenerate({ submissionId: submission.id })
+      setActionDone("PDF rebuilt in Drive — download to see the new copy")
+    } catch (err) {
+      console.error("Failed to regenerate PDF:", err)
+      alert("Failed to rebuild the PDF. Please try again.")
+    }
+    setRegenerating(false)
+  }
+
   async function handleMarkAsPaid() {
     if (!submission) return
     setActing(true)
@@ -653,6 +670,21 @@ export default function FormView() {
               <Download size={16} />
             )}
           </button>
+          {isControllerOrAbove && submission.pdfDriveId && (
+            <button
+              onClick={handleRegeneratePdf}
+              disabled={regenerating}
+              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 print:hidden"
+              style={{ color: "rgba(255,255,255,0.7)" }}
+              title="Rebuild the stored PDF in Drive with the current layout"
+            >
+              {regenerating ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <RefreshCw size={16} />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1384,6 +1416,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   redirected: { label: "Redirected", color: "#4356a9" },
   marked_as_paid: { label: "Marked as Paid", color: "#059669" },
   unmarked_as_paid: { label: "Reverted to Approved", color: "#64748b" },
+  pdf_regenerated: { label: "PDF Rebuilt in Drive", color: "#64748b" },
   returned_to_supervisor: {
     label: "Returned to Supervisor",
     color: "#c2410c",
