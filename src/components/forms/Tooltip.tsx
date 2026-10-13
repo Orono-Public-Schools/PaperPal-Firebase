@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 const BUBBLE_HALF = 130 // half the bubble's max width, for clamping to the viewport
@@ -46,6 +46,34 @@ export default function Tooltip({
     setPos(null)
   }
 
+  // Show on focus only when it came from the keyboard, so clicking a label
+  // doesn't leave the bubble up until the next click
+  function onFocus(e: React.FocusEvent<HTMLSpanElement>) {
+    if (e.target.matches(":focus-visible")) show()
+  }
+
+  // While the bubble is open, hide it as soon as the pointer is no longer
+  // over the trigger. Mouse-leave alone misses the case where the element
+  // under the pointer is removed (picking an address from the list), which
+  // left bubbles stuck at a stale position. Any click or scroll hides too.
+  useEffect(() => {
+    if (!pos) return
+    function onMove(e: MouseEvent) {
+      const el = ref.current
+      if (!el || !el.contains(e.target as Node)) hide()
+    }
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("pointerdown", hide, true)
+    window.addEventListener("scroll", hide, true)
+    window.addEventListener("resize", hide)
+    return () => {
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("pointerdown", hide, true)
+      window.removeEventListener("scroll", hide, true)
+      window.removeEventListener("resize", hide)
+    }
+  }, [pos])
+
   return (
     <span
       ref={ref}
@@ -54,7 +82,7 @@ export default function Tooltip({
       tabIndex={focusable && !hoverOnly ? 0 : undefined}
       onMouseEnter={show}
       onMouseLeave={hide}
-      onFocus={hoverOnly ? undefined : show}
+      onFocus={hoverOnly ? undefined : onFocus}
       onBlur={hoverOnly ? undefined : hide}
     >
       {children}
