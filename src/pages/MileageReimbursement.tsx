@@ -4,6 +4,7 @@ import { Plus, Trash2, CheckCircle, Send, X, FileText } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { type QuickFill } from "@/components/forms/AddressAutocomplete"
 import RouteEditor from "@/components/forms/RouteEditor"
+import Tooltip from "@/components/forms/Tooltip"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import PolicyDrawer, {
@@ -910,18 +911,21 @@ function TripRow({
       />
       <div className="mt-3 flex items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <span
+          <Tooltip
+            text="Total miles for this trip across every leg."
             className="text-sm font-semibold"
-            style={{ color: "#1d2a5d", fontVariantNumeric: "tabular-nums" }}
-            title="Total miles for this trip across every leg."
+            style={{
+              color: "#1d2a5d",
+              fontVariantNumeric: "tabular-nums",
+              cursor: "help",
+            }}
           >
             {tripMiles.toFixed(1)} mi
-          </span>
+          </Tooltip>
           {showWorkingDayToggle && (
             <label
               className="flex cursor-pointer items-center gap-2 text-sm font-medium"
               style={{ color: "#334155" }}
-              title="Uncheck for non-working days (weekend PD, holiday travel, etc.). When checked, your commute is deducted from this trip."
             >
               <input
                 type="checkbox"
@@ -931,26 +935,32 @@ function TripRow({
                 }
                 className="h-4 w-4 cursor-pointer accent-[#4356a9]"
               />
-              Working day
+              <Tooltip
+                text="Uncheck for non-working days (weekend PD, holiday travel, etc.). When checked, your commute is deducted from this trip."
+                className="tip-label"
+              >
+                Working day
+              </Tooltip>
             </label>
           )}
         </div>
         {onRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            title="Remove this trip."
-            className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
-            style={{ color: "#94a3b8" }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color = "#ad2122")
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color = "#94a3b8")
-            }
-          >
-            <Trash2 size={15} />
-          </button>
+          <Tooltip text="Remove this trip." focusable={false}>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+              style={{ color: "#94a3b8" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "#ad2122")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "#94a3b8")
+              }
+            >
+              <Trash2 size={15} />
+            </button>
+          </Tooltip>
         )}
       </div>
     </div>

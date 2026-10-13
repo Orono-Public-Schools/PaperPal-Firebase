@@ -18,6 +18,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import DatePicker from "@/components/forms/DatePicker"
 import { type QuickFill } from "@/components/forms/AddressAutocomplete"
 import RouteEditor from "@/components/forms/RouteEditor"
+import Tooltip from "@/components/forms/Tooltip"
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import PolicyDrawer, {
@@ -1355,17 +1356,18 @@ export default function TravelReimbursement() {
                   />
                   <div className="mt-3 flex items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                      <span
+                      <Tooltip
+                        text="Total miles for this trip across every leg, times the IRS rate in effect on the trip date."
                         className="text-sm font-semibold"
                         style={{
                           color: "#1d2a5d",
                           fontVariantNumeric: "tabular-nums",
+                          cursor: "help",
                         }}
-                        title="Total miles for this trip across every leg, times the IRS rate in effect on the trip date."
                       >
                         {tripMiles.toFixed(1)} mi · $
                         {(tripMiles * tripRate).toFixed(2)}
-                      </span>
+                      </Tooltip>
                       {commuteMiles !== null &&
                         commuteMiles > 0 &&
                         tripHomeLegs(trip, userProfile?.homeAddress ?? "") >
@@ -1373,7 +1375,6 @@ export default function TravelReimbursement() {
                           <label
                             className="flex cursor-pointer items-center gap-2 text-sm font-medium"
                             style={{ color: "#334155" }}
-                            title="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
                           >
                             <input
                               type="checkbox"
@@ -1385,28 +1386,36 @@ export default function TravelReimbursement() {
                               }
                               className="h-4 w-4 cursor-pointer accent-[#4356a9]"
                             />
-                            Working day
+                            <Tooltip
+                              text="Uncheck for non-working days (weekend PD, conference travel that doesn't replace a workday). When checked, your commute is deducted from this trip."
+                              className="tip-label"
+                            >
+                              Working day
+                            </Tooltip>
                           </label>
                         )}
                     </div>
                     {carTrips.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeCarTrip(idx)}
-                        title="Remove this trip."
-                        className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
-                        style={{ color: "#94a3b8" }}
-                        onMouseEnter={(e) =>
-                          ((e.currentTarget as HTMLButtonElement).style.color =
-                            "#ad2122")
-                        }
-                        onMouseLeave={(e) =>
-                          ((e.currentTarget as HTMLButtonElement).style.color =
-                            "#94a3b8")
-                        }
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <Tooltip text="Remove this trip." focusable={false}>
+                        <button
+                          type="button"
+                          onClick={() => removeCarTrip(idx)}
+                          className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+                          style={{ color: "#94a3b8" }}
+                          onMouseEnter={(e) =>
+                            ((
+                              e.currentTarget as HTMLButtonElement
+                            ).style.color = "#ad2122")
+                          }
+                          onMouseLeave={(e) =>
+                            ((
+                              e.currentTarget as HTMLButtonElement
+                            ).style.color = "#94a3b8")
+                          }
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>

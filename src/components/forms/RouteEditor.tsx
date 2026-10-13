@@ -1,16 +1,10 @@
 import { Fragment, useState } from "react"
 import { Loader2, MapPin, Plus, Trash2 } from "lucide-react"
 import AddressAutocomplete, { type QuickFill } from "./AddressAutocomplete"
+import Tooltip from "./Tooltip"
 import { applyLegDistance, calculateLegDistance } from "@/lib/commute"
 import { ROUTE_TIPS, routePoints, syncLegs } from "@/lib/route"
 import type { TripLeg, TripRoute } from "@/lib/types"
-
-const TAG_STYLE = {
-  cursor: "help",
-  textDecoration: "underline dotted",
-  textDecorationColor: "rgba(100,116,139,0.45)",
-  textUnderlineOffset: 3,
-} as const
 
 interface Props {
   route: TripRoute
@@ -149,45 +143,47 @@ export default function RouteEditor({
                 />
               </div>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5">
-                <span
-                  className="shrink-0 text-[10.5px] font-bold tracking-wider uppercase sm:w-[104px]"
-                  style={{
-                    ...TAG_STYLE,
-                    color: first ? "#1d2a5d" : isLast ? "#ad2122" : "#64748b",
-                  }}
-                  title={
+                <Tooltip
+                  text={
                     first
                       ? ROUTE_TIPS.start
                       : isLast
                         ? ROUTE_TIPS.end
                         : ROUTE_TIPS.stop
                   }
+                  className="tip-label shrink-0 text-[10.5px] font-bold tracking-wider uppercase sm:w-[104px]"
+                  style={{
+                    color: first ? "#1d2a5d" : isLast ? "#ad2122" : "#64748b",
+                  }}
                 >
                   {first
                     ? "Departing from"
                     : isLast
                       ? "Returning to"
                       : `Stop ${i}`}
-                </span>
+                </Tooltip>
                 <div className="min-w-[180px] flex-1">
                   {isLast && route.returnToStart ? (
-                    <input
-                      type="text"
-                      readOnly
-                      value={route.start}
-                      placeholder="Same as point of departure"
-                      title={ROUTE_TIPS.end}
-                      className="input-neu w-full"
-                    />
+                    <Tooltip text={ROUTE_TIPS.end} hoverOnly className="block">
+                      <input
+                        type="text"
+                        readOnly
+                        value={route.start}
+                        placeholder="Same as point of departure"
+                        className="input-neu w-full"
+                      />
+                    </Tooltip>
                   ) : (
-                    <div
-                      title={
+                    <Tooltip
+                      text={
                         first
                           ? ROUTE_TIPS.startField
                           : isLast
                             ? ROUTE_TIPS.endField
                             : ROUTE_TIPS.stopField
                       }
+                      hoverOnly
+                      className="block"
                     >
                       <AddressAutocomplete
                         value={point}
@@ -204,56 +200,64 @@ export default function RouteEditor({
                         quickFills={quickFills}
                         showAddHome={showAddHome}
                       />
-                    </div>
+                    </Tooltip>
                   )}
                 </div>
                 {!first && !isLast && (
-                  <button
-                    type="button"
-                    onClick={() => removeStop(i - 1)}
-                    title={ROUTE_TIPS.remove}
-                    className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
-                    style={{ color: "#94a3b8" }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = "#ad2122")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color = "#94a3b8")
-                    }
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1" title={ROUTE_TIPS.miles}>
-                {arriving && (
-                  <>
-                    <input
-                      type="number"
-                      value={arriving.miles || ""}
-                      min={0}
-                      step="0.1"
-                      placeholder="mi"
-                      onChange={(e) =>
-                        setLegMiles(i - 1, parseFloat(e.target.value) || 0)
-                      }
-                      className="input-neu w-full text-right"
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    />
+                  <Tooltip text={ROUTE_TIPS.remove} focusable={false}>
                     <button
                       type="button"
-                      disabled={!canMeasure}
-                      onClick={() => arriving && void measureLeg(arriving)}
-                      title={ROUTE_TIPS.measure}
-                      className="flex cursor-pointer items-center justify-center rounded-lg p-1.5 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
-                      style={{ color: measuring ? "#4356a9" : "#64748b" }}
+                      onClick={() => removeStop(i - 1)}
+                      className="cursor-pointer rounded-lg p-1.5 transition-colors duration-150"
+                      style={{ color: "#94a3b8" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "#ad2122")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = "#94a3b8")
+                      }
                     >
-                      {measuring ? (
-                        <Loader2 size={15} className="animate-spin" />
-                      ) : (
-                        <MapPin size={15} />
-                      )}
+                      <Trash2 size={15} />
                     </button>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {arriving && (
+                  <>
+                    <Tooltip
+                      text={ROUTE_TIPS.miles}
+                      hoverOnly
+                      className="block min-w-0 flex-1"
+                    >
+                      <input
+                        type="number"
+                        value={arriving.miles || ""}
+                        min={0}
+                        step="0.1"
+                        placeholder="mi"
+                        onChange={(e) =>
+                          setLegMiles(i - 1, parseFloat(e.target.value) || 0)
+                        }
+                        className="input-neu w-full text-right"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      />
+                    </Tooltip>
+                    <Tooltip text={ROUTE_TIPS.measure} focusable={false}>
+                      <button
+                        type="button"
+                        disabled={!canMeasure}
+                        onClick={() => arriving && void measureLeg(arriving)}
+                        className="flex cursor-pointer items-center justify-center rounded-lg p-1.5 transition-colors duration-150 disabled:cursor-default disabled:opacity-40"
+                        style={{ color: measuring ? "#4356a9" : "#64748b" }}
+                      >
+                        {measuring ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <MapPin size={15} />
+                        )}
+                      </button>
+                    </Tooltip>
                   </>
                 )}
               </div>
@@ -266,31 +270,36 @@ export default function RouteEditor({
                       className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2"
                       style={{ background: "#c5cae0" }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => insertStop(i)}
-                      title={ROUTE_TIPS.insert}
-                      className="relative z-10 grid h-[18px] w-[18px] cursor-pointer place-items-center rounded-full transition-transform duration-150 hover:scale-110"
-                      style={{
-                        background: "#ffffff",
-                        border: "1px solid #c5cae0",
-                        color: "#4356a9",
-                      }}
+                    <Tooltip
+                      text={ROUTE_TIPS.insert}
+                      focusable={false}
+                      className="relative z-10 flex"
                     >
-                      <Plus size={11} />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => insertStop(i)}
+                        className="grid h-[18px] w-[18px] cursor-pointer place-items-center rounded-full transition-transform duration-150 hover:scale-110"
+                        style={{
+                          background: "#ffffff",
+                          border: "1px solid #c5cae0",
+                          color: "#4356a9",
+                        }}
+                      >
+                        <Plus size={11} />
+                      </button>
+                    </Tooltip>
                   </div>
                   <div
                     className="flex h-7 items-center text-[11px]"
                     style={{ color: "#4356a9" }}
                   >
                     {route.legs[i].measuredFrom && (
-                      <span title={ROUTE_TIPS.closer}>
+                      <Tooltip text={ROUTE_TIPS.closer} className="tip-label">
                         Measured from {route.legs[i].measuredFrom}, closer than
                         home
                         {route.legs[i].homeMiles !== undefined &&
                           ` (${route.legs[i].homeMiles.toFixed(1)} mi from home)`}
-                      </span>
+                      </Tooltip>
                     )}
                   </div>
                   <div />
@@ -310,9 +319,9 @@ export default function RouteEditor({
           onChange={(e) => setReturnToStart(e.target.checked)}
           className="h-4 w-4 cursor-pointer accent-[#4356a9]"
         />
-        <span style={TAG_STYLE} title={ROUTE_TIPS.returnToStart}>
+        <Tooltip text={ROUTE_TIPS.returnToStart} className="tip-label">
           Returned to the point of departure
-        </span>
+        </Tooltip>
       </label>
     </div>
   )

@@ -220,6 +220,71 @@
     display: block;
   }
 
+  /* Label or value that carries a hover explanation */
+  .tip-label {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-decoration-color: rgba(100, 116, 139, 0.45);
+    text-underline-offset: 3px;
+  }
+
+  /* Hover/focus explanation bubble (see components/forms/Tooltip.tsx) */
+  .tip-bubble {
+    position: fixed;
+    z-index: 100;
+    max-width: 260px;
+    width: max-content;
+    padding: 8px 11px;
+    border-radius: 8px;
+    background: #1d2a5d;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: left;
+    box-shadow:
+      0 2px 6px rgba(29, 42, 93, 0.25),
+      0 8px 24px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+    animation: tip-in 0.15s ease-out;
+  }
+  .tip-bubble[data-side="top"] {
+    transform: translate(-50%, -100%);
+  }
+  .tip-bubble[data-side="bottom"] {
+    transform: translate(-50%, 0);
+  }
+  .tip-bubble::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    margin-left: -6px;
+    border: 6px solid transparent;
+  }
+  .tip-bubble[data-side="top"]::after {
+    top: 100%;
+    border-top-color: #1d2a5d;
+  }
+  .tip-bubble[data-side="bottom"]::after {
+    bottom: 100%;
+    border-bottom-color: #1d2a5d;
+  }
+  @keyframes tip-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tip-bubble {
+      animation: none;
+    }
+  }
+
   .btn-cancel {
     display: inline-flex;
     align-items: center;

@@ -14,6 +14,7 @@ import {
   tripPoints,
 } from "@/lib/route"
 import { mileageRateGroups } from "@/lib/utils"
+import Tooltip from "./Tooltip"
 
 // Trips stamped since per-trip rates shipped carry their own rate; anything
 // older was priced at this flat rate
@@ -50,26 +51,27 @@ function RouteCell({ trip }: { trip: TripBase }) {
         return (
           <Fragment key={i}>
             <div className="flex items-baseline gap-2">
-              <span
-                className="w-[86px] shrink-0 text-[10px] font-bold tracking-wider uppercase"
-                style={{
-                  color:
-                    i === 0 ? "#1d2a5d" : i === last ? "#ad2122" : "#64748b",
-                }}
-                title={
+              <Tooltip
+                text={
                   i === 0
                     ? ROUTE_TIPS.start
                     : i === last
                       ? ROUTE_TIPS.end
                       : ROUTE_TIPS.stop
                 }
+                className="w-[86px] shrink-0 text-[10px] font-bold tracking-wider uppercase"
+                style={{
+                  cursor: "help",
+                  color:
+                    i === 0 ? "#1d2a5d" : i === last ? "#ad2122" : "#64748b",
+                }}
               >
                 {i === 0
                   ? "Departing from"
                   : i === last
                     ? "Returning to"
                     : `Stop ${i}`}
-              </span>
+              </Tooltip>
               <span className="min-w-0">{p || "—"}</span>
             </div>
             {leg && (
@@ -79,13 +81,13 @@ function RouteCell({ trip }: { trip: TripBase }) {
               >
                 {leg.miles.toFixed(1)} mi
                 {leg.measuredFrom && (
-                  <span
-                    style={{ color: "#4356a9" }}
-                    title={`${ROUTE_TIPS.closer}${leg.homeMiles !== undefined ? ` ${leg.homeMiles.toFixed(1)} mi as driven from home.` : ""}`}
+                  <Tooltip
+                    text={`${ROUTE_TIPS.closer}${leg.homeMiles !== undefined ? ` ${leg.homeMiles.toFixed(1)} mi as driven from home.` : ""}`}
+                    style={{ color: "#4356a9", cursor: "help" }}
                   >
                     {" "}
                     · measured from {leg.measuredFrom}
-                  </span>
+                  </Tooltip>
                 )}
               </div>
             )}
@@ -257,16 +259,17 @@ export function MileageView({ data }: { data: MileageData }) {
                   {effectiveMiles.toFixed(1)}
                   {hasCommuteDeduction &&
                     tripCommuteDeducted(trip, data.commuteHomeAddress) && (
-                      <span
+                      <Tooltip
+                        text="Working day: the employee's commute was deducted from this trip."
                         className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
                         style={{
                           background: "#fef3c7",
                           color: "#92400e",
+                          cursor: "help",
                         }}
-                        title="Commute deducted for this trip"
                       >
                         Working
-                      </span>
+                      </Tooltip>
                     )}
                 </td>
               </tr>
@@ -473,16 +476,17 @@ export function TravelView({ data }: { data: TravelData }) {
                               trip,
                               data.commuteHomeAddress
                             ) && (
-                              <span
+                              <Tooltip
+                                text="Working day: the employee's commute was deducted from this trip."
                                 className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
                                 style={{
                                   background: "#fef3c7",
                                   color: "#92400e",
+                                  cursor: "help",
                                 }}
-                                title="Commute deducted for this trip"
                               >
                                 Working
-                              </span>
+                              </Tooltip>
                             )}
                         </div>
                         <div
