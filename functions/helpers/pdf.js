@@ -46,7 +46,7 @@ function routeText(t) {
         i === 0 ? "Departing from" : i === last ? "Returning to" : `Stop ${i}`
       const leg = i > 0 ? legs[i - 1] : null
       const miles = leg
-        ? ` (${(leg.miles || 0).toFixed(1)} mi${leg.measuredFrom ? `, measured from ${leg.measuredFrom}` : ""})`
+        ? ` (${(leg.miles || 0).toFixed(1)} mi${leg.measuredFrom ? `, measured from ${leg.measuredFrom}${leg.homeMiles !== undefined ? ` instead of ${leg.homeMiles.toFixed(1)} mi from home` : ""}` : ""})`
         : ""
       return `${label}: ${p || "—"}${miles}`
     })
@@ -526,7 +526,7 @@ function renderMileage(doc, data) {
         .text(address, addrX, py, { width: addrW })
       let h = doc.heightOfString(address, { width: addrW })
       if (leg?.measuredFrom) {
-        const note = `Measured from ${leg.measuredFrom}, closer than home`
+        const note = `Measured from ${leg.measuredFrom}, closer than home${leg.homeMiles !== undefined ? ` (${leg.homeMiles.toFixed(1)} mi from home)` : ""}`
         doc
           .font("Helvetica-Oblique")
           .fontSize(7)
