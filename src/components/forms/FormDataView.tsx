@@ -105,11 +105,13 @@ function RouteCell({ trip }: { trip: TripBase }) {
               <div style={{ color: "#1d2a5d" }}>{p || "—"}</div>
               {leg?.measuredFrom && (
                 <Tooltip
-                  text={`${ROUTE_TIPS.closer}${leg.homeMiles !== undefined ? ` ${leg.homeMiles.toFixed(1)} mi as driven from home.` : ""}`}
+                  text={ROUTE_TIPS.closer}
                   className="text-[10.5px]"
                   style={{ color: "#4356a9", cursor: "help" }}
                 >
                   Measured from {leg.measuredFrom}, closer than home
+                  {leg.homeMiles !== undefined &&
+                    ` (${leg.homeMiles.toFixed(1)} mi from home)`}
                 </Tooltip>
               )}
             </div>
