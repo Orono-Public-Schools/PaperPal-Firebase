@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https")
 const {
   onDocumentUpdated,
   onDocumentCreated,
+  onDocumentWritten,
 } = require("firebase-functions/v2/firestore")
 const { initializeApp } = require("firebase-admin/app")
 const {
@@ -31,6 +32,8 @@ const {
   sendReturnedToSupervisorEmails,
   sendReviewerReminder,
 } = require("./helpers/email")
+const { parseReceiptTotal } = require("./helpers/receiptTotal")
+const { collectReceipts, checkReceipts } = require("./helpers/receiptCheck")
 
 initializeApp()
 const db = getFirestore()
@@ -505,39 +508,47 @@ exports.extractReceiptTotal = onCall(
         return { amount: null }
       }
 
-      const fullText = detections[0].description || ""
-
-      // Look for total-like patterns
-      const totalPatterns = [
-        /total[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
-        /amount\s*due[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
-        /balance\s*due[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
-        /grand\s*total[:\s]*\$?\s*([\d,]+\.?\d{0,2})/i,
-      ]
-
-      for (const pattern of totalPatterns) {
-        const match = fullText.match(pattern)
-        if (match) {
-          const amount = parseFloat(match[1].replace(",", ""))
-          if (amount > 0 && amount < 10000) {
-            return { amount }
-          }
-        }
-      }
-
-      // Fallback: find the largest dollar amount on the receipt
-      const dollarPattern = /\$\s*([\d,]+\.\d{2})/g
-      let largest = 0
-      let m
-      while ((m = dollarPattern.exec(fullText)) !== null) {
-        const val = parseFloat(m[1].replace(",", ""))
-        if (val > largest && val < 10000) largest = val
-      }
-
-      return { amount: largest > 0 ? largest : null }
+      return { amount: parseReceiptTotal(detections[0].description || "") }
     } catch (err) {
       console.error("OCR error:", err)
       return { amount: null }
+    }
+  }
+)
+
+// ─── AI Receipt Check: fills in the reviewer's checklist ────────────────────
+
+exports.onSubmissionReceiptsChanged = onDocumentWritten(
+  {
+    document: "submissions/{submissionId}",
+    region: "us-central1",
+    memory: "512MiB",
+    timeoutSeconds: 300,
+  },
+  async (event) => {
+    const after = event.data.after.data()
+    if (!after) return
+
+    const receipts = collectReceipts(after)
+    const previous = collectReceipts(event.data.before.data())
+    const unchanged =
+      receipts.length === previous.length &&
+      receipts.every((url) => previous.includes(url))
+    if (unchanged) return
+
+    const settingsSnap = await db.doc("settings/app").get()
+    if (!settingsSnap.data()?.receiptCheckEnabled) return
+
+    const ref = db.doc(`receiptChecks/${event.params.submissionId}`)
+    const existing = (await ref.get()).data()?.results ?? []
+    try {
+      const results = await checkReceipts(receipts, existing)
+      await ref.set({ results, updatedAt: FieldValue.serverTimestamp() })
+    } catch (err) {
+      console.error(
+        `Receipt check failed for ${event.params.submissionId}:`,
+        err.message
+      )
     }
   }
 )

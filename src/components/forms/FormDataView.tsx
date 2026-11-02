@@ -13,7 +13,11 @@ import {
   tripLegs,
   tripPoints,
 } from "@/lib/route"
-import { mileageRateGroups } from "@/lib/utils"
+import {
+  mealDaysOverLimit,
+  mealLimitExceeded,
+  mileageRateGroups,
+} from "@/lib/utils"
 import Tooltip from "./Tooltip"
 
 // Trips stamped since per-trip rates shipped carry their own rate; anything
@@ -571,6 +575,16 @@ export function TravelView({ data }: { data: TravelData }) {
                       ? exp.mealType.charAt(0).toUpperCase() +
                         exp.mealType.slice(1)
                       : exp.location || exp.description || "—"}
+                    {mealLimitExceeded(exp, data.mealLimits) !== null && (
+                      <span
+                        className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                        style={{ background: "#fef3c7", color: "#92400e" }}
+                      >
+                        Over{" "}
+                        {currency(mealLimitExceeded(exp, data.mealLimits)!)}{" "}
+                        guideline
+                      </span>
+                    )}
                   </div>
                   {exp.notes && (
                     <div
@@ -637,6 +651,18 @@ export function TravelView({ data }: { data: TravelData }) {
               <td />
             </tr>
           </Table>
+          {mealDaysOverLimit(data.expenses ?? [], data.mealLimits).map(
+            (day) => (
+              <p
+                key={day.date}
+                className="mt-2 text-xs font-medium"
+                style={{ color: "#92400e" }}
+              >
+                Meals on {formatDate(day.date)} total {currency(day.total)},
+                above the {currency(day.limit)} daily guideline.
+              </p>
+            )
+          )}
           {data.taxExemptAcknowledged && (
             <p
               className="mt-2 text-[11px] font-medium"

@@ -27,12 +27,13 @@ import {
   Check,
   Tag,
   Car,
+  Receipt,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import DatePicker from "@/components/forms/DatePicker"
-import type { MileageRateEntry } from "@/lib/types"
+import type { MealLimits, MileageRateEntry } from "@/lib/types"
 import { useAuth } from "@/hooks/useAuth"
 import { invalidateFormFieldsCache } from "@/hooks/useFormFields"
 import {
@@ -170,6 +171,7 @@ export default function Admin() {
           <StaffSection />
           {isAdmin && <StaffSyncSection />}
           {isAdmin && <MileageRatesSection />}
+          <ReceiptReviewSection isAdmin={isAdmin} />
           {isAdmin && <EmailSettingsSection />}
           {isAdmin && <DrivePdfSettingsSection />}
         </div>
@@ -3636,6 +3638,147 @@ function MileageRatesSection() {
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
               <span>{saving ? "Saving…" : "Save Rates"}</span>
+            </button>
+            {saved && (
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
+                Saved!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Receipt Review ──────────────────────────────────────────────────────────
+
+const MEAL_LIMIT_FIELDS: { key: keyof MealLimits; label: string }[] = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "dinner", label: "Dinner" },
+  { key: "daily", label: "Per day" },
+]
+
+function ReceiptReviewSection({ isAdmin }: { isAdmin: boolean }) {
+  const [limits, setLimits] = useState<MealLimits | null>(null)
+  const [checkEnabled, setCheckEnabled] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then((s) => {
+      setLimits(s.mealLimits ?? { breakfast: 0, lunch: 0, dinner: 0, daily: 0 })
+      setCheckEnabled(s.receiptCheckEnabled ?? false)
+    })
+  }, [])
+
+  async function handleSave() {
+    if (!limits) return
+    setSaving(true)
+    await updateAppSettings({
+      mealLimits: limits,
+      ...(isAdmin ? { receiptCheckEnabled: checkEnabled } : {}),
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  return (
+    <Section
+      title="Receipt Review"
+      icon={Receipt}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {!limits ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
+      ) : (
+        <>
+          <p
+            className="mb-1 text-sm font-semibold"
+            style={{ color: "#1d2a5d" }}
+          >
+            Meal Guidelines
+          </p>
+          <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+            Travel forms show a warning when a meal is above these amounts.
+            Staff can still submit, and reviewers see the warning. Leave an
+            amount blank for no warning. Submissions already in the system keep
+            the amounts they were submitted with.
+          </p>
+          <div className="grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
+            {MEAL_LIMIT_FIELDS.map(({ key, label }) => (
+              <label key={key} className="block">
+                <span
+                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  {label}
+                </span>
+                <div className="flex items-center gap-1">
+                  <span style={{ color: "#94a3b8" }}>$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={limits[key] || ""}
+                    onChange={(e) =>
+                      setLimits({
+                        ...limits,
+                        [key]: Math.max(0, Number(e.target.value)),
+                      })
+                    }
+                    className="input-neu"
+                  />
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {isAdmin && (
+            <div className="mt-6">
+              <p
+                className="mb-1 text-sm font-semibold"
+                style={{ color: "#1d2a5d" }}
+              >
+                AI Receipt Check
+              </p>
+              <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+                When enabled, new and changed receipts are sent to Claude on
+                Vertex AI, in PaperPal's Google Cloud project, and reviewers see
+                what it read: itemized or not, alcohol, tip and total. It only
+                flags things for a person to check. Submissions from before it
+                was enabled are not checked.
+              </p>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={checkEnabled}
+                  onChange={(e) => setCheckEnabled(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-[#1d2a5d]"
+                />
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "#334155" }}
+                >
+                  Check receipts with AI
+                </span>
+              </label>
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save"}</span>
             </button>
             {saved && (
               <span

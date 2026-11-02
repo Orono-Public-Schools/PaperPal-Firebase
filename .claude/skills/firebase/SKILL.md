@@ -25,19 +25,21 @@ description: PaperPal Firebase infrastructure — project config, Firestore coll
 | `settings/supervisorMappings` | Title overrides (`mappings[]`) + building defaults (`buildingMappings[]`) |
 | `settings/formFields`         | Form field visibility/ordering config                                     |
 | `mail/{id}`                   | Firebase Trigger Email extension documents                                |
+| `receiptChecks/{REQ-XXXXX}`   | AI receipt results; server writes only, reviewers read                    |
 
 ## Cloud Functions (`functions/index.js`)
 
-| Function                   | Trigger                             | Purpose                                                 |
-| -------------------------- | ----------------------------------- | ------------------------------------------------------- |
-| `onSubmissionCreated`      | Firestore create on `submissions/*` | Generate PDF + send submit emails                       |
-| `onSubmissionStatusChange` | Firestore update on `submissions/*` | Send emails on status changes, Drive upload on approval |
-| `extractReceiptTotal`      | Callable                            | OCR via Google Cloud Vision API                         |
-| `generateSubmissionPdf`    | Callable                            | On-demand PDF generation                                |
-| `scheduledStaffSync`       | Cloud Scheduler                     | Sync staff from Google Sheet                            |
-| `syncStaffNow`             | Callable                            | Manual staff sync trigger                               |
-| `setupDriveStructure`      | Callable                            | Create Drive folder structure                           |
-| `fiscalYearRollover`       | Cloud Scheduler                     | Auto-create new FY folders                              |
+| Function                      | Trigger                             | Purpose                                                 |
+| ----------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| `onSubmissionCreated`         | Firestore create on `submissions/*` | Generate PDF + send submit emails                       |
+| `onSubmissionStatusChange`    | Firestore update on `submissions/*` | Send emails on status changes, Drive upload on approval |
+| `onSubmissionReceiptsChanged` | Firestore write on `submissions/*`  | AI receipt check, when enabled (see CLAUDE.md)          |
+| `extractReceiptTotal`         | Callable                            | OCR via Google Cloud Vision API                         |
+| `generateSubmissionPdf`       | Callable                            | On-demand PDF generation                                |
+| `scheduledStaffSync`          | Cloud Scheduler                     | Sync staff from Google Sheet                            |
+| `syncStaffNow`                | Callable                            | Manual staff sync trigger                               |
+| `setupDriveStructure`         | Callable                            | Create Drive folder structure                           |
+| `fiscalYearRollover`          | Cloud Scheduler                     | Auto-create new FY folders                              |
 
 ## Security Rules (`firestore.rules`)
 

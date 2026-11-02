@@ -5,8 +5,10 @@ import type {
   AppSettings,
   Attachment,
   FieldChange,
+  MealLimits,
   MileageRateEntry,
   Submission,
+  TravelExpenseItem,
   TripBase,
 } from "./types"
 import { tripGrossMiles, tripHomeLegs } from "./route"
@@ -102,6 +104,35 @@ export function stampTrips<T extends TripBase>(
     reimbursableMiles: Math.max(0, totalMiles - totalCommuteDeduction),
     totalReimbursement,
   }
+}
+
+/** The guideline a meal's amount is above, or null when it is within it. */
+export function mealLimitExceeded(
+  expense: TravelExpenseItem,
+  limits: MealLimits | undefined
+): number | null {
+  if (expense.category !== "meal" || !expense.mealType || !limits) return null
+  const limit = limits[expense.mealType]
+  return limit > 0 && expense.amount > limit ? limit : null
+}
+
+/** Dates whose meals add up to more than the daily guideline. */
+export function mealDaysOverLimit(
+  expenses: TravelExpenseItem[],
+  limits: MealLimits | undefined
+): { date: string; total: number; limit: number }[] {
+  if (!limits?.daily) return []
+  const totals = new Map<string, number>()
+  for (const e of expenses) {
+    if (e.category !== "meal" || !e.date) continue
+    totals.set(e.date, (totals.get(e.date) ?? 0) + (e.amount || 0))
+  }
+  return [...totals.entries()]
+    .filter(
+      ([, total]) => Math.round(total * 100) > Math.round(limits.daily * 100)
+    )
+    .map(([date, total]) => ({ date, total, limit: limits.daily }))
+    .sort((a, b) => a.date.localeCompare(b.date))
 }
 
 export function getCurrentAssignee(

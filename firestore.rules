@@ -56,6 +56,18 @@ service cloud.firestore {
                     );
     }
 
+    // AI receipt checks: reviewers of the submission only; written by the
+    // server, never the client
+    match /receiptChecks/{submissionId} {
+      function submission() {
+        return get(/databases/$(database)/documents/submissions/$(submissionId)).data;
+      }
+      allow read: if request.auth != null
+                  && (submission().supervisorEmail == request.auth.token.email
+                      || submission().approverEmail == request.auth.token.email
+                      || isAdminOrBO());
+    }
+
     // Buildings: anyone authenticated can read; admins can write
     match /buildings/{buildingId} {
       allow read: if request.auth != null;

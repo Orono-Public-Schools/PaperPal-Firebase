@@ -62,11 +62,21 @@ export interface MileageRateEntry {
   rate: number // $/mile
 }
 
+// Guideline amounts for meal warnings; 0 means no guideline is set
+export interface MealLimits {
+  breakfast: number
+  lunch: number
+  dinner: number
+  daily: number
+}
+
 export interface AppSettings {
   senderEmail: string
   senderName: string
   replyToEmail: string
   mileageRates: MileageRateEntry[]
+  mealLimits?: MealLimits
+  receiptCheckEnabled?: boolean
   notifyOnSubmit: boolean
   notifyOnApproval: boolean
   notifyOnDenial: boolean
@@ -284,12 +294,36 @@ export interface TravelData {
   expenses?: TravelExpenseItem[]
   carTrips?: TravelCarTrip[]
   taxExemptAcknowledged?: boolean
+  mealLimits?: MealLimits // stamped at submit, so later changes don't reflag it
   advanceRequested: number
   finalClaim: number
   commuteMilesUsed?: number
   totalCommuteDeduction?: number
   reimbursableMiles?: number
   commuteHomeAddress?: string
+}
+
+// ─── AI Receipt Check ─────────────────────────────────────────────────────────
+
+export interface ReceiptCheckResult {
+  url: string
+  status: "done" | "failed"
+  reason?: string
+  isReceipt?: boolean
+  merchant?: string | null
+  receiptDate?: string | null
+  total?: number | null
+  itemized?: boolean
+  alcohol?: boolean
+  alcoholItems?: string[]
+  tipShown?: boolean
+  tipAmount?: number | null
+  note?: string
+}
+
+export interface ReceiptCheck {
+  results: ReceiptCheckResult[]
+  updatedAt: Timestamp
 }
 
 // ─── Submission ───────────────────────────────────────────────────────────────

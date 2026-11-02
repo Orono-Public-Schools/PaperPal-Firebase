@@ -24,9 +24,11 @@ import SignatureField, {
 import BudgetCodeBuilder from "@/components/forms/BudgetCodeBuilder"
 import BudgetCodeAutocomplete from "@/components/forms/BudgetCodeAutocomplete"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
+import ReceiptCheckPanel from "@/components/forms/ReceiptCheckPanel"
 import { useAuth } from "@/hooks/useAuth"
 import {
   getSubmission,
+  getReceiptCheck,
   updateSubmission,
   getAppSettings,
   recordBudgetCodes,
@@ -34,6 +36,7 @@ import {
 } from "@/lib/firestore"
 import type {
   Submission,
+  ReceiptCheck,
   AppSettings,
   SubmissionStatus,
   ActivityLogEntry,
@@ -123,6 +126,7 @@ export default function FormView() {
 
   const [submission, setSubmission] = useState<Submission | null>(null)
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [receiptCheck, setReceiptCheck] = useState<ReceiptCheck | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionMode, setActionMode] = useState<ActionMode>(null)
   const [comments, setComments] = useState("")
@@ -140,6 +144,7 @@ export default function FormView() {
       setSettings(a)
       setLoading(false)
     })
+    getReceiptCheck(id).then(setReceiptCheck)
   }, [id])
 
   if (loading) {
@@ -784,6 +789,10 @@ export default function FormView() {
         )}
         {submission.formType === "travel" && (
           <TravelView data={submission.formData as TravelData} />
+        )}
+
+        {receiptCheck && !isSubmitter && (
+          <ReceiptCheckPanel submission={submission} check={receiptCheck} />
         )}
 
         {/* Signatures */}
