@@ -791,7 +791,7 @@ export default function FormView() {
           <TravelView data={submission.formData as TravelData} />
         )}
 
-        {receiptCheck && !isSubmitter && (
+        {receiptCheck && (!isSubmitter || submission.sandbox) && (
           <ReceiptCheckPanel submission={submission} check={receiptCheck} />
         )}
 
