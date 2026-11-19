@@ -269,8 +269,9 @@ on submissions (any status), other users' cached `supervisorEmail`, workflow map
 approvers, the final approver and reply-to settings, and finally the profile (name from the staff
 record). It writes an `auditLog` entry and never touches status or `activityLog`, so no emails go
 out. The sender address is reported, not changed. On their next page load `AuthContext` refreshes
-the token, so the rules see the new address without a sign-out. Tested end to end in the emulators
-on 2026-11-19, including the rules with the new token; not yet run in production.
+the token, so the rules see the new address without a sign-out. Tested end to end in the emulators,
+then used in production on 2026-11-19 to move Rachel to `rachel.tiede@`: Firebase Auth, profile and
+final approval queue all followed.
 
 ---
 
