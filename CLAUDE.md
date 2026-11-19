@@ -246,6 +246,34 @@ receipts and Check Request attachments, and stores flags for itemized, alcohol, 
 
 ---
 
+## Name and Email Changes
+
+Seen 2026-11-19 when Rachel McQuiston became Rachel Tiede: the Workspace rename kept the same
+Google account, so PaperPal signed in to the same Firebase user (same uid, role intact). Firebase
+updated only the Google provider entry (`providerUserInfo`) to the new address and name. The
+user's top-level `email`, and so `request.auth.token.email`, stayed on the old address.
+
+- The profile (`users/{uid}.email`, name) is written once at first sign-in and never updated.
+- Rules, the approval queues, the final approver check and route-to lookups all compare email, so
+  everything works while every reference stays on the old address (Google keeps it as an alias).
+- Typing the new address anywhere (Final Approver, mappings, Route To) breaks the match. Do not edit
+  the profile email by hand either: the token would still carry the old one.
+- The staff sync keys on email too; employee ID survives the rename and is the better join key.
+
+**The fix:** Admin > Settings > Users & Roles lists "Email Changes" (admin role only) once the person
+has signed in with the new address. **Update Email** calls `changeUserEmail`
+(`functions/helpers/emailChange.js`), which only accepts the address Google reports for that same
+account, refuses non-district addresses and addresses another account holds, then changes the
+Firebase Auth email and display name, every `submitterEmail` / `supervisorEmail` / `approverEmail`
+on submissions (any status), other users' cached `supervisorEmail`, workflow mappings, building
+approvers, the final approver and reply-to settings, and finally the profile (name from the staff
+record). It writes an `auditLog` entry and never touches status or `activityLog`, so no emails go
+out. The sender address is reported, not changed. On their next page load `AuthContext` refreshes
+the token, so the rules see the new address without a sign-out. Tested end to end in the emulators
+on 2026-11-19, including the rules with the new token; not yet run in production.
+
+---
+
 ## Development Commands
 
 ```bash

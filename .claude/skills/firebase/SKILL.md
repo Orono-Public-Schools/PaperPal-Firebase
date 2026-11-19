@@ -38,6 +38,8 @@ description: PaperPal Firebase infrastructure — project config, Firestore coll
 | `generateSubmissionPdf`       | Callable                            | On-demand PDF generation                                |
 | `scheduledStaffSync`          | Cloud Scheduler                     | Sync staff from Google Sheet                            |
 | `syncStaffNow`                | Callable                            | Manual staff sync trigger                               |
+| `listEmailChanges`            | Callable (admin)                    | Accounts whose Google address no longer matches         |
+| `changeUserEmail`             | Callable (admin)                    | Move one account to its new address (see CLAUDE.md)     |
 | `setupDriveStructure`         | Callable                            | Create Drive folder structure                           |
 | `fiscalYearRollover`          | Cloud Scheduler                     | Auto-create new FY folders                              |
 

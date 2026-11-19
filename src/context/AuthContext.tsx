@@ -118,6 +118,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             firebaseUser.displayName,
             firebaseUser.photoURL
           )
+          // An admin moved this account to a new address: refresh the token so
+          // the rules see the new email without a sign-out
+          if (
+            profile.email.toLowerCase() !==
+            (firebaseUser.email ?? "").toLowerCase()
+          ) {
+            await firebaseUser.getIdToken(true)
+            await firebaseUser.reload()
+          }
           setUser(firebaseUser)
           setUserProfile(profile)
           setError(null)

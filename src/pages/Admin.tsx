@@ -167,7 +167,7 @@ export default function Admin() {
       {activeTab === "settings" && (
         <div className="space-y-6">
           <GeneralSettingsSection />
-          <RolesSection />
+          <RolesSection isAdmin={isAdmin} />
           <StaffSection />
           {isAdmin && <StaffSyncSection />}
           {isAdmin && <MileageRatesSection />}
@@ -3272,7 +3272,23 @@ function StaffSection() {
 
 // ─── Users & Roles ──────────────────────────────────────────────────────────
 
-function RolesSection() {
+interface EmailChange {
+  uid: string
+  name: string
+  oldEmail: string
+  newEmail: string
+}
+
+interface EmailChangeSummary {
+  submissions: number
+  supervisedUsers: number
+  buildings: number
+  mappings: number
+  settings: string[]
+  warnings: string[]
+}
+
+function RolesSection({ isAdmin }: { isAdmin: boolean }) {
   const [users, setUsers] = useState<UserProfile[]>([])
   const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -3282,6 +3298,8 @@ function RolesSection() {
   const [addRole, setAddRole] = useState<UserRole>("staff")
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState("")
+  const [emailChanges, setEmailChanges] = useState<EmailChange[]>([])
+  const [changingUid, setChangingUid] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([getAllUsers(), getStaffRecords()]).then(([u, s]) => {
@@ -3290,6 +3308,45 @@ function RolesSection() {
       setLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    if (!isAdmin || !expanded) return
+    httpsCallable<void, { changes: EmailChange[] }>(
+      functions,
+      "listEmailChanges"
+    )()
+      .then((r) => setEmailChanges(r.data.changes))
+      .catch((err) => console.error("Failed to check email changes:", err))
+  }, [isAdmin, expanded])
+
+  async function handleEmailChange(change: EmailChange) {
+    if (
+      !confirm(
+        `Move ${change.name} from ${change.oldEmail} to ${change.newEmail}?\n\nThis updates their sign-in, profile, workflow mappings, the final approver setting and every submission that names the old address. They will see the change the next time they open PaperPal.`
+      )
+    )
+      return
+    setChangingUid(change.uid)
+    try {
+      const { data } = await httpsCallable<{ uid: string }, EmailChangeSummary>(
+        functions,
+        "changeUserEmail"
+      )({ uid: change.uid })
+      const updated = [
+        `${data.submissions} submission${data.submissions === 1 ? "" : "s"}`,
+        `${data.supervisedUsers} staff profile${data.supervisedUsers === 1 ? "" : "s"} that route to them`,
+        `${data.mappings} workflow mapping${data.mappings === 1 ? "" : "s"}`,
+        ...(data.buildings ? [`${data.buildings} building approver`] : []),
+        ...data.settings,
+      ]
+      alert([`Updated: ${updated.join(", ")}.`, ...data.warnings].join("\n\n"))
+      setEmailChanges((prev) => prev.filter((c) => c.uid !== change.uid))
+      setUsers(await getAllUsers())
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "The email change failed.")
+    }
+    setChangingUid(null)
+  }
 
   // Staff who don't have a user profile yet
   const existingEmails = new Set(users.map((u) => u.email.toLowerCase()))
@@ -3442,6 +3499,55 @@ function RolesSection() {
                   All staff members already have user accounts.
                 </p>
               )}
+            </div>
+          )}
+
+          {emailChanges.length > 0 && (
+            <div className="mb-4">
+              <p
+                className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Email Changes
+              </p>
+              <p className="mb-2 text-xs" style={{ color: "#94a3b8" }}>
+                These people now sign in to Google with a new address. Until you
+                move them, PaperPal keeps matching them by the old one.
+              </p>
+              <div
+                className="divide-y"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                {emailChanges.map((c) => (
+                  <div
+                    key={c.uid}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <p className="text-xs" style={{ color: "#334155" }}>
+                      <span
+                        className="font-semibold"
+                        style={{ color: "#1d2a5d" }}
+                      >
+                        {c.name}
+                      </span>{" "}
+                      {c.oldEmail} → {c.newEmail}
+                    </p>
+                    <button
+                      onClick={() => handleEmailChange(c)}
+                      disabled={changingUid !== null}
+                      className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                        boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                      }}
+                    >
+                      <Mail size={13} />
+                      {changingUid === c.uid ? "Updating…" : "Update Email"}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

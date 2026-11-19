@@ -6,6 +6,7 @@ const {
   onDocumentWritten,
 } = require("firebase-functions/v2/firestore")
 const { initializeApp } = require("firebase-admin/app")
+const { getAuth } = require("firebase-admin/auth")
 const {
   getFirestore,
   FieldValue,
@@ -34,6 +35,7 @@ const {
 } = require("./helpers/email")
 const { parseReceiptTotal } = require("./helpers/receiptTotal")
 const { collectReceipts, checkReceipts } = require("./helpers/receiptCheck")
+const { findEmailChanges, changeUserEmail } = require("./helpers/emailChange")
 
 initializeApp()
 const db = getFirestore()
@@ -188,6 +190,36 @@ exports.syncStaffNow = onCall({ region: "us-central1" }, async (request) => {
 
   const result = await syncStaffFromSheet()
   return result
+})
+
+// ─── Email Changes (after a Workspace rename) ───────────────────────────────
+
+async function requireAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in")
+  }
+  const user = (await db.doc(`users/${request.auth.uid}`).get()).data()
+  if (user?.role !== "admin") {
+    throw new HttpsError("permission-denied", "Admin access required")
+  }
+  return user
+}
+
+exports.listEmailChanges = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    await requireAdmin(request)
+    return { changes: await findEmailChanges(db, getAuth()) }
+  }
+)
+
+exports.changeUserEmail = onCall({ region: "us-central1" }, async (request) => {
+  const admin = await requireAdmin(request)
+  const { uid } = request.data ?? {}
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "uid is required")
+  }
+  return changeUserEmail(db, getAuth(), uid, admin.email)
 })
 
 // ─── Setup Drive Structure ───────────────────────────────────────────────────
