@@ -13,6 +13,7 @@ import {
   File,
   Camera,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import DatePicker from "@/components/forms/DatePicker"
@@ -46,6 +47,7 @@ import type {
   TravelData,
   TravelExpenseItem,
   TravelCarTrip,
+  MealLimits,
   MileageRateEntry,
   TripRoute,
 } from "@/lib/types"
@@ -60,6 +62,8 @@ import {
 import {
   diffSubmissionChanges,
   editActionForRole,
+  mealDaysOverLimit,
+  mealLimitExceeded,
   mileageRateForDate,
   mileageRateGroups,
   stampTrips,
@@ -224,6 +228,7 @@ export default function TravelReimbursement() {
   const [quickFills, setQuickFills] = useState<QuickFill[]>([])
   const [school, setSchool] = useState<{ address: string; label: string }>()
   const [commuteMiles, setCommuteMiles] = useState<number | null>(null)
+  const [mealLimits, setMealLimits] = useState<MealLimits | undefined>()
   const [mileageRates, setMileageRates] = useState<
     MileageRateEntry[] | undefined
   >(undefined)
@@ -362,6 +367,7 @@ export default function TravelReimbursement() {
       const settings = await getAppSettings()
       if (cancelled) return
       setMileageRates(settings.mileageRates)
+      setMealLimits(settings.mealLimits)
       if (!settings.commuteDeductionEnabled) {
         setCommuteMiles(null)
         return
@@ -718,6 +724,7 @@ export default function TravelReimbursement() {
         taxExemptAcknowledged,
         advanceRequested,
         finalClaim,
+        ...(mealLimits ? { mealLimits } : {}),
         ...(commuteMiles && totalCommuteDeduction > 0
           ? {
               commuteMilesUsed: commuteMiles,
@@ -1664,6 +1671,21 @@ export default function TravelReimbursement() {
                           </button>
                         </div>
                       </div>
+                      {mealLimitExceeded(expense, mealLimits) !== null && (
+                        <p
+                          className="mt-2 flex items-start gap-1.5 text-xs font-medium"
+                          style={{ color: "#92400e" }}
+                        >
+                          <AlertTriangle
+                            size={13}
+                            className="mt-px flex-shrink-0"
+                          />
+                          This is above the $
+                          {mealLimitExceeded(expense, mealLimits)!.toFixed(2)}{" "}
+                          {expense.mealType} guideline. You can still submit it,
+                          and your reviewers will see this note.
+                        </p>
+                      )}
                       {/* Receipt attachment */}
                       <div className="mt-2">
                         {expense.receipt ? (
@@ -1924,6 +1946,19 @@ export default function TravelReimbursement() {
               </span>
             </label>
           )}
+
+          {mealDaysOverLimit(expenses, mealLimits).map((day) => (
+            <p
+              key={day.date}
+              className="mt-3 flex items-start gap-1.5 text-xs font-medium"
+              style={{ color: "#92400e" }}
+            >
+              <AlertTriangle size={13} className="mt-px flex-shrink-0" />
+              Meals on {day.date} total ${day.total.toFixed(2)}, above the $
+              {day.limit.toFixed(2)} daily guideline. You can still submit, and
+              your reviewers will see this note.
+            </p>
+          ))}
 
           <TotalRow label="Expenses Total" value={expensesTotal} />
         </Section>

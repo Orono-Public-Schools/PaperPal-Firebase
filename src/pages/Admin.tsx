@@ -27,12 +27,13 @@ import {
   Check,
   Tag,
   Car,
+  Receipt,
 } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import AddressAutocomplete from "@/components/forms/AddressAutocomplete"
 import StaffEmailAutocomplete from "@/components/forms/StaffEmailAutocomplete"
 import DatePicker from "@/components/forms/DatePicker"
-import type { MileageRateEntry } from "@/lib/types"
+import type { MealLimits, MileageRateEntry } from "@/lib/types"
 import { useAuth } from "@/hooks/useAuth"
 import { invalidateFormFieldsCache } from "@/hooks/useFormFields"
 import {
@@ -166,10 +167,11 @@ export default function Admin() {
       {activeTab === "settings" && (
         <div className="space-y-6">
           <GeneralSettingsSection />
-          <RolesSection />
+          <RolesSection isAdmin={isAdmin} />
           <StaffSection />
           {isAdmin && <StaffSyncSection />}
           {isAdmin && <MileageRatesSection />}
+          <ReceiptReviewSection isAdmin={isAdmin} />
           {isAdmin && <EmailSettingsSection />}
           {isAdmin && <DrivePdfSettingsSection />}
         </div>
@@ -3270,7 +3272,23 @@ function StaffSection() {
 
 // ─── Users & Roles ──────────────────────────────────────────────────────────
 
-function RolesSection() {
+interface EmailChange {
+  uid: string
+  name: string
+  oldEmail: string
+  newEmail: string
+}
+
+interface EmailChangeSummary {
+  submissions: number
+  supervisedUsers: number
+  buildings: number
+  mappings: number
+  settings: string[]
+  warnings: string[]
+}
+
+function RolesSection({ isAdmin }: { isAdmin: boolean }) {
   const [users, setUsers] = useState<UserProfile[]>([])
   const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -3280,6 +3298,8 @@ function RolesSection() {
   const [addRole, setAddRole] = useState<UserRole>("staff")
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState("")
+  const [emailChanges, setEmailChanges] = useState<EmailChange[]>([])
+  const [changingUid, setChangingUid] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([getAllUsers(), getStaffRecords()]).then(([u, s]) => {
@@ -3288,6 +3308,45 @@ function RolesSection() {
       setLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    if (!isAdmin || !expanded) return
+    httpsCallable<void, { changes: EmailChange[] }>(
+      functions,
+      "listEmailChanges"
+    )()
+      .then((r) => setEmailChanges(r.data.changes))
+      .catch((err) => console.error("Failed to check email changes:", err))
+  }, [isAdmin, expanded])
+
+  async function handleEmailChange(change: EmailChange) {
+    if (
+      !confirm(
+        `Move ${change.name} from ${change.oldEmail} to ${change.newEmail}?\n\nThis updates their sign-in, profile, workflow mappings, the final approver setting and every submission that names the old address. They will see the change the next time they open PaperPal.`
+      )
+    )
+      return
+    setChangingUid(change.uid)
+    try {
+      const { data } = await httpsCallable<{ uid: string }, EmailChangeSummary>(
+        functions,
+        "changeUserEmail"
+      )({ uid: change.uid })
+      const updated = [
+        `${data.submissions} submission${data.submissions === 1 ? "" : "s"}`,
+        `${data.supervisedUsers} staff profile${data.supervisedUsers === 1 ? "" : "s"} that route to them`,
+        `${data.mappings} workflow mapping${data.mappings === 1 ? "" : "s"}`,
+        ...(data.buildings ? [`${data.buildings} building approver`] : []),
+        ...data.settings,
+      ]
+      alert([`Updated: ${updated.join(", ")}.`, ...data.warnings].join("\n\n"))
+      setEmailChanges((prev) => prev.filter((c) => c.uid !== change.uid))
+      setUsers(await getAllUsers())
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "The email change failed.")
+    }
+    setChangingUid(null)
+  }
 
   // Staff who don't have a user profile yet
   const existingEmails = new Set(users.map((u) => u.email.toLowerCase()))
@@ -3440,6 +3499,55 @@ function RolesSection() {
                   All staff members already have user accounts.
                 </p>
               )}
+            </div>
+          )}
+
+          {emailChanges.length > 0 && (
+            <div className="mb-4">
+              <p
+                className="mb-1 text-xs font-semibold tracking-wider uppercase"
+                style={{ color: "#64748b" }}
+              >
+                Email Changes
+              </p>
+              <p className="mb-2 text-xs" style={{ color: "#94a3b8" }}>
+                These people now sign in to Google with a new address. Until you
+                move them, PaperPal keeps matching them by the old one.
+              </p>
+              <div
+                className="divide-y"
+                style={{ borderColor: "rgba(180,185,195,0.25)" }}
+              >
+                {emailChanges.map((c) => (
+                  <div
+                    key={c.uid}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <p className="text-xs" style={{ color: "#334155" }}>
+                      <span
+                        className="font-semibold"
+                        style={{ color: "#1d2a5d" }}
+                      >
+                        {c.name}
+                      </span>{" "}
+                      {c.oldEmail} → {c.newEmail}
+                    </p>
+                    <button
+                      onClick={() => handleEmailChange(c)}
+                      disabled={changingUid !== null}
+                      className="flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #1d2a5d 0%, #2d3f89 100%)",
+                        boxShadow: "0 2px 8px rgba(29,42,93,0.25)",
+                      }}
+                    >
+                      <Mail size={13} />
+                      {changingUid === c.uid ? "Updating…" : "Update Email"}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -3636,6 +3744,147 @@ function MileageRatesSection() {
             <button onClick={handleSave} disabled={saving} className="btn-save">
               <Save size={14} />
               <span>{saving ? "Saving…" : "Save Rates"}</span>
+            </button>
+            {saved && (
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#4356a9" }}
+              >
+                Saved!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// ─── Receipt Review ──────────────────────────────────────────────────────────
+
+const MEAL_LIMIT_FIELDS: { key: keyof MealLimits; label: string }[] = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "dinner", label: "Dinner" },
+  { key: "daily", label: "Per day" },
+]
+
+function ReceiptReviewSection({ isAdmin }: { isAdmin: boolean }) {
+  const [limits, setLimits] = useState<MealLimits | null>(null)
+  const [checkEnabled, setCheckEnabled] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    getAppSettings().then((s) => {
+      setLimits(s.mealLimits ?? { breakfast: 0, lunch: 0, dinner: 0, daily: 0 })
+      setCheckEnabled(s.receiptCheckEnabled ?? false)
+    })
+  }, [])
+
+  async function handleSave() {
+    if (!limits) return
+    setSaving(true)
+    await updateAppSettings({
+      mealLimits: limits,
+      ...(isAdmin ? { receiptCheckEnabled: checkEnabled } : {}),
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+    setSaving(false)
+  }
+
+  return (
+    <Section
+      title="Receipt Review"
+      icon={Receipt}
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+    >
+      {!limits ? (
+        <p className="text-sm" style={{ color: "#64748b" }}>
+          Loading…
+        </p>
+      ) : (
+        <>
+          <p
+            className="mb-1 text-sm font-semibold"
+            style={{ color: "#1d2a5d" }}
+          >
+            Meal Guidelines
+          </p>
+          <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+            Travel forms show a warning when a meal is above these amounts.
+            Staff can still submit, and reviewers see the warning. Leave an
+            amount blank for no warning. Submissions already in the system keep
+            the amounts they were submitted with.
+          </p>
+          <div className="grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
+            {MEAL_LIMIT_FIELDS.map(({ key, label }) => (
+              <label key={key} className="block">
+                <span
+                  className="mb-1 block text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: "#64748b" }}
+                >
+                  {label}
+                </span>
+                <div className="flex items-center gap-1">
+                  <span style={{ color: "#94a3b8" }}>$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={limits[key] || ""}
+                    onChange={(e) =>
+                      setLimits({
+                        ...limits,
+                        [key]: Math.max(0, Number(e.target.value)),
+                      })
+                    }
+                    className="input-neu"
+                  />
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {isAdmin && (
+            <div className="mt-6">
+              <p
+                className="mb-1 text-sm font-semibold"
+                style={{ color: "#1d2a5d" }}
+              >
+                AI Receipt Check
+              </p>
+              <p className="mb-3 text-xs" style={{ color: "#94a3b8" }}>
+                When enabled, new and changed receipts are sent to Claude on
+                Vertex AI, in PaperPal's Google Cloud project, and reviewers see
+                what it read: itemized or not, alcohol, tip and total. It only
+                flags things for a person to check. Submissions from before it
+                was enabled are not checked.
+              </p>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={checkEnabled}
+                  onChange={(e) => setCheckEnabled(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-[#1d2a5d]"
+                />
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "#334155" }}
+                >
+                  Check receipts with AI
+                </span>
+              </label>
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving} className="btn-save">
+              <Save size={14} />
+              <span>{saving ? "Saving…" : "Save"}</span>
             </button>
             {saved && (
               <span

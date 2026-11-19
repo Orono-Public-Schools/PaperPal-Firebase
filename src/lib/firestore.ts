@@ -18,6 +18,7 @@ import { db } from "./firebase"
 import { DEFAULT_MILEAGE_RATES } from "./utils"
 import type {
   Submission,
+  ReceiptCheck,
   UserProfile,
   Building,
   StaffRecord,
@@ -57,6 +58,18 @@ export async function getSubmission(id: string): Promise<Submission | null> {
   const ref = doc(db, "submissions", id)
   const snap = await getDoc(ref)
   return snap.exists() ? (snap.data() as Submission) : null
+}
+
+// Readable by the submission's reviewers only; anyone else simply gets no check
+export async function getReceiptCheck(
+  id: string
+): Promise<ReceiptCheck | null> {
+  try {
+    const snap = await getDoc(doc(db, "receiptChecks", id))
+    return snap.exists() ? (snap.data() as ReceiptCheck) : null
+  } catch {
+    return null
+  }
 }
 
 export async function updateSubmission(

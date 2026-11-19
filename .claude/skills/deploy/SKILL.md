@@ -32,6 +32,13 @@ window; nothing is wrong with the code:
 FUNCTIONS_DISCOVERY_TIMEOUT=120 firebase deploy --only functions
 ```
 
+If even that times out, the first load of the day is slow (cold disk cache / antivirus scanning
+`node_modules`; seen at 117 s on 2026-10-15, 2 s once warm). Warm it first, then deploy:
+
+```bash
+cd functions && node -e "require('./index.js'); process.exit(0)" && cd ..
+```
+
 The PDF generator is `functions/helpers/pdf.js` (plain JS, not under `functions/src`), so a PDF
 change needs this deploy, not just hosting.
 

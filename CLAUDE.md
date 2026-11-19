@@ -216,6 +216,61 @@ Admin UI shown when `role` is `"admin"`, `"business_office"`, or `"controller"`.
 | `settings/supervisorMappings` | Title overrides (`mappings[]`) + building defaults (`buildingMappings[]`) |
 | `settings/formFields`         | Form field visibility/ordering config                                     |
 | `mail/{id}`                   | Firebase Extension trigger docs for outbound email                        |
+| `receiptChecks/{REQ-XXXXX}`   | AI receipt results; server writes only, reviewers read, submitter cannot  |
+
+---
+
+## Receipt Review
+
+Admin > Settings > Receipt Review holds both controls, in `settings/app`.
+
+**Meal guidelines** (`mealLimits`, 0 = none, editable by admin/business office/controller): Travel
+forms warn when a meal is above its amount, and reviewers see the same flag. Warnings never block
+submission. Amounts are stamped onto `formData.mealLimits` at submit. They are a flat stand-in: the
+manual's real limit is the GSA per diem for the travel location (`docs/travel-policy.md`), so the
+wording says "guideline". Check Request has no meal fields and gets no warning.
+
+**AI receipt check** (`receiptCheckEnabled`, admin only, off by default):
+`onSubmissionReceiptsChanged` runs when a submission's receipt set changes, reads Travel expense
+receipts and Check Request attachments, and stores flags for itemized, alcohol, tip and total in
+`receiptChecks`. It never approves or denies. Code: `functions/helpers/receiptCheck.js`.
+
+- **Vendor:** Claude `claude-opus-5-5` on Vertex AI, region `us`, in project `paperpal-orono`, with
+  `claude-opus-4-8` as the refusal fallback. No API key or expiring credential; it uses the
+  functions service account.
+- **Needs before enabling:** both models enabled in Vertex AI Model Garden, `roles/aiplatform.user`
+  on the functions service account, and the district's data review, since receipts can show names
+  and partial card numbers.
+- **Unverified:** only tested against a stubbed transport as of 2026-11-02. It has never read a real
+  receipt, so try it on a test submission first.
+
+---
+
+## Name and Email Changes
+
+Seen 2026-11-19 when Rachel McQuiston became Rachel Tiede: the Workspace rename kept the same
+Google account, so PaperPal signed in to the same Firebase user (same uid, role intact). Firebase
+updated only the Google provider entry (`providerUserInfo`) to the new address and name. The
+user's top-level `email`, and so `request.auth.token.email`, stayed on the old address.
+
+- The profile (`users/{uid}.email`, name) is written once at first sign-in and never updated.
+- Rules, the approval queues, the final approver check and route-to lookups all compare email, so
+  everything works while every reference stays on the old address (Google keeps it as an alias).
+- Typing the new address anywhere (Final Approver, mappings, Route To) breaks the match. Do not edit
+  the profile email by hand either: the token would still carry the old one.
+- The staff sync keys on email too; employee ID survives the rename and is the better join key.
+
+**The fix:** Admin > Settings > Users & Roles lists "Email Changes" (admin role only) once the person
+has signed in with the new address. **Update Email** calls `changeUserEmail`
+(`functions/helpers/emailChange.js`), which only accepts the address Google reports for that same
+account, refuses non-district addresses and addresses another account holds, then changes the
+Firebase Auth email and display name, every `submitterEmail` / `supervisorEmail` / `approverEmail`
+on submissions (any status), other users' cached `supervisorEmail`, workflow mappings, building
+approvers, the final approver and reply-to settings, and finally the profile (name from the staff
+record). It writes an `auditLog` entry and never touches status or `activityLog`, so no emails go
+out. The sender address is reported, not changed. On their next page load `AuthContext` refreshes
+the token, so the rules see the new address without a sign-out. Tested end to end in the emulators
+on 2026-11-19, including the rules with the new token; not yet run in production.
 
 ---
 
